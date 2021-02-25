@@ -1,5 +1,8 @@
 use clap::{App, Arg, ArgMatches};
 
+//
+// run the CLI as follows:
+// fp webhook prometheus wht-id-1234567 --label dev=sda1 --label instance=127.0.0.1 --annotation example=foobar
 fn main() {
     let matches = App::new("Fiberplane CLI")
         .version("0.1")
@@ -37,6 +40,7 @@ fn main() {
 
     match matches.subcommand() {
         Some(("webhook", sub_m)) => handle_webhook(sub_m),
+        //Some(("other command", sub_m)) => do_something_else(sub_m),
         _ => panic!(),
     }
 
@@ -47,10 +51,25 @@ fn main() {
     // 1) read cli args
     // 2) (turn into alert)
     // 3) do POST on api/webhooks/
-    println!("Hello, world!");
+    
 }
 
 fn handle_webhook(matches: &ArgMatches) {
+    println!("Hello, world!");
+    //turn this into a struct
+    // do the request
+    println!("{:?}", matches);
 
+    let labels: Vec<_> = matches.values_of("label").unwrap().collect();
+    let vec: Vec<&str>;// = split.collect();
+    for l in labels {
+        l.split("=");
+        vec.collect();
+        //println!("{}", l);
+    }
+    let vec: Vec<&str> = split.collect();
+    
+    //println!("{:?}", x);
+    //println!("{:?}", matches.value_of("label"));
 
 }
