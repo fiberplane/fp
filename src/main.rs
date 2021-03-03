@@ -1,4 +1,14 @@
+use std::collections::HashMap;
+
 use clap::{App, Arg, ArgMatches};
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize, Deserialize)]
+struct WebhookTrigger {
+    id: String,
+    labels: HashMap<String, String>,
+}
 
 //
 // run the CLI as follows:
@@ -37,39 +47,45 @@ fn main() {
     //     _                       => {}, // Either no subcommand or one not tested for...
     // }
 
-
     match matches.subcommand() {
         Some(("webhook", sub_m)) => handle_webhook(sub_m),
         //Some(("other command", sub_m)) => do_something_else(sub_m),
         _ => panic!(),
     }
-
-    // read config file
-
-    // create trigger crud
-
-    // 1) read cli args
-    // 2) (turn into alert)
-    // 3) do POST on api/webhooks/
-    
 }
 
 fn handle_webhook(matches: &ArgMatches) {
-    println!("Hello, world!");
-    //turn this into a struct
-    // do the request
     println!("{:?}", matches);
 
-    let labels: Vec<_> = matches.values_of("label").unwrap().collect();
-    let vec: Vec<&str>;// = split.collect();
-    for l in labels {
-        l.split("=");
-        vec.collect();
-        //println!("{}", l);
-    }
-    let vec: Vec<&str> = split.collect();
-    
-    //println!("{:?}", x);
-    //println!("{:?}", matches.value_of("label"));
+    let label_args: Vec<_> = matches.values_of("label").unwrap().collect();
 
+    let mut labels: HashMap<String, String> = HashMap::new();
+
+    for l in label_args {
+        let vec: Vec<&str> = l.split("=").collect();
+        println!("{:?}", vec);
+        labels.insert(vec[0].to_string(), vec[1].to_string());
+    }
+
+    let wht = WebhookTrigger {
+        id: "amazing webhook id".to_string(),
+        labels: labels,
+    };
+
+    println!("{:?}", wht);
+    let result = do_request(wht);
+    //println!("{:?}", result.await?);
+}
+
+async fn do_request(wht: WebhookTrigger) -> Result<(), reqwest::Error> {
+    let response = Client::new()
+        .post("https://dev.fiberplane.io")
+        .json(&wht)
+        .send()
+        .await?
+        .json()
+        .await?;
+
+    println!("{:?}", response);
+    Ok(())
 }
