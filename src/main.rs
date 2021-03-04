@@ -38,8 +38,6 @@ fn main() {
         )
         .get_matches();
 
-    println!("{:?}", matches);
-
     // match app_m.subcommand() {
     //     ("clone",  Some(sub_m)) => {}, // clone was used
     //     ("push",   Some(sub_m)) => {}, // push was used
@@ -55,7 +53,6 @@ fn main() {
 }
 
 fn handle_webhook(matches: &ArgMatches) {
-    println!("{:?}", matches);
 
     let label_args: Vec<_> = matches.values_of("label").unwrap().collect();
 
@@ -63,7 +60,6 @@ fn handle_webhook(matches: &ArgMatches) {
 
     for l in label_args {
         let vec: Vec<&str> = l.split("=").collect();
-        println!("{:?}", vec);
         labels.insert(vec[0].to_string(), vec[1].to_string());
     }
 
@@ -72,9 +68,7 @@ fn handle_webhook(matches: &ArgMatches) {
         labels: labels,
     };
 
-    println!("{:?}", wht);
     let result = do_request(wht);
-    //println!("{:?}", result.await?);
 }
 
 async fn do_request(wht: WebhookTrigger) -> Result<(), reqwest::Error> {
@@ -86,6 +80,5 @@ async fn do_request(wht: WebhookTrigger) -> Result<(), reqwest::Error> {
         .json()
         .await?;
 
-    println!("{:?}", response);
     Ok(())
 }
