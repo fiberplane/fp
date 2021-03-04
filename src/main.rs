@@ -1,84 +1,38 @@
-use std::collections::HashMap;
+use clap::{crate_authors, crate_version, Clap};
 
-use clap::{App, Arg, ArgMatches};
-use reqwest::Client;
-use serde::{Deserialize, Serialize};
+mod webhook;
+mod ws;
 
-#[derive(Debug, Serialize, Deserialize)]
-struct WebhookTrigger {
-    id: String,
-    labels: HashMap<String, String>,
+#[derive(Clap)]
+#[clap(
+    version = crate_version!(),
+    author = crate_authors!(),
+    about = "Interacts with the Fiberplane API"
+)]
+struct Arguments {
+    #[clap(subcommand)]
+    subcmd: SubCommand,
 }
 
-//
-// run the CLI as follows:
-// fp webhook prometheus wht-id-1234567 --label dev=sda1 --label instance=127.0.0.1 --annotation example=foobar
-fn main() {
-    let matches = App::new("Fiberplane CLI")
-        .version("0.1")
-        .author("The Fiberplane Team")
-        .about("Interacts with the Fiberplane API")
-        .subcommand(
-            App::new("webhook")
-                .about("Interact with Fiberplane Webhooks")
-                .arg(
-                    Arg::new("label")
-                        .short('l')
-                        .long("label")
-                        .multiple(true)
-                        .about("Sets the alert labels"),
-                )
-                .arg(
-                    Arg::new("annotation")
-                        .short('a')
-                        .long("annotation")
-                        .multiple(true)
-                        .about("Set the alert annotations"),
-                ),
-        )
-        .get_matches();
+#[derive(Clap)]
+enum SubCommand {
+    #[clap(name = "webhook", about = "Interact with Fiberplane Webhooks")]
+    Webhook(webhook::Arguments),
 
-    // match app_m.subcommand() {
-    //     ("clone",  Some(sub_m)) => {}, // clone was used
-    //     ("push",   Some(sub_m)) => {}, // push was used
-    //     ("commit", Some(sub_m)) => {}, // commit was used
-    //     _                       => {}, // Either no subcommand or one not tested for...
-    // }
+    #[clap(
+        name = "web-sockets",
+        about = "Interact with the Fiberplane realtime API"
+    )]
+    WebSockets(ws::Arguments),
+}
 
-    match matches.subcommand() {
-        Some(("webhook", sub_m)) => handle_webhook(sub_m),
-        //Some(("other command", sub_m)) => do_something_else(sub_m),
-        _ => panic!(),
+#[tokio::main]
+async fn main() {
+    let args = Arguments::parse();
+
+    use SubCommand::*;
+    match args.subcmd {
+        Webhook(args) => webhook::handle_command(args).await,
+        WebSockets(args) => ws::handle_command(args),
     }
-}
-
-fn handle_webhook(matches: &ArgMatches) {
-
-    let label_args: Vec<_> = matches.values_of("label").unwrap().collect();
-
-    let mut labels: HashMap<String, String> = HashMap::new();
-
-    for l in label_args {
-        let vec: Vec<&str> = l.split("=").collect();
-        labels.insert(vec[0].to_string(), vec[1].to_string());
-    }
-
-    let wht = WebhookTrigger {
-        id: "amazing webhook id".to_string(),
-        labels: labels,
-    };
-
-    let result = do_request(wht);
-}
-
-async fn do_request(wht: WebhookTrigger) -> Result<(), reqwest::Error> {
-    let response = Client::new()
-        .post("https://dev.fiberplane.io")
-        .json(&wht)
-        .send()
-        .await?
-        .json()
-        .await?;
-
-    Ok(())
 }
