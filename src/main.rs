@@ -1,14 +1,10 @@
-use clap::{crate_authors, crate_version, Clap};
+use clap::{AppSettings, Clap};
 
 mod webhook;
 mod ws;
 
 #[derive(Clap)]
-#[clap(
-    version = crate_version!(),
-    author = crate_authors!(),
-    about = "Interacts with the Fiberplane API"
-)]
+#[clap(author, about, version, setting = AppSettings::GlobalVersion)]
 struct Arguments {
     #[clap(subcommand)]
     subcmd: SubCommand,
@@ -21,6 +17,7 @@ enum SubCommand {
 
     #[clap(
         name = "web-sockets",
+        aliases = &["web-sockets", "ws"],
         about = "Interact with the Fiberplane realtime API"
     )]
     WebSockets(ws::Arguments),
@@ -33,6 +30,6 @@ async fn main() {
     use SubCommand::*;
     match args.subcmd {
         Webhook(args) => webhook::handle_command(args).await,
-        WebSockets(args) => ws::handle_command(args),
+        WebSockets(args) => ws::handle_command(args).await,
     }
 }

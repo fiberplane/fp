@@ -23,12 +23,12 @@ pub enum SubCommand {
 }
 
 #[derive(Clap)]
-struct TriggerArguments {
+pub struct TriggerArguments {
     #[clap(name = "labels", long, short, about = "Sets the alert labels")]
-    labels: Vec<String>,
+    pub labels: Vec<String>,
 
     #[clap(name = "annotations", long, short, about = "Set the alert annotations")]
-    annotations: Vec<String>,
+    pub annotations: Vec<String>,
 }
 
 async fn handle_trigger_command(args: TriggerArguments) {
@@ -41,10 +41,10 @@ async fn handle_trigger_command(args: TriggerArguments) {
 
     let wht = WebhookTrigger {
         id: "amazing webhook id".to_string(),
-        labels: labels,
+        labels,
     };
 
-    let result = do_request(wht).await;
+    do_request(wht).await.expect("request failed");
     println!("trigger!")
 }
 
@@ -55,7 +55,7 @@ struct WebhookTrigger {
 }
 
 async fn do_request(wht: WebhookTrigger) -> Result<(), reqwest::Error> {
-    let response = Client::new()
+    let _ = Client::new()
         .post("https://dev.fiberplane.io")
         .json(&wht)
         .send()
