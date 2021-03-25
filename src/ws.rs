@@ -1,4 +1,8 @@
 use clap::Clap;
+use fiberplane::protocols::realtime;
+use futures_util::{pin_mut, SinkExt, StreamExt};
+use tokio::io::AsyncWriteExt;
+use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 
 #[derive(Clap)]
 pub struct Arguments {
@@ -6,9 +10,9 @@ pub struct Arguments {
     subcmd: SubCommand,
 }
 
-pub fn handle_command(args: Arguments) {
+pub async fn handle_command(args: Arguments) {
     match args.subcmd {
-        SubCommand::Monitor(args) => handle_monitor_command(args),
+        SubCommand::Monitor(args) => handle_monitor_command(args).await,
     }
 }
 
@@ -21,6 +25,14 @@ pub enum SubCommand {
 #[derive(Clap)]
 pub struct MonitorArguments {
     #[clap(
+        long,
+        short,
+        default_value = "ws://localhost/api/ws",
+        env = "WS_ENDPOINT"
+    )]
+    endpoint: String,
+
+    #[clap(
         name = "notebook",
         long,
         short,
@@ -30,11 +42,62 @@ pub struct MonitorArguments {
     notebooks: Vec<String>,
 }
 
-pub fn handle_monitor_command(args: MonitorArguments) {
-    println!("web-sockets monitor command!");
-    for notebook in args.notebooks.iter() {
-        println!("Subscribing to notebooks {:?}", notebook);
+pub async fn handle_monitor_command(args: MonitorArguments) {
+    eprintln!("Connecting to {:?}", args.endpoint);
+    let url = url::Url::parse(&args.endpoint).unwrap();
+
+    let (ws_stream, _) = connect_async(url)
+        .await
+        .expect("unable to connect to web socket server");
+
+    let (mut write, read) = ws_stream.split();
+
+    if args.notebooks.len() > 0 {
+        let notebooks = args.notebooks.join(", ");
+        eprintln!("Subscribing to notebooks: {:?}", notebooks);
+    }
+    for notebook in args.notebooks.into_iter() {
+        let message = realtime::SubscribeMessage {
+            op_id: Some(format!("sub_{:?}", notebook)),
+            notebook_id: notebook,
+        };
+        let message = realtime::ClientRealtimeMessage::Subscribe(message);
+        let message = serde_json::to_string(&message).unwrap();
+        write
+            .send(Message::Text(message))
+            .await
+            .expect("send did not succeed");
     }
 
-    todo!()
+    eprintln!("Requesting debug information");
+    let message = realtime::DebugRequestMessage {
+        op_id: Some("debug_request".into()),
+    };
+    let message = realtime::ClientRealtimeMessage::DebugRequest(message);
+    let message = serde_json::to_string(&message).unwrap();
+    write
+        .send(Message::Text(message))
+        .await
+        .expect("send did not succeed");
+
+    let ws_to_stdout = {
+        read.for_each(|message| async {
+            match message.unwrap() {
+                Message::Text(message) => {
+                    tokio::io::stdout()
+                        .write_all(message.as_bytes())
+                        .await
+                        .unwrap();
+                    tokio::io::stdout().write(b"\n").await.unwrap();
+                }
+                Message::Binary(_) => eprintln!("Received unexpected binary content"),
+                Message::Ping(_) => eprintln!("Received ping message"),
+                Message::Pong(_) => eprintln!("Received pong message"),
+                Message::Close(_) => eprintln!("Received close message"),
+            };
+        })
+    };
+
+    pin_mut!(ws_to_stdout);
+    ws_to_stdout.await
 }
