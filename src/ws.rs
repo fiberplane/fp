@@ -27,10 +27,13 @@ pub struct MonitorArguments {
     #[clap(
         long,
         short,
-        default_value = "ws://localhost/api/ws",
+        default_value = "ws://localhost:3030/api/ws",
         env = "WS_ENDPOINT"
     )]
     endpoint: String,
+
+    #[clap(long, short, number_of_values = 1, about = "bearer token")]
+    token: String,
 
     #[clap(
         name = "notebook",
@@ -51,6 +54,18 @@ pub async fn handle_monitor_command(args: MonitorArguments) {
         .expect("unable to connect to web socket server");
 
     let (mut write, read) = ws_stream.split();
+
+    // First message must be Authenticate.
+    let message = realtime::AuthenticateMessage {
+        op_id: Some("auth".into()),
+        token: args.token,
+    };
+    let message = realtime::ClientRealtimeMessage::Authenticate(message);
+    let message = serde_json::to_string(&message).unwrap();
+    write
+        .send(Message::Text(message))
+        .await
+        .expect("send auth did not succeed");
 
     if args.notebooks.len() > 0 {
         let notebooks = args.notebooks.join(", ");
