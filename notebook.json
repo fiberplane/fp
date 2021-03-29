@@ -1,0 +1,24 @@
+{
+   "cells": [
+      {
+         "content": "Alert!",
+         "id": "kmNbwb8HRRCtcjzcKaBqKw",
+         "readOnly": false,
+         "type": "text"
+      },
+      {
+         "content": "This alert was triggered at: 2018-08-03T09:52:26.739266876+02:00, more info: http://localhost:9090/graph?g0.expr=go_memstats_alloc_bytes+%3E+0&g0.tab=1. See runbook: https://fiberplane.io/runbook/1234",
+         "id": "n11ujDxTRWmHS317Isxesg",
+         "readOnly": false,
+         "type": "text"
+      },
+      {
+         "content": "This alert was triggered at: 2018-08-03T09:52:26.739266876+02:00, more info: http://localhost:9090/graph?g0.expr=go_memstats_alloc_bytes+%3E+0&g0.tab=1",
+         "id": "eSUOrIP2TYKHSdTOLkS7tA",
+         "readOnly": false,
+         "type": "text"
+      }
+   ],
+   "title": "Some title"
+}
+

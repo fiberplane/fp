@@ -1,5 +1,6 @@
 use clap::{AppSettings, Clap};
 
+mod templates;
 mod webhook;
 mod ws;
 
@@ -12,6 +13,13 @@ struct Arguments {
 
 #[derive(Clap)]
 enum SubCommand {
+    #[clap(
+        name = "templates",
+        aliases = &["templates", "t"],
+        about = "Interact with Fiberplane templates",
+    )]
+    Templates(templates::Arguments),
+
     #[clap(name = "webhook", about = "Interact with Fiberplane Webhooks")]
     Webhook(webhook::Arguments),
 
@@ -29,6 +37,7 @@ async fn main() {
 
     use SubCommand::*;
     match args.subcmd {
+        Templates(args) => templates::handle_command(args).await,
         Webhook(args) => webhook::handle_command(args).await,
         WebSockets(args) => ws::handle_command(args).await,
     }
