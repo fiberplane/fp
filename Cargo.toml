@@ -10,11 +10,16 @@ about = "A cli to interact with the Fiberplane service"
 [dependencies]
 clap = "3.0.0-beta.2"
 fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main"  }
+# fp-provider-runtime = { git = "ssh://git@github.com/fiberplane/plugins-rs.git", branch = "main"  }
+fp-provider-runtime = { path = "../providers/runtimes/fp-provider-runtime/"  }
 futures-util = "0.3"
 reqwest = { version = "0.11.0", features = ["json"] }
+rmp-serde = "0.15"
 serde = { version = "1.0.123", features = ["derive"] }
 serde_json = "1.0"
+serde-transcode = "1.1"
 tokio = { version = "1", features = ["full"] }
 tokio-tungstenite = { version ="0.14", features = ["rustls-tls"] }
 toml = "0.5.8"
 url = "2.2"
+wasmer = {version = "2.0", features = ["singlepass"]}
