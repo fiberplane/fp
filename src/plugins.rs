@@ -1,5 +1,5 @@
 use clap::Clap;
-use fp_provider_runtime::spec::types::QueryInstantOptions;
+use fp_provider_runtime::spec::types::{DataSource, PrometheusDataSource, QueryInstantOptions};
 use std::time::{SystemTime, UNIX_EPOCH};
 use wasmer::{Singlepass, Store, Universal};
 
@@ -27,8 +27,11 @@ pub struct InvokeArguments {
     #[clap(name = "provider_path", long, short, about = "path to the provider")]
     pub provider_path: String,
 
-    #[clap(name = "query", about = "query that will be send to the provider")]
+    #[clap(name = "query", about = "query that will be sent to the provider")]
     pub query: String,
+
+    #[clap(name = "url", long, short, about = "URL to the Prometheus instance")]
+    pub prometheus_url: String,
 }
 
 async fn handle_invoke_command(args: InvokeArguments) {
@@ -53,7 +56,10 @@ async fn handle_invoke_command(args: InvokeArguments) {
     };
 
     let query = args.query;
-    let options = QueryInstantOptions { time };
+    let data_source = DataSource::Prometheus(PrometheusDataSource {
+        url: args.prometheus_url,
+    });
+    let options = QueryInstantOptions { data_source, time };
     let result = runtime.fetch_instant(query, options).await;
 
     match result {
