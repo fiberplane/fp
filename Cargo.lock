@@ -440,7 +440,7 @@ dependencies = [
 [[package]]
 name = "fp-provider-runtime"
 version = "1.0.0-alpha.1"
-source = "git+ssh://git@github.com/fiberplane/providers.git?branch=FP-570-Start-Prometheus-provider-impl#af0e43fa5fe1ff4e8017f60a932f82691cd39aed"
+source = "git+ssh://git@github.com/fiberplane/providers.git?branch=main#acf0e13f1dc1e67a9b7db2e75e7ed672ffa77705"
 dependencies = [
  "rand",
  "reqwest",

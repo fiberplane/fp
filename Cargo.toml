@@ -10,7 +10,7 @@ about = "A cli to interact with the Fiberplane service"
 [dependencies]
 clap = "3.0.0-beta.2"
 fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main"  }
-fp-provider-runtime = { git = "ssh://git@github.com/fiberplane/providers.git", branch = "FP-570-Start-Prometheus-provider-impl"  }
+fp-provider-runtime = { git = "ssh://git@github.com/fiberplane/providers.git", branch = "main"  }
 # fp-provider-runtime = { path = "../providers/runtimes/fp-provider-runtime/"  }
 futures-util = "0.3"
 reqwest = { version = "0.11.0", features = ["json"] }
