@@ -18,7 +18,10 @@ pub async fn handle_command(args: Arguments) {
 
 #[derive(Clap)]
 pub enum SubCommand {
-    #[clap(name = "invoke", about = "Invoke a provider")]
+    #[clap(
+        name = "invoke",
+        about = "Invoke a provider (only Prometheus support atm)"
+    )]
     Invoke(InvokeArguments),
 }
 
