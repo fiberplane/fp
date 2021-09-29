@@ -440,7 +440,7 @@ dependencies = [
 [[package]]
 name = "fp-provider-runtime"
 version = "1.0.0-alpha.1"
-source = "git+ssh://git@github.com/fiberplane/providers.git?branch=main#acf0e13f1dc1e67a9b7db2e75e7ed672ffa77705"
+source = "git+ssh://git@github.com/fiberplane/providers.git?branch=main#101c331c6407ecb2678e98a63c834ec85ba9f552"
 dependencies = [
  "rand",
  "reqwest",

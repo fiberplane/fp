@@ -20,7 +20,7 @@ pub async fn handle_command(args: Arguments) {
 pub enum SubCommand {
     #[clap(
         name = "invoke",
-        about = "Invoke a provider (only Prometheus support atm)"
+        about = "Invoke a provider (only Prometheus is supported)"
     )]
     Invoke(InvokeArguments),
 }
@@ -67,7 +67,10 @@ async fn handle_invoke_command(args: InvokeArguments) {
 
     match result {
         Ok(val) => match val {
-            Ok(val) => println!("Received {} series", val.len()),
+            Ok(val) => match serde_json::to_string_pretty(&val) {
+                Ok(val) => println!("{}", val),
+                Err(e) => eprintln!("unable to serialize result: {}", e),
+            },
             Err(e) => eprintln!("Provider failed: {:?}", e),
         },
         Err(e) => eprintln!("Unable to invoke provider: {:?}", e),
