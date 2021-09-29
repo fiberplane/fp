@@ -48,13 +48,11 @@ async fn handle_invoke_command(args: InvokeArguments) {
 
     // TODO: it should be possible to specify the instant through an argument,
     // the following should be used if no argument was used.
-    let time = {
-        match SystemTime::now().duration_since(UNIX_EPOCH) {
-            Ok(duration) => duration.as_secs() as f64 + duration.subsec_nanos() as f64 * 1e-9,
-            Err(_) => {
-                eprintln!("System time is set before epoch! Returning epoch as fallback.");
-                0_f64
-            }
+    let time = match SystemTime::now().duration_since(UNIX_EPOCH) {
+        Ok(duration) => duration.as_secs() as f64 + duration.subsec_nanos() as f64 * 1e-9,
+        Err(_) => {
+            eprintln!("System time is set before epoch! Returning epoch as fallback.");
+            0_f64
         }
     };
 
@@ -69,7 +67,7 @@ async fn handle_invoke_command(args: InvokeArguments) {
         Ok(val) => match val {
             Ok(val) => match serde_json::to_string_pretty(&val) {
                 Ok(val) => println!("{}", val),
-                Err(e) => eprintln!("unable to serialize result: {}", e),
+                Err(e) => eprintln!("unable to serialize result: {:?}", e),
             },
             Err(e) => eprintln!("Provider failed: {:?}", e),
         },
