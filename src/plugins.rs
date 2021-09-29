@@ -74,14 +74,3 @@ async fn handle_invoke_command(args: InvokeArguments) {
         Err(e) => eprintln!("Unable to invoke provider: {:?}", e),
     }
 }
-
-//transcode:
-// println!("plugins -> invoke | I was called: {:?}", args);
-
-// let payload = &args.payload.unwrap();
-// let mut deserializer = serde_json::Deserializer::from_str(payload);
-
-// // A compacted JSON serializer. You can use any Serde Serializer here.
-// let mut serializer = rmp_serde::Serializer::new(io::stdout());
-
-// serde_transcode::transcode(&mut deserializer, &mut serializer).unwrap();
