@@ -1,5 +1,6 @@
 use clap::{AppSettings, Clap};
 
+mod plugins;
 mod webhook;
 mod ws;
 
@@ -12,6 +13,9 @@ struct Arguments {
 
 #[derive(Clap)]
 enum SubCommand {
+    #[clap(name = "plugins", about = "Interact with Fiberplane Plugins")]
+    Plugins(plugins::Arguments),
+
     #[clap(name = "webhook", about = "Interact with Fiberplane Webhooks")]
     Webhook(webhook::Arguments),
 
@@ -29,6 +33,7 @@ async fn main() {
 
     use SubCommand::*;
     match args.subcmd {
+        Plugins(args) => plugins::handle_command(args).await,
         Webhook(args) => webhook::handle_command(args).await,
         WebSockets(args) => ws::handle_command(args).await,
     }
