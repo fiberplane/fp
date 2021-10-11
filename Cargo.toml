@@ -8,18 +8,23 @@ about = "A cli to interact with the Fiberplane service"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1.0.44"
 clap = "3.0.0-beta.2"
 fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main"  }
 fp-provider-runtime = { git = "ssh://git@github.com/fiberplane/providers.git", branch = "main"  }
 # fp-provider-runtime = { path = "../providers/runtimes/fp-provider-runtime/"  }
 futures-util = "0.3"
+hyper = { version = "0.14.13", features = ["http1", "server", "tcp", "runtime"] }
+log = "0.4.14"
 reqwest = { version = "0.11.0", features = ["json"] }
 rmp-serde = "0.15"
 serde = { version = "1.0.123", features = ["derive"] }
 serde_json = "1.0"
 serde-transcode = "1.1"
+simple_logger = "1.13.0"
 tokio = { version = "1", features = ["full"] }
 tokio-tungstenite = { version ="0.14", features = ["rustls-tls"] }
 toml = "0.5.8"
 url = "2.2"
 wasmer = {version = "2.0", features = ["singlepass"]}
+webbrowser = "0.5.5"

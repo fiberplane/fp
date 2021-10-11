@@ -1,5 +1,7 @@
 use clap::{AppSettings, Clap};
+use simple_logger::SimpleLogger;
 
+mod auth;
 mod plugins;
 mod webhook;
 mod ws;
@@ -13,6 +15,10 @@ struct Arguments {
 
 #[derive(Clap)]
 enum SubCommand {
+    // TODO auth probably shouldn't be a subcommand (or at least we should support `fp login`)
+    #[clap(name = "auth", about = "Login to Fiberplane")]
+    Auth(auth::Arguments),
+
     #[clap(name = "plugins", about = "Interact with Fiberplane Plugins")]
     Plugins(plugins::Arguments),
 
@@ -29,6 +35,9 @@ enum SubCommand {
 
 #[tokio::main]
 async fn main() {
+    // TODO decide which log library to use
+    SimpleLogger::new().init().unwrap();
+
     let args = Arguments::parse();
 
     use SubCommand::*;
@@ -36,5 +45,7 @@ async fn main() {
         Plugins(args) => plugins::handle_command(args).await,
         Webhook(args) => webhook::handle_command(args).await,
         WebSockets(args) => ws::handle_command(args).await,
+        // TODO we should make all of the subcommands return anyhow::Error
+        Auth(args) => auth::handle_command(args).await.unwrap(),
     }
 }
