@@ -2,9 +2,9 @@ use anyhow::Error;
 use clap::Clap;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Response, Server, StatusCode};
-use log::{error, info};
 use std::convert::Infallible;
 use tokio::sync::broadcast;
+use tracing::{debug, error, info};
 use webbrowser;
 
 #[derive(Clap)]
@@ -72,6 +72,7 @@ pub async fn handle_login_command(args: LoginArguments) -> Result<(), Error> {
     // API can redirect the browser back to us after the login
     // flow is completed
     let port: u16 = server.local_addr().port();
+    info!("listening for the login redirect on port {}", port);
     let login_url = format!(
         "{}/oidc/authorize/google?cli_redirect_port={}",
         args.api_base, port
@@ -84,7 +85,7 @@ pub async fn handle_login_command(args: LoginArguments) -> Result<(), Error> {
     server
         .with_graceful_shutdown(async {
             match rx.recv().await.unwrap() {
-                Ok(token) => info!("login token: {}", token),
+                Ok(token) => debug!("login token: {}", token),
                 Err(_) => error!("login error"),
             }
         })

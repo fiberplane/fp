@@ -1,5 +1,5 @@
 use clap::{AppSettings, Clap};
-use simple_logger::SimpleLogger;
+use tracing_subscriber;
 
 mod auth;
 mod plugins;
@@ -35,8 +35,7 @@ enum SubCommand {
 
 #[tokio::main]
 async fn main() {
-    // TODO decide which log library to use
-    SimpleLogger::new().init().unwrap();
+    tracing_subscriber::fmt::init();
 
     let args = Arguments::parse();
 
