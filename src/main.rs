@@ -2,6 +2,7 @@ use clap::{AppSettings, Clap};
 use tracing_subscriber;
 
 mod auth;
+mod config;
 mod plugins;
 mod webhook;
 mod ws;
@@ -19,6 +20,9 @@ pub struct Arguments {
         env = "API_BASE"
     )]
     api_base: String,
+
+    #[clap(long, about = "Path to Fiberplane config.toml file")]
+    config: Option<String>,
 }
 
 #[derive(Clap)]

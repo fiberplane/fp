@@ -1,4 +1,4 @@
-use crate::Arguments;
+use crate::{config::Config, Arguments};
 use anyhow::Error;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Response, Server, StatusCode};
@@ -31,7 +31,9 @@ pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
                     Ok::<_, Error>(
                         Response::builder()
                             .status(StatusCode::OK)
-                            .body(Body::empty())
+                            .body(Body::from(
+                                "You have been logged in to the CLI. You can now close this tab.",
+                            ))
                             .unwrap(),
                     )
                 }
@@ -55,17 +57,29 @@ pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
         println!("Please go to this URL to login: {}", login_url);
     }
 
+    let mut config = Config::load(args.config.as_deref()).await?;
+
     // Shut down the web server once the token is received
     server
-        .with_graceful_shutdown(async {
+        .with_graceful_shutdown(async move {
+            // Wait for the token to be received
             match rx.recv().await.unwrap() {
-                Ok(token) => debug!("login token: {}", token),
+                Ok(token) => {
+                    debug!("api token: {}", token);
+
+                    // Save the token to the config file
+                    config.api_token = Some(token);
+                    if let Err(e) = config.save().await {
+                        eprintln!("Error saving API token to config file: {:?}", e);
+                    };
+                    info!("saved config to: {}", config.path.as_path().display());
+                }
                 Err(_) => error!("login error"),
             }
         })
         .await?;
 
-    // TODO redirect to a page that closes the browser tab
+    println!("You are logged in to Fiberplane");
 
     Ok(())
 }
