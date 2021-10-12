@@ -1,5 +1,5 @@
+use crate::Arguments;
 use anyhow::Error;
-use clap::Clap;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Response, Server, StatusCode};
 use std::convert::Infallible;
@@ -7,34 +7,7 @@ use tokio::sync::broadcast;
 use tracing::{debug, error, info};
 use webbrowser;
 
-#[derive(Clap)]
-pub struct Arguments {
-    #[clap(subcommand)]
-    subcmd: SubCommand,
-}
-
-#[derive(Clap, Debug)]
-pub enum SubCommand {
-    #[clap(
-        name = "login",
-        about = "Login to Fiberplane and authorize the CLI to access your account"
-    )]
-    Login(LoginArguments),
-}
-
-#[derive(Clap, Debug)]
-pub struct LoginArguments {
-    #[clap(long, short, default_value = "http://localhost:3030/api")]
-    api_base: String,
-}
-
-pub async fn handle_command(args: Arguments) -> Result<(), Error> {
-    match args.subcmd {
-        SubCommand::Login(args) => handle_login_command(args).await,
-    }
-}
-
-pub async fn handle_login_command(args: LoginArguments) -> Result<(), Error> {
+pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
     let (tx, mut rx) = broadcast::channel::<Result<String, ()>>(1);
 
     // Bind to a random local port
@@ -52,8 +25,7 @@ pub async fn handle_login_command(args: LoginArguments) -> Result<(), Error> {
                     .strip_prefix("token=")
                     .unwrap()
                     .to_string();
-                dbg!(&token);
-                tx.clone().send(Ok(token)).unwrap();
+                tx.send(Ok(token)).unwrap();
 
                 async move {
                     Ok::<_, Error>(
@@ -79,7 +51,9 @@ pub async fn handle_login_command(args: LoginArguments) -> Result<(), Error> {
     );
 
     // Open the user's web browser to start the login flow
-    webbrowser::open(&login_url)?;
+    if let Err(_) = webbrowser::open(&login_url) {
+        println!("Please go to this URL to login: {}", login_url);
+    }
 
     // Shut down the web server once the token is received
     server

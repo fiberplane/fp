@@ -8,16 +8,26 @@ mod ws;
 
 #[derive(Clap)]
 #[clap(author, about, version, setting = AppSettings::GlobalVersion)]
-struct Arguments {
+pub struct Arguments {
     #[clap(subcommand)]
     subcmd: SubCommand,
+
+    #[clap(
+        long,
+        about = "Base URL of the Fiberplane API",
+        default_value = "https://fiberplane.com/api",
+        env = "API_BASE"
+    )]
+    api_base: String,
 }
 
 #[derive(Clap)]
 enum SubCommand {
-    // TODO auth probably shouldn't be a subcommand (or at least we should support `fp login`)
-    #[clap(name = "auth", about = "Login to Fiberplane")]
-    Auth(auth::Arguments),
+    #[clap(
+        name = "login",
+        about = "Login to Fiberplane and authorize the CLI to access your account"
+    )]
+    Login,
 
     #[clap(name = "plugins", about = "Interact with Fiberplane Plugins")]
     Plugins(plugins::Arguments),
@@ -41,10 +51,10 @@ async fn main() {
 
     use SubCommand::*;
     match args.subcmd {
+        // TODO we should make all of the subcommands return anyhow::Error
         Plugins(args) => plugins::handle_command(args).await,
         Webhook(args) => webhook::handle_command(args).await,
         WebSockets(args) => ws::handle_command(args).await,
-        // TODO we should make all of the subcommands return anyhow::Error
-        Auth(args) => auth::handle_command(args).await.unwrap(),
+        Login => auth::handle_login_command(args).await.unwrap(),
     }
 }
