@@ -2,13 +2,20 @@ use crate::{config::Config, Arguments};
 use anyhow::Error;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Response, Server, StatusCode};
+use qstring::QString;
 use std::convert::Infallible;
 use tokio::sync::broadcast;
 use tracing::{debug, error, info};
 use webbrowser;
 
+/// Run the OAuth flow and save the API token to the config
+///
+/// This will run an HTTP server on a random local port and
+/// open the login API endpoint in the user's browser. Once
+/// the login flow is complete, the browser will redirect back
+/// to the local HTTP server with the API token in the query string.
 pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
-    let (tx, mut rx) = broadcast::channel::<Result<String, ()>>(1);
+    let (tx, mut rx) = broadcast::channel::<Result<String, String>>(1);
 
     // Bind to a random local port
     let redirect_server_addr = ([127, 0, 0, 1], 0).into();
@@ -17,25 +24,32 @@ pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
 
         async move {
             Ok::<_, Infallible>(service_fn(move |req| {
-                // TODO proper request handling
                 let token = req
                     .uri()
                     .query()
-                    .unwrap()
-                    .strip_prefix("token=")
-                    .unwrap()
-                    .to_string();
-                tx.send(Ok(token)).unwrap();
+                    .and_then(|query| QString::from(query).get("token").map(String::from));
+                let tx = tx.clone();
 
                 async move {
-                    Ok::<_, Error>(
-                        Response::builder()
-                            .status(StatusCode::OK)
-                            .body(Body::from(
-                                "You have been logged in to the CLI. You can now close this tab.",
-                            ))
-                            .unwrap(),
-                    )
+                    match token {
+                        Some(token) => {
+                            tx.send(Ok(token)).expect("error sending token via channel");
+                            Ok::<_, Error>(
+                                Response::builder()
+                                    .status(StatusCode::OK)
+                                    .body(Body::from(
+                                        "You have been logged in to the CLI. You can now close this tab.",
+                                    ))
+                                    .unwrap(),
+                            )
+                        }
+                        None => Ok::<_, Error>(
+                            Response::builder()
+                                .status(StatusCode::BAD_REQUEST)
+                                .body(Body::from("Expected token query string parameter"))
+                                .unwrap(),
+                        ),
+                    }
                 }
             }))
         }
