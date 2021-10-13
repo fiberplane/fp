@@ -1,13 +1,9 @@
 use crate::{config::Config, Arguments};
 use anyhow::Error;
-use hyper::header::HeaderValue;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Response, Server, StatusCode};
 use qstring::QString;
-use reqwest::{
-    header::{HeaderMap, AUTHORIZATION},
-    Client,
-};
+use reqwest::Client;
 use std::convert::Infallible;
 use tokio::sync::broadcast;
 use tracing::{debug, error, info};
@@ -19,7 +15,9 @@ use tracing::{debug, error, info};
 /// the login flow is complete, the browser will redirect back
 /// to the local HTTP server with the API token in the query string.
 pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
-    let (tx, mut rx) = broadcast::channel::<Result<String, String>>(1);
+    // Note this needs to be a broadcast channel, even though we are only using it once,
+    // so that we can move the tx into the service handler closures
+    let (tx, mut rx) = broadcast::channel(1);
 
     // Bind to a random local port
     let redirect_server_addr = ([127, 0, 0, 1], 0).into();
@@ -37,7 +35,7 @@ pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
                 async move {
                     match token {
                         Some(token) => {
-                            tx.send(Ok(token)).expect("error sending token via channel");
+                            tx.send(token).expect("error sending token via channel");
                             Ok::<_, Error>(
                                 Response::builder()
                                     .status(StatusCode::OK)
@@ -64,7 +62,7 @@ pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
     // API can redirect the browser back to us after the login
     // flow is completed
     let port: u16 = server.local_addr().port();
-    info!("listening for the login redirect on port {}", port);
+    debug!("listening for the login redirect on port {}", port);
     let login_url = format!(
         "{}/oidc/authorize/google?cli_redirect_port={}",
         args.api_base, port
@@ -81,7 +79,7 @@ pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
     server
         .with_graceful_shutdown(async move {
             // Wait for the token to be received
-            match rx.recv().await.unwrap() {
+            match rx.recv().await {
                 Ok(token) => {
                     debug!("api token: {}", token);
 
@@ -104,36 +102,26 @@ pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
 
 /// Logout from Fiberplane and delete the API Token from the config file
 pub async fn handle_logout_command(args: Arguments) -> Result<(), Error> {
-    let client = authenticated_client(&args).await?;
-    client
-        .post(format!("{}/logout", &args.api_base))
-        .body(Body::empty())
-        .send()
-        .await?
-        .error_for_status()?;
-
     let mut config = Config::load(args.config.as_deref()).await?;
-    config.api_token = None;
-    config.save().await?;
 
-    println!("Logged out");
+    match config.api_token {
+        Some(api_token) => {
+            Client::new()
+                .post(format!("{}/logout", &args.api_base))
+                .body(Body::empty())
+                .bearer_auth(api_token)
+                .send()
+                .await?
+                .error_for_status()?;
+
+            config.api_token = None;
+            config.save().await?;
+            println!("Logged out");
+        }
+        None => {
+            println!("Already logged out");
+        }
+    }
 
     Ok(())
-}
-
-/// Returns a reqwest::Client that has the Authorization header set to the
-/// API Token loaded from the config file
-pub(crate) async fn authenticated_client(args: &Arguments) -> Result<Client, Error> {
-    let config = Config::load(args.config.as_deref()).await?;
-    let mut headers = HeaderMap::new();
-    if let Some(api_token) = config.api_token {
-        headers.insert(
-            AUTHORIZATION,
-            HeaderValue::from_str(&format!("Bearer {}", api_token))?,
-        );
-    }
-    Client::builder()
-        .default_headers(headers)
-        .build()
-        .map_err(|e| e.into())
 }
