@@ -14,11 +14,11 @@ pub struct Arguments {
 
     #[clap(
         long,
-        about = "Base URL of the Fiberplane API",
-        default_value = "https://fiberplane.com/api",
+        about = "Base URL for requests to Fiberplane",
+        default_value = "https://fiberplane.com",
         env = "API_BASE"
     )]
-    api_base: String,
+    base_url: String,
 
     #[clap(long, about = "Path to Fiberplane config.toml file")]
     config: Option<String>,

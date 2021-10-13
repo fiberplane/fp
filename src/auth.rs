@@ -64,8 +64,8 @@ pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
     let port: u16 = server.local_addr().port();
     debug!("listening for the login redirect on port {}", port);
     let login_url = format!(
-        "{}/oidc/authorize/google?cli_redirect_port={}",
-        args.api_base, port
+        "{}/api/oidc/authorize/google?cli_redirect_port={}",
+        args.base_url, port
     );
 
     // Open the user's web browser to start the login flow
@@ -107,7 +107,7 @@ pub async fn handle_logout_command(args: Arguments) -> Result<(), Error> {
     match config.api_token {
         Some(api_token) => {
             Client::new()
-                .post(format!("{}/logout", &args.api_base))
+                .post(format!("{}/api/logout", &args.base_url))
                 .body(Body::empty())
                 .bearer_auth(api_token)
                 .send()
