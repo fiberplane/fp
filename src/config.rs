@@ -2,7 +2,7 @@ use anyhow::Error;
 use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 use std::io::ErrorKind;
-use std::{path::PathBuf, str::FromStr};
+use std::path::PathBuf;
 use tokio::fs;
 use toml;
 
@@ -37,7 +37,14 @@ impl Config {
 
 fn parse_config_file_path(path: Option<&str>) -> Result<PathBuf, Error> {
     match path {
-        Some(path) => PathBuf::from_str(path).map_err(|e| e.into()),
+        Some(path) => {
+            let path = PathBuf::from(path);
+            if path.is_dir() {
+                Ok(path.with_file_name("config.toml"))
+            } else {
+                Ok(path)
+            }
+        }
         None => Ok(default_config_file_path()),
     }
 }
@@ -47,4 +54,5 @@ fn default_config_file_path() -> PathBuf {
         .unwrap()
         .config_dir()
         .to_owned()
+        .with_file_name("config.toml")
 }
