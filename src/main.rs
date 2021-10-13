@@ -33,6 +33,9 @@ enum SubCommand {
     )]
     Login,
 
+    #[clap(name = "logout", about = "Logout from Fiberplane")]
+    Logout,
+
     #[clap(name = "plugins", about = "Interact with Fiberplane Plugins")]
     Plugins(plugins::Arguments),
 
@@ -60,5 +63,6 @@ async fn main() {
         Webhook(args) => webhook::handle_command(args).await,
         WebSockets(args) => ws::handle_command(args).await,
         Login => auth::handle_login_command(args).await.unwrap(),
+        Logout => auth::handle_logout_command(args).await.unwrap(),
     }
 }

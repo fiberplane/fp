@@ -1,8 +1,13 @@
 use crate::{config::Config, Arguments};
 use anyhow::Error;
+use hyper::header::HeaderValue;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Response, Server, StatusCode};
 use qstring::QString;
+use reqwest::{
+    header::{HeaderMap, AUTHORIZATION},
+    Client,
+};
 use std::convert::Infallible;
 use tokio::sync::broadcast;
 use tracing::{debug, error, info};
@@ -96,4 +101,40 @@ pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
     println!("You are logged in to Fiberplane");
 
     Ok(())
+}
+
+/// Logout from Fiberplane and delete the API Token from the config file
+pub async fn handle_logout_command(args: Arguments) -> Result<(), Error> {
+    let client = authenticated_client(&args).await?;
+    client
+        .post(format!("{}/logout", &args.api_base))
+        .body(Body::empty())
+        .send()
+        .await?
+        .error_for_status()?;
+
+    let mut config = Config::load(args.config.as_deref()).await?;
+    config.api_token = None;
+    config.save().await?;
+
+    println!("Logged out");
+
+    Ok(())
+}
+
+/// Returns a reqwest::Client that has the Authorization header set to the
+/// API Token loaded from the config file
+pub(crate) async fn authenticated_client(args: &Arguments) -> Result<Client, Error> {
+    let config = Config::load(args.config.as_deref()).await?;
+    let mut headers = HeaderMap::new();
+    if let Some(api_token) = config.api_token {
+        headers.insert(
+            AUTHORIZATION,
+            HeaderValue::from_str(&format!("Bearer {}", api_token))?,
+        );
+    }
+    Client::builder()
+        .default_headers(headers)
+        .build()
+        .map_err(|e| e.into())
 }
