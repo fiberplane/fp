@@ -35,7 +35,7 @@ async fn handle_trigger_command(args: TriggerArguments) {
     let mut labels: HashMap<String, String> = HashMap::new();
 
     for l in args.labels {
-        let vec: Vec<&str> = l.split("=").collect();
+        let vec: Vec<&str> = l.split('=').collect();
         labels.insert(vec[0].to_string(), vec[1].to_string());
     }
 

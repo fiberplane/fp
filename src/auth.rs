@@ -11,7 +11,6 @@ use reqwest::{
 use std::convert::Infallible;
 use tokio::sync::broadcast;
 use tracing::{debug, error, info};
-use webbrowser;
 
 /// Run the OAuth flow and save the API token to the config
 ///
@@ -72,7 +71,7 @@ pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
     );
 
     // Open the user's web browser to start the login flow
-    if let Err(_) = webbrowser::open(&login_url) {
+    if webbrowser::open(&login_url).is_err() {
         println!("Please go to this URL to login: {}", login_url);
     }
 

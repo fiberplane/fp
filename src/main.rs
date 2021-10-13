@@ -1,5 +1,4 @@
 use clap::{AppSettings, Clap};
-use tracing_subscriber;
 
 mod auth;
 mod config;
