@@ -67,7 +67,7 @@ pub async fn handle_monitor_command(args: MonitorArguments) {
         .await
         .expect("send auth did not succeed");
 
-    if args.notebooks.len() > 0 {
+    if !args.notebooks.is_empty() {
         let notebooks = args.notebooks.join(", ");
         eprintln!("Subscribing to notebooks: {:?}", notebooks);
     }
