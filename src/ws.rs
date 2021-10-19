@@ -1,10 +1,10 @@
-use clap::Clap;
+use clap::Parser;
 use fiberplane::protocols::realtime;
 use futures_util::{pin_mut, SinkExt, StreamExt};
 use tokio::io::AsyncWriteExt;
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 
-#[derive(Clap)]
+#[derive(Parser)]
 pub struct Arguments {
     #[clap(subcommand)]
     subcmd: SubCommand,
@@ -16,13 +16,13 @@ pub async fn handle_command(args: Arguments) {
     }
 }
 
-#[derive(Clap)]
+#[derive(Parser)]
 pub enum SubCommand {
     #[clap(name = "monitor", about = "Monitor a fiberplane realtime connection")]
     Monitor(MonitorArguments),
 }
 
-#[derive(Clap)]
+#[derive(Parser)]
 pub struct MonitorArguments {
     #[clap(
         long,
