@@ -1,9 +1,9 @@
-use clap::Clap;
+use clap::Parser;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Clap)]
+#[derive(Parser)]
 pub struct Arguments {
     #[clap(subcommand)]
     subcmd: SubCommand,
@@ -16,13 +16,13 @@ pub async fn handle_command(args: Arguments) {
     }
 }
 
-#[derive(Clap)]
+#[derive(Parser)]
 pub enum SubCommand {
     #[clap(name = "trigger", about = "Monitor a fiberplane realtime connection")]
     Trigger(TriggerArguments),
 }
 
-#[derive(Clap)]
+#[derive(Parser)]
 pub struct TriggerArguments {
     #[clap(name = "labels", long, short, about = "Sets the alert labels")]
     pub labels: Vec<String>,

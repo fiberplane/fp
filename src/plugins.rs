@@ -1,9 +1,9 @@
-use clap::Clap;
+use clap::Parser;
 use fp_provider_runtime::spec::types::{DataSource, PrometheusDataSource, QueryInstantOptions};
 use std::time::{SystemTime, UNIX_EPOCH};
 use wasmer::{Singlepass, Store, Universal};
 
-#[derive(Clap)]
+#[derive(Parser)]
 pub struct Arguments {
     #[clap(subcommand)]
     subcmd: SubCommand,
@@ -16,7 +16,7 @@ pub async fn handle_command(args: Arguments) {
     }
 }
 
-#[derive(Clap)]
+#[derive(Parser)]
 pub enum SubCommand {
     #[clap(
         name = "invoke",
@@ -25,7 +25,7 @@ pub enum SubCommand {
     Invoke(InvokeArguments),
 }
 
-#[derive(Clap, Debug)]
+#[derive(Parser, Debug)]
 pub struct InvokeArguments {
     #[clap(name = "provider_path", long, short, about = "path to the provider")]
     pub provider_path: String,

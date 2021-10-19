@@ -9,7 +9,7 @@ about = "A cli to interact with the Fiberplane service"
 
 [dependencies]
 anyhow = "1.0.44"
-clap = "3.0.0-beta.2"
+clap = "3.0.0-beta.5"
 directories = "4.0.1"
 fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main"  }
 fp-provider-runtime = { git = "ssh://git@github.com/fiberplane/providers.git", branch = "main"  }

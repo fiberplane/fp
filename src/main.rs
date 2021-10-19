@@ -1,4 +1,4 @@
-use clap::{AppSettings, Clap};
+use clap::{AppSettings, Parser};
 
 mod auth;
 mod config;
@@ -6,8 +6,8 @@ mod plugins;
 mod webhook;
 mod ws;
 
-#[derive(Clap)]
-#[clap(author, about, version, setting = AppSettings::GlobalVersion)]
+#[derive(Parser)]
+#[clap(author, about, version, setting = AppSettings::PropagateVersion)]
 pub struct Arguments {
     #[clap(subcommand)]
     subcmd: SubCommand,
@@ -24,7 +24,7 @@ pub struct Arguments {
     config: Option<String>,
 }
 
-#[derive(Clap)]
+#[derive(Parser)]
 enum SubCommand {
     #[clap(
         name = "login",
