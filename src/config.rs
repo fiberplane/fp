@@ -20,7 +20,11 @@ impl Config {
         debug!("loading config from: {}", path.as_path().display());
 
         match fs::read_to_string(&path).await {
-            Ok(string) => toml::from_str(&string).map_err(|e| e.into()),
+            Ok(string) => {
+                let mut config: Config = toml::from_str(&string).map_err(|e| Error::from(e))?;
+                config.path = path;
+                Ok(config)
+            }
             // TODO should we create an empty file here if one does not already exist?
             Err(err) if err.kind() == ErrorKind::NotFound => {
                 debug!("no config file found, using default config");

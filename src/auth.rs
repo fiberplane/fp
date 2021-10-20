@@ -6,7 +6,7 @@ use qstring::QString;
 use reqwest::Client;
 use std::convert::Infallible;
 use tokio::sync::broadcast;
-use tracing::{debug, error, info};
+use tracing::{debug, error};
 
 /// Run the OAuth flow and save the API token to the config
 ///
@@ -85,17 +85,21 @@ pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
 
                     // Save the token to the config file
                     config.api_token = Some(token);
-                    if let Err(e) = config.save().await {
-                        eprintln!("Error saving API token to config file: {:?}", e);
+                    match config.save().await {
+                        Ok(_) => {
+                            println!("You are logged in to Fiberplane");
+                        }
+                        Err(e) => eprintln!(
+                            "Error saving API token to config file {}: {:?}",
+                            config.path.display(),
+                            e
+                        ),
                     };
-                    info!("saved config to: {}", config.path.as_path().display());
                 }
                 Err(_) => error!("login error"),
             }
         })
         .await?;
-
-    println!("You are logged in to Fiberplane");
 
     Ok(())
 }
