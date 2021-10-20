@@ -1,7 +1,6 @@
-use crate::config::Config;
+use crate::config::api_client_configuration;
 use anyhow::{anyhow, Result};
 use clap::Parser;
-use fiberplane_api::apis::configuration::Configuration;
 use fiberplane_api::apis::default_api::proxy_create;
 use fiberplane_api::models::NewProxy;
 use petname::petname;
@@ -45,7 +44,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 
 pub async fn handle_add_command(args: AddArgs) -> Result<()> {
     let name = args.name.unwrap_or_else(|| petname(2, "-"));
-    let config = configuration(args.config.as_deref(), &args.base_url).await?;
+    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
 
     let proxy = proxy_create(&config, Some(NewProxy { name }))
         .await
@@ -58,16 +57,4 @@ pub async fn handle_add_command(args: AddArgs) -> Result<()> {
     println!("Added proxy \"{}\"", proxy.name);
     println!("Proxy API Token: {}", token);
     Ok(())
-}
-
-async fn configuration(config_path: Option<&str>, base_url: &str) -> Result<Configuration> {
-    let token = Config::load(config_path)
-        .await?
-        .api_token
-        .ok_or_else(|| anyhow!("Must be logged in to add a proxy. Please run `fp login` first."))?;
-    let mut config = Configuration::default();
-    config.base_path = base_url.to_string();
-    config.bearer_access_token = Some(token);
-
-    Ok(config)
 }
