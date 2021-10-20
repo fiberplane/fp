@@ -3,6 +3,7 @@ use clap::{AppSettings, Parser};
 mod auth;
 mod config;
 mod plugins;
+mod proxies;
 mod webhook;
 mod ws;
 
@@ -16,11 +17,14 @@ pub struct Arguments {
         long,
         about = "Base URL for requests to Fiberplane",
         default_value = "https://fiberplane.com",
-        env = "API_BASE"
+        env = "API_BASE",
+        global = true
     )]
+    // TODO parse as a URL
     base_url: String,
 
-    #[clap(long, about = "Path to Fiberplane config.toml file")]
+    #[clap(long, about = "Path to Fiberplane config.toml file", global = true)]
+    // TODO parse this as a PathBuf
     config: Option<String>,
 }
 
@@ -47,6 +51,13 @@ enum SubCommand {
         about = "Interact with the Fiberplane realtime API"
     )]
     WebSockets(ws::Arguments),
+
+    #[clap(
+        name = "proxies",
+        alias = "proxy",
+        about = "Commands related to Fiberplane Proxies"
+    )]
+    Proxies(proxies::Arguments),
 }
 
 #[tokio::main]
@@ -63,5 +74,6 @@ async fn main() {
         WebSockets(args) => ws::handle_command(args).await,
         Login => auth::handle_login_command(args).await.unwrap(),
         Logout => auth::handle_logout_command(args).await.unwrap(),
+        Proxies(args) => proxies::handle_command(args).await.unwrap(),
     }
 }
