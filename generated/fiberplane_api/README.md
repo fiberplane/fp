@@ -78,6 +78,7 @@ Class | Method | HTTP request | Description
  - [PrometheusCell](docs/PrometheusCell.md)
  - [PrometheusDataSource](docs/PrometheusDataSource.md)
  - [Proxy](docs/Proxy.md)
+ - [ProxyConnectionStatus](docs/ProxyConnectionStatus.md)
  - [ProxyDataSource](docs/ProxyDataSource.md)
  - [ProxySummary](docs/ProxySummary.md)
  - [QueryType](docs/QueryType.md)

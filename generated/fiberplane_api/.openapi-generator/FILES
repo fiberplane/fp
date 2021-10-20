@@ -33,6 +33,7 @@ docs/PointType.md
 docs/PrometheusCell.md
 docs/PrometheusDataSource.md
 docs/Proxy.md
+docs/ProxyConnectionStatus.md
 docs/ProxyDataSource.md
 docs/ProxySummary.md
 docs/QueryType.md
@@ -78,6 +79,7 @@ src/models/point_type.rs
 src/models/prometheus_cell.rs
 src/models/prometheus_data_source.rs
 src/models/proxy.rs
+src/models/proxy_connection_status.rs
 src/models/proxy_data_source.rs
 src/models/proxy_summary.rs
 src/models/query_type.rs

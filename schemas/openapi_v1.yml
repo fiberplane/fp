@@ -530,7 +530,7 @@ components:
         name:
           type: string
         status:
-          type: string
+          $ref: "#/components/schemas/proxyConnectionStatus"
     proxy:
       type: object
       required:
@@ -542,7 +542,7 @@ components:
         id:
           type: string
         status:
-          type: string
+          $ref: "#/components/schemas/proxyConnectionStatus"
         name:
           type: string
         token:
@@ -553,6 +553,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/dataSourceSummary"
+    proxyConnectionStatus:
+      type: string
+      enum:
+        - connected
+        - disconnected
     queryType:
       oneOf:
         - $ref: "#/components/schemas/seriesQuery"

@@ -16,7 +16,7 @@ pub struct Proxy {
     #[serde(rename = "id")]
     pub id: String,
     #[serde(rename = "status")]
-    pub status: String,
+    pub status: crate::models::ProxyConnectionStatus,
     #[serde(rename = "name")]
     pub name: String,
     /// this will only be set when creating a new proxy
@@ -28,7 +28,7 @@ pub struct Proxy {
 }
 
 impl Proxy {
-    pub fn new(id: String, status: String, name: String, data_sources: Vec<crate::models::DataSourceSummary>) -> Proxy {
+    pub fn new(id: String, status: crate::models::ProxyConnectionStatus, name: String, data_sources: Vec<crate::models::DataSourceSummary>) -> Proxy {
         Proxy {
             id,
             status,

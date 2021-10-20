@@ -18,11 +18,11 @@ pub struct ProxySummary {
     #[serde(rename = "name")]
     pub name: String,
     #[serde(rename = "status")]
-    pub status: String,
+    pub status: crate::models::ProxyConnectionStatus,
 }
 
 impl ProxySummary {
-    pub fn new(id: String, name: String, status: String) -> ProxySummary {
+    pub fn new(id: String, name: String, status: crate::models::ProxyConnectionStatus) -> ProxySummary {
         ProxySummary {
             id,
             name,

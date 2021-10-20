@@ -58,6 +58,8 @@ pub mod prometheus_data_source;
 pub use self::prometheus_data_source::PrometheusDataSource;
 pub mod proxy;
 pub use self::proxy::Proxy;
+pub mod proxy_connection_status;
+pub use self::proxy_connection_status::ProxyConnectionStatus;
 pub mod proxy_data_source;
 pub use self::proxy_data_source::ProxyDataSource;
 pub mod proxy_summary;
