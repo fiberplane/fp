@@ -1,9 +1,12 @@
-use crate::{config::Config, Arguments};
+use crate::{
+    config::{api_client_configuration, Config},
+    Arguments,
+};
 use anyhow::Error;
+use fiberplane_api::apis::default_api::logout;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Response, Server, StatusCode};
 use qstring::QString;
-use reqwest::Client;
 use std::convert::Infallible;
 use tokio::sync::broadcast;
 use tracing::{debug, error};
@@ -109,14 +112,10 @@ pub async fn handle_logout_command(args: Arguments) -> Result<(), Error> {
     let mut config = Config::load(args.config.as_deref()).await?;
 
     match config.api_token {
-        Some(api_token) => {
-            Client::new()
-                .post(format!("{}/api/logout", &args.base_url))
-                .body(Body::empty())
-                .bearer_auth(api_token)
-                .send()
-                .await?
-                .error_for_status()?;
+        Some(_) => {
+            let api_config =
+                &api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+            logout(api_config).await?;
 
             config.api_token = None;
             config.save().await?;

@@ -30,6 +30,7 @@ Class | Method | HTTP request | Description
 *DefaultApi* | [**get_file**](docs/DefaultApi.md#get_file) | **GET** /api/files/{notebookId}/{fileId} | 
 *DefaultApi* | [**get_notebook**](docs/DefaultApi.md#get_notebook) | **GET** /api/notebooks/{id} | 
 *DefaultApi* | [**get_profile**](docs/DefaultApi.md#get_profile) | **GET** /api/profile | 
+*DefaultApi* | [**logout**](docs/DefaultApi.md#logout) | **POST** /api/logout | 
 *DefaultApi* | [**notebook_create**](docs/DefaultApi.md#notebook_create) | **POST** /api/notebooks | 
 *DefaultApi* | [**notebook_list**](docs/DefaultApi.md#notebook_list) | **GET** /api/notebooks | 
 *DefaultApi* | [**oidc_authorize_google**](docs/DefaultApi.md#oidc_authorize_google) | **GET** /api/oidc/authorize/google | 

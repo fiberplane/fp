@@ -10,6 +10,7 @@ Method | HTTP request | Description
 [**get_file**](DefaultApi.md#get_file) | **GET** /api/files/{notebookId}/{fileId} | 
 [**get_notebook**](DefaultApi.md#get_notebook) | **GET** /api/notebooks/{id} | 
 [**get_profile**](DefaultApi.md#get_profile) | **GET** /api/profile | 
+[**logout**](DefaultApi.md#logout) | **POST** /api/logout | 
 [**notebook_create**](DefaultApi.md#notebook_create) | **POST** /api/notebooks | 
 [**notebook_list**](DefaultApi.md#notebook_list) | **GET** /api/notebooks | 
 [**oidc_authorize_google**](DefaultApi.md#oidc_authorize_google) | **GET** /api/oidc/authorize/google | 
@@ -200,6 +201,33 @@ This endpoint does not need any parameter.
 
 - **Content-Type**: Not defined
 - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+
+## logout
+
+> logout()
+
+
+Log out of Fiberplane
+
+### Parameters
+
+This endpoint does not need any parameter.
+
+### Return type
+
+ (empty response body)
+
+### Authorization
+
+[userToken](../README.md#userToken)
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: Not defined
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
