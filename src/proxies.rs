@@ -25,6 +25,13 @@ pub enum SubCommand {
         about = "List all proxies configured for your organization"
     )]
     List(ListArgs),
+
+    #[clap(
+        name = "inspect",
+        alias = "info",
+        about = "Get the details of a given Proxy"
+    )]
+    Inspect(InspectArgs),
 }
 
 #[derive(Parser)]
@@ -51,11 +58,24 @@ pub struct ListArgs {
     config: Option<String>,
 }
 
+#[derive(Parser)]
+pub struct InspectArgs {
+    #[clap(name = "proxy_id", about = "ID of the proxy to inspect")]
+    proxy_id: String,
+
+    #[clap(from_global)]
+    base_url: String,
+
+    #[clap(from_global)]
+    config: Option<String>,
+}
+
 pub async fn handle_command(args: Arguments) -> Result<()> {
     use SubCommand::*;
     match args.subcmd {
         Add(args) => handle_add_command(args).await,
         List(args) => handle_list_command(args).await,
+        Inspect(args) => handle_inspect_command(args).await,
     }
 }
 
@@ -103,5 +123,32 @@ async fn handle_list_command(args: ListArgs) -> Result<()> {
         );
     }
 
+    Ok(())
+}
+
+async fn handle_inspect_command(args: InspectArgs) -> Result<()> {
+    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+    let proxy = proxy_get(&config, &args.proxy_id).await?;
+    println!(
+        "Name: {}
+ID: {}
+Status: {:?}
+Data Sources: {}",
+        proxy.name,
+        proxy.id,
+        proxy.status,
+        if proxy.data_sources.len() == 0 {
+            "(none)"
+        } else {
+            ""
+        }
+    );
+    for data_source in proxy.data_sources {
+        println!(
+            "  - Name: {}
+    Type: {}",
+            data_source.name, data_source._type
+        );
+    }
     Ok(())
 }
