@@ -603,6 +603,7 @@ components:
       required:
         - name
         - type
+        - proxy
       properties:
         name:
           type: string

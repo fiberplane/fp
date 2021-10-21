@@ -1,7 +1,9 @@
 use crate::config::api_client_configuration;
 use anyhow::{anyhow, Result};
 use clap::Parser;
-use fiberplane_api::apis::default_api::{proxy_create, proxy_get, proxy_list};
+use fiberplane_api::apis::default_api::{
+    proxy_create, proxy_data_sources_list, proxy_get, proxy_list,
+};
 use fiberplane_api::models::{NewProxy, ProxyConnectionStatus};
 use petname::petname;
 use std::cmp::Ordering;
@@ -24,7 +26,13 @@ pub enum SubCommand {
         name = "list",
         about = "List all proxies configured for your organization"
     )]
-    List(ListArgs),
+    List(GlobalArgs),
+
+    #[clap(
+        name = "data-sources",
+        about = "List all data sources configured for your organization"
+    )]
+    DataSources(GlobalArgs),
 
     #[clap(
         name = "inspect",
@@ -50,7 +58,7 @@ pub struct AddArgs {
 }
 
 #[derive(Parser)]
-pub struct ListArgs {
+pub struct GlobalArgs {
     #[clap(from_global)]
     base_url: String,
 
@@ -76,6 +84,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
         Add(args) => handle_add_command(args).await,
         List(args) => handle_list_command(args).await,
         Inspect(args) => handle_inspect_command(args).await,
+        DataSources(args) => handle_data_sources_command(args).await,
     }
 }
 
@@ -96,7 +105,7 @@ async fn handle_add_command(args: AddArgs) -> Result<()> {
     Ok(())
 }
 
-async fn handle_list_command(args: ListArgs) -> Result<()> {
+async fn handle_list_command(args: GlobalArgs) -> Result<()> {
     let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
     let mut proxies = proxy_list(&config).await?;
 
@@ -144,11 +153,22 @@ Data Sources: {}",
         }
     );
     for data_source in proxy.data_sources {
+        println!("  - {} (Type: {})", data_source.name, data_source._type);
+    }
+    Ok(())
+}
+
+async fn handle_data_sources_command(args: GlobalArgs) -> Result<()> {
+    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+    let data_sources = proxy_data_sources_list(&config).await?;
+
+    // TODO should we print something if there are no data sources?
+    for data_source in data_sources {
         println!(
-            "  - Name: {}
-    Type: {}",
-            data_source.name, data_source._type
+            "- {} (Type: {}, Proxy: {}, Proxy ID: {})",
+            data_source.name, data_source._type, data_source.proxy.name, data_source.proxy.id
         );
     }
+
     Ok(())
 }

@@ -6,7 +6,7 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **name** | **String** |  | 
 **_type** | **String** |  | 
-**proxy** | Option<[**crate::models::ProxySummary**](proxySummary.md)> |  | [optional]
+**proxy** | [**crate::models::ProxySummary**](proxySummary.md) |  | 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

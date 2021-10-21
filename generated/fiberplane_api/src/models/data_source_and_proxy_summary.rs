@@ -17,16 +17,16 @@ pub struct DataSourceAndProxySummary {
     pub name: String,
     #[serde(rename = "type")]
     pub _type: String,
-    #[serde(rename = "proxy", skip_serializing_if = "Option::is_none")]
-    pub proxy: Option<Box<crate::models::ProxySummary>>,
+    #[serde(rename = "proxy")]
+    pub proxy: Box<crate::models::ProxySummary>,
 }
 
 impl DataSourceAndProxySummary {
-    pub fn new(name: String, _type: String) -> DataSourceAndProxySummary {
+    pub fn new(name: String, _type: String, proxy: crate::models::ProxySummary) -> DataSourceAndProxySummary {
         DataSourceAndProxySummary {
             name,
             _type,
-            proxy: None,
+            proxy: Box::new(proxy),
         }
     }
 }
