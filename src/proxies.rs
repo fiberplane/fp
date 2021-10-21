@@ -2,7 +2,7 @@ use crate::config::api_client_configuration;
 use anyhow::{anyhow, Result};
 use clap::Parser;
 use fiberplane_api::apis::default_api::{
-    proxy_create, proxy_data_sources_list, proxy_get, proxy_list,
+    proxy_create, proxy_data_sources_list, proxy_delete, proxy_get, proxy_list,
 };
 use fiberplane_api::models::{NewProxy, ProxyConnectionStatus};
 use petname::petname;
@@ -39,7 +39,10 @@ pub enum SubCommand {
         alias = "info",
         about = "Get the details of a given Proxy"
     )]
-    Inspect(InspectArgs),
+    Inspect(SingleProxyArgs),
+
+    #[clap(name = "remove", about = "Remove a proxy from your organization")]
+    Remove(SingleProxyArgs),
 }
 
 #[derive(Parser)]
@@ -67,7 +70,7 @@ pub struct GlobalArgs {
 }
 
 #[derive(Parser)]
-pub struct InspectArgs {
+pub struct SingleProxyArgs {
     #[clap(name = "proxy_id", about = "ID of the proxy to inspect")]
     proxy_id: String,
 
@@ -85,6 +88,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
         List(args) => handle_list_command(args).await,
         Inspect(args) => handle_inspect_command(args).await,
         DataSources(args) => handle_data_sources_command(args).await,
+        Remove(args) => handle_remove_command(args).await,
     }
 }
 
@@ -135,7 +139,7 @@ async fn handle_list_command(args: GlobalArgs) -> Result<()> {
     Ok(())
 }
 
-async fn handle_inspect_command(args: InspectArgs) -> Result<()> {
+async fn handle_inspect_command(args: SingleProxyArgs) -> Result<()> {
     let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
     let proxy = proxy_get(&config, &args.proxy_id).await?;
     println!(
@@ -170,5 +174,12 @@ async fn handle_data_sources_command(args: GlobalArgs) -> Result<()> {
         );
     }
 
+    Ok(())
+}
+
+async fn handle_remove_command(args: SingleProxyArgs) -> Result<()> {
+    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+    proxy_delete(&config, &args.proxy_id).await?;
+    println!("Removed proxy");
     Ok(())
 }
