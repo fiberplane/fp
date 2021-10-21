@@ -125,7 +125,7 @@ async fn handle_list_command(args: GlobalArgs) -> Result<()> {
 
     for proxy in proxies {
         println!(
-            "{} {} (ID: {}, status: {:?})",
+            "{} {} (ID: {}, Status: {:?})",
             match proxy.status {
                 ProxyConnectionStatus::Connected => "🟢",
                 ProxyConnectionStatus::Disconnected => "❌",
