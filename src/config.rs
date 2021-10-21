@@ -1,5 +1,6 @@
-use anyhow::Error;
+use anyhow::{anyhow, Error, Result};
 use directories::ProjectDirs;
+use fiberplane_api::apis::configuration::Configuration;
 use serde::{Deserialize, Serialize};
 use std::io::ErrorKind;
 use std::path::PathBuf;
@@ -20,7 +21,11 @@ impl Config {
         debug!("loading config from: {}", path.as_path().display());
 
         match fs::read_to_string(&path).await {
-            Ok(string) => toml::from_str(&string).map_err(|e| e.into()),
+            Ok(string) => {
+                let mut config: Config = toml::from_str(&string).map_err(Error::from)?;
+                config.path = path;
+                Ok(config)
+            }
             // TODO should we create an empty file here if one does not already exist?
             Err(err) if err.kind() == ErrorKind::NotFound => {
                 debug!("no config file found, using default config");
@@ -64,4 +69,22 @@ fn default_config_file_path() -> PathBuf {
         .config_dir()
         .to_owned()
         .join("config.toml")
+}
+
+pub(crate) async fn api_client_configuration(
+    config_path: Option<&str>,
+    base_url: &str,
+) -> Result<Configuration> {
+    let token = Config::load(config_path)
+        .await?
+        .api_token
+        .ok_or_else(|| anyhow!("Must be logged in to add a proxy. Please run `fp login` first."))?;
+
+    let config = Configuration {
+        base_path: base_url.to_string(),
+        bearer_access_token: Some(token),
+        ..Configuration::default()
+    };
+
+    Ok(config)
 }
