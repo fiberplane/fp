@@ -137,7 +137,7 @@ Data Sources: {}",
         proxy.name,
         proxy.id,
         proxy.status,
-        if proxy.data_sources.len() == 0 {
+        if proxy.data_sources.is_empty() {
             "(none)"
         } else {
             ""

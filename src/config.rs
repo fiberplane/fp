@@ -22,7 +22,7 @@ impl Config {
 
         match fs::read_to_string(&path).await {
             Ok(string) => {
-                let mut config: Config = toml::from_str(&string).map_err(|e| Error::from(e))?;
+                let mut config: Config = toml::from_str(&string).map_err(Error::from)?;
                 config.path = path;
                 Ok(config)
             }
@@ -79,7 +79,7 @@ pub(crate) async fn api_client_configuration(
         .await?
         .api_token
         .ok_or_else(|| anyhow!("Must be logged in to add a proxy. Please run `fp login` first."))?;
-    let mut config = Configuration::default();
+    let mut config = Configuration::new();
     config.base_path = base_url.to_string();
     config.bearer_access_token = Some(token);
 
