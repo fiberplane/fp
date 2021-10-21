@@ -79,9 +79,12 @@ pub(crate) async fn api_client_configuration(
         .await?
         .api_token
         .ok_or_else(|| anyhow!("Must be logged in to add a proxy. Please run `fp login` first."))?;
-    let mut config = Configuration::new();
-    config.base_path = base_url.to_string();
-    config.bearer_access_token = Some(token);
+
+    let config = Configuration {
+        base_path: base_url.to_string(),
+        bearer_access_token: Some(token),
+        ..Configuration::default()
+    };
 
     Ok(config)
 }
