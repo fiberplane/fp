@@ -67,13 +67,16 @@ async fn main() {
     let args = Arguments::parse();
 
     use SubCommand::*;
-    match args.subcmd {
-        // TODO we should make all of the subcommands return anyhow::Error
+    let result = match args.subcmd {
         Plugins(args) => plugins::handle_command(args).await,
         Webhook(args) => webhook::handle_command(args).await,
         WebSockets(args) => ws::handle_command(args).await,
-        Login => auth::handle_login_command(args).await.unwrap(),
-        Logout => auth::handle_logout_command(args).await.unwrap(),
-        Proxies(args) => proxies::handle_command(args).await.unwrap(),
+        Login => auth::handle_login_command(args).await,
+        Logout => auth::handle_logout_command(args).await,
+        Proxies(args) => proxies::handle_command(args).await,
+    };
+
+    if let Err(e) = result {
+        eprintln!("Error: {:?}", e);
     }
 }

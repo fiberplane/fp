@@ -1,3 +1,4 @@
+use anyhow::{anyhow, Result};
 use clap::Parser;
 use fiberplane::protocols::realtime;
 use futures_util::{pin_mut, SinkExt, StreamExt};
@@ -10,7 +11,7 @@ pub struct Arguments {
     subcmd: SubCommand,
 }
 
-pub async fn handle_command(args: Arguments) {
+pub async fn handle_command(args: Arguments) -> Result<()> {
     match args.subcmd {
         SubCommand::Monitor(args) => handle_monitor_command(args).await,
     }
@@ -45,13 +46,13 @@ pub struct MonitorArguments {
     notebooks: Vec<String>,
 }
 
-pub async fn handle_monitor_command(args: MonitorArguments) {
+pub async fn handle_monitor_command(args: MonitorArguments) -> Result<()> {
     eprintln!("Connecting to {:?}", args.endpoint);
-    let url = url::Url::parse(&args.endpoint).unwrap();
+    let url = url::Url::parse(&args.endpoint)?;
 
     let (ws_stream, _) = connect_async(url)
         .await
-        .expect("unable to connect to web socket server");
+        .map_err(|e| anyhow!("unable to connect to web socket server: {:?}", e))?;
 
     let (mut write, read) = ws_stream.split();
 
@@ -61,11 +62,11 @@ pub async fn handle_monitor_command(args: MonitorArguments) {
         token: args.token,
     };
     let message = realtime::ClientRealtimeMessage::Authenticate(message);
-    let message = serde_json::to_string(&message).unwrap();
+    let message = serde_json::to_string(&message)?;
     write
         .send(Message::Text(message))
         .await
-        .expect("send auth did not succeed");
+        .map_err(|e| anyhow!("send auth did not succeed: {:?}", e))?;
 
     if !args.notebooks.is_empty() {
         let notebooks = args.notebooks.join(", ");
@@ -81,7 +82,7 @@ pub async fn handle_monitor_command(args: MonitorArguments) {
         write
             .send(Message::Text(message))
             .await
-            .expect("send did not succeed");
+            .map_err(|e| anyhow!("send did not succeed: {:?}", e))?;
     }
 
     eprintln!("Requesting debug information");
@@ -93,7 +94,7 @@ pub async fn handle_monitor_command(args: MonitorArguments) {
     write
         .send(Message::Text(message))
         .await
-        .expect("send did not succeed");
+        .map_err(|e| anyhow!("send did not succeed: {:?}", e))?;
 
     let ws_to_stdout = {
         read.for_each(|message| async {
@@ -114,5 +115,7 @@ pub async fn handle_monitor_command(args: MonitorArguments) {
     };
 
     pin_mut!(ws_to_stdout);
-    ws_to_stdout.await
+    ws_to_stdout.await;
+
+    Ok(())
 }

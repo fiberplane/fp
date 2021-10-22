@@ -1,3 +1,4 @@
+use anyhow::{anyhow, Result};
 use clap::Parser;
 use fp_provider_runtime::spec::types::{DataSource, PrometheusDataSource, QueryInstantOptions};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -9,7 +10,7 @@ pub struct Arguments {
     subcmd: SubCommand,
 }
 
-pub async fn handle_command(args: Arguments) {
+pub async fn handle_command(args: Arguments) -> Result<()> {
     use SubCommand::*;
     match args.subcmd {
         Invoke(args) => handle_invoke_command(args).await,
@@ -37,14 +38,15 @@ pub struct InvokeArguments {
     pub prometheus_url: String,
 }
 
-async fn handle_invoke_command(args: InvokeArguments) {
+async fn handle_invoke_command(args: InvokeArguments) -> Result<()> {
     let engine = Universal::new(Singlepass::default()).engine();
     let store = Store::new(&engine);
 
-    let wasm_module = std::fs::read(args.provider_path).expect("unable to read wasm module");
+    let wasm_module = std::fs::read(args.provider_path)
+        .map_err(|e| anyhow!("unable to read wasm module: {:?}", e))?;
 
-    let runtime =
-        fp_provider_runtime::Runtime::new(store, wasm_module).expect("unable to create runtime");
+    let runtime = fp_provider_runtime::Runtime::new(store, wasm_module)
+        .map_err(|e| anyhow!("unable to create runtime: {:?}", e))?;
 
     // TODO: it should be possible to specify the instant through an argument,
     // the following should be used if no argument was used.
@@ -66,11 +68,14 @@ async fn handle_invoke_command(args: InvokeArguments) {
     match result {
         Ok(val) => match val {
             Ok(val) => match serde_json::to_string_pretty(&val) {
-                Ok(val) => println!("{}", val),
-                Err(e) => eprintln!("unable to serialize result: {:?}", e),
+                Ok(val) => {
+                    println!("{}", val);
+                    Ok(())
+                }
+                Err(e) => Err(anyhow!("unable to serialize result: {:?}", e)),
             },
-            Err(e) => eprintln!("Provider failed: {:?}", e),
+            Err(e) => Err(anyhow!("Provider failed: {:?}", e)),
         },
-        Err(e) => eprintln!("Unable to invoke provider: {:?}", e),
+        Err(e) => Err(anyhow!("Unable to invoke provider: {:?}", e)),
     }
 }
