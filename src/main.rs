@@ -4,6 +4,7 @@ mod auth;
 mod config;
 mod plugins;
 mod proxies;
+mod templates;
 mod webhook;
 mod ws;
 
@@ -58,6 +59,13 @@ enum SubCommand {
         about = "Commands related to Fiberplane Proxies"
     )]
     Proxies(proxies::Arguments),
+
+    #[clap(
+        name = "templates",
+        alias = "template",
+        about = "Commands related to templating"
+    )]
+    Templates(templates::Arguments),
 }
 
 #[tokio::main]
@@ -68,12 +76,13 @@ async fn main() {
 
     use SubCommand::*;
     let result = match args.subcmd {
-        Plugins(args) => plugins::handle_command(args).await,
-        Webhook(args) => webhook::handle_command(args).await,
-        WebSockets(args) => ws::handle_command(args).await,
         Login => auth::handle_login_command(args).await,
         Logout => auth::handle_logout_command(args).await,
+        Plugins(args) => plugins::handle_command(args).await,
         Proxies(args) => proxies::handle_command(args).await,
+        Webhook(args) => webhook::handle_command(args).await,
+        WebSockets(args) => ws::handle_command(args).await,
+        Templates(args) => templates::handle_command(args).await,
     };
 
     if let Err(e) = result {

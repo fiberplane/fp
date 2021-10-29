@@ -368,6 +368,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "dtoa"
+version = "0.4.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56899898ce76aaf4a0f24d914c97ea6ed976d42fec6ad33fcbb0a1103e07b2b0"
+
+[[package]]
 name = "dynasm"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -494,16 +500,18 @@ dependencies = [
  "directories",
  "fiberplane",
  "fiberplane_api",
- "fp-provider-runtime",
+ "fp-provider-runtime 1.0.0-alpha.1 (git+ssh://git@github.com/fiberplane/providers.git?branch=main)",
  "futures-util",
  "hyper",
  "petname",
+ "proxy_types",
  "qstring",
  "reqwest",
  "rmp-serde 0.15.5",
  "serde",
  "serde-transcode",
  "serde_json",
+ "serde_yaml",
  "tokio",
  "tokio-tungstenite",
  "toml",
@@ -511,13 +519,28 @@ dependencies = [
  "tracing-subscriber",
  "url",
  "wasmer",
+ "wasmer_template_runtime",
  "webbrowser",
 ]
 
 [[package]]
 name = "fp-provider-runtime"
 version = "1.0.0-alpha.1"
-source = "git+ssh://git@github.com/fiberplane/providers.git?branch=main#ca1a02090ddba3c6aa673ec7847765b341347025"
+dependencies = [
+ "rand",
+ "reqwest",
+ "rmp-serde 1.0.0-beta.2",
+ "serde",
+ "serde_bytes",
+ "thiserror",
+ "tokio",
+ "wasmer",
+]
+
+[[package]]
+name = "fp-provider-runtime"
+version = "1.0.0-alpha.1"
+source = "git+ssh://git@github.com/fiberplane/providers.git?branch=main#2799de80c1aed462ec7e6cca55d51b449d06392f"
 dependencies = [
  "rand",
  "reqwest",
@@ -840,6 +863,12 @@ dependencies = [
  "cfg-if",
  "winapi",
 ]
+
+[[package]]
+name = "linked-hash-map"
+version = "0.5.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7fb9b38af92608140b86b693604b9ffcc5824240a484d1ecd4795bacb2fe88f3"
 
 [[package]]
 name = "lock_api"
@@ -1238,6 +1267,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5c7ed8b8c7b886ea3ed7dde405212185f423ab44682667c8c6dd14aa1d9f6612"
 dependencies = [
  "unicode-xid",
+]
+
+[[package]]
+name = "proxy_types"
+version = "0.1.0"
+dependencies = [
+ "fp-provider-runtime 1.0.0-alpha.1 (git+ssh://git@github.com/fiberplane/providers.git?branch=main)",
+ "rmp-serde 0.15.5",
+ "serde",
+ "thiserror",
+ "uuid",
 ]
 
 [[package]]
@@ -1678,6 +1718,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_yaml"
+version = "0.8.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d8c608a35705a5d3cdc9fbe403147647ff34b921f8e833e49306df898f9b20af"
+dependencies = [
+ "dtoa",
+ "indexmap",
+ "serde",
+ "yaml-rust",
+]
+
+[[package]]
 name = "sha-1"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1808,18 +1860,18 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "1.0.26"
+version = "1.0.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93119e4feac1cbe6c798c34d3a53ea0026b0b1de6a120deef895137c0529bfe2"
+checksum = "854babe52e4df1653706b98fcfc05843010039b406875930a70e4d9644e5c417"
 dependencies = [
  "thiserror-impl",
 ]
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.26"
+version = "1.0.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "060d69a0afe7796bf42e9e2ff91f5ee691fb15c53d38b4b62a9a53eb23164745"
+checksum = "aa32fd3f627f367fe16f893e2597ae3c05020f8bba2666a4e6ea73d377e5714b"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2128,6 +2180,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "05e42f7c18b8f902290b009cde6d651262f956c98bc51bca4cd1d511c9cd85c7"
 
 [[package]]
+name = "uuid"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
+dependencies = [
+ "getrandom",
+ "serde",
+]
+
+[[package]]
 name = "vcpkg"
 version = "0.2.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2427,6 +2489,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer_template_runtime"
+version = "1.0.0-alpha.1"
+dependencies = [
+ "fp-provider-runtime 1.0.0-alpha.1",
+ "rand",
+ "reqwest",
+ "rmp-serde 1.0.0-beta.2",
+ "serde",
+ "serde_bytes",
+ "thiserror",
+ "tokio",
+ "wasmer",
+]
+
+[[package]]
 name = "wasmparser"
 version = "0.78.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2545,4 +2622,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0120db82e8a1e0b9fb3345a539c478767c0048d842860994d96113d5b667bd69"
 dependencies = [
  "winapi",
+]
+
+[[package]]
+name = "yaml-rust"
+version = "0.4.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56c1936c4cc7a1c9ab21a1ebb602eb942ba868cbd44a99cb7cdc5892335e1c85"
+dependencies = [
+ "linked-hash-map",
 ]

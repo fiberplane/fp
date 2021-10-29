@@ -74,6 +74,11 @@ pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
     // Open the user's web browser to start the login flow
     if webbrowser::open(&login_url).is_err() {
         println!("Please go to this URL to login: {}", login_url);
+    } else {
+        println!(
+            "Please continue the login process in the newly opened window (or use {})",
+            login_url
+        );
     }
 
     let mut config = Config::load(args.config.as_deref()).await?;

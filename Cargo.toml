@@ -32,3 +32,7 @@ tracing-subscriber = "0.2"
 url = "2.2"
 wasmer = {version = "2.0", features = ["singlepass"]}
 webbrowser = "0.5.5"
+
+wasmer_template_runtime = { path = "../providers/runtimes/wasmer_template_runtime/"  }
+proxy_types = { path = "../proxy/proxy_types" }
+serde_yaml = "0.8.21"
