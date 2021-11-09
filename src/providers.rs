@@ -24,17 +24,19 @@ pub enum SubCommand {
 
 #[derive(Parser, Debug)]
 pub struct InvokeArguments {
-    #[clap(name = "provider_path", long, short, about = "path to the provider")]
+    #[clap(long, short, about = "path to the provider")]
     pub provider_path: String,
 
     #[clap(
-        name = "request",
+        long,
+        short,
         about = "JSON encoded request that will be sent to the provider"
     )]
     pub request: String,
 
     #[clap(
-        name = "config",
+        long,
+        short,
         about = "JSON encoded config that will be sent to the provider"
     )]
     pub config: String,
@@ -44,7 +46,7 @@ async fn handle_invoke_command(args: InvokeArguments) -> Result<()> {
     let request: ProviderRequest =
         serde_json::from_str(&args.request).context("unable to deserialize request")?;
     let config: Config =
-        serde_json::from_str(&args.request).context("unable to deserialize config")?;
+        serde_json::from_str(&args.config).context("unable to deserialize config")?;
 
     let engine = Universal::new(Singlepass::default()).engine();
     let store = Store::new(&engine);
