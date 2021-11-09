@@ -517,7 +517,7 @@ dependencies = [
 [[package]]
 name = "fp-provider-runtime"
 version = "1.0.0-alpha.1"
-source = "git+ssh://git@github.com/fiberplane/providers.git?branch=main#ca1a02090ddba3c6aa673ec7847765b341347025"
+source = "git+ssh://git@github.com/fiberplane/providers.git?branch=main#a9a1252aa8d2c0ce89120935d9f923e98b5cfef5"
 dependencies = [
  "rand",
  "reqwest",
@@ -526,6 +526,7 @@ dependencies = [
  "serde_bytes",
  "thiserror",
  "tokio",
+ "tracing",
  "wasmer",
 ]
 
@@ -722,6 +723,21 @@ dependencies = [
  "tower-service",
  "tracing",
  "want",
+]
+
+[[package]]
+name = "hyper-rustls"
+version = "0.22.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5f9f7a97316d44c0af9b0301e65010573a853a9fc97046d7331d7f6bc0fd5a64"
+dependencies = [
+ "futures-util",
+ "hyper",
+ "log",
+ "rustls",
+ "tokio",
+ "tokio-rustls",
+ "webpki",
 ]
 
 [[package]]
@@ -1432,6 +1448,7 @@ dependencies = [
  "http",
  "http-body",
  "hyper",
+ "hyper-rustls",
  "hyper-tls",
  "ipnet",
  "js-sys",
@@ -1442,15 +1459,18 @@ dependencies = [
  "native-tls",
  "percent-encoding",
  "pin-project-lite",
+ "rustls",
  "serde",
  "serde_json",
  "serde_urlencoded",
  "tokio",
  "tokio-native-tls",
+ "tokio-rustls",
  "url",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
+ "webpki-roots",
  "winreg",
 ]
 

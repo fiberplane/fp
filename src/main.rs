@@ -1,3 +1,5 @@
+use std::process;
+
 use clap::{AppSettings, Parser};
 
 mod auth;
@@ -78,5 +80,6 @@ async fn main() {
 
     if let Err(e) = result {
         eprintln!("Error: {:?}", e);
+        process::exit(1);
     }
 }
