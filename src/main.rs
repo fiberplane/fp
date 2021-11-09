@@ -4,7 +4,7 @@ use clap::{AppSettings, Parser};
 
 mod auth;
 mod config;
-mod plugins;
+mod providers;
 mod proxies;
 mod webhook;
 mod ws;
@@ -41,8 +41,8 @@ enum SubCommand {
     #[clap(name = "logout", about = "Logout from Fiberplane")]
     Logout,
 
-    #[clap(name = "plugins", about = "Interact with Fiberplane Plugins")]
-    Plugins(plugins::Arguments),
+    #[clap(name = "providers", about = "Interact with Fiberplane Providers")]
+    Providers(providers::Arguments),
 
     #[clap(name = "webhook", about = "Interact with Fiberplane Webhooks")]
     Webhook(webhook::Arguments),
@@ -70,7 +70,7 @@ async fn main() {
 
     use SubCommand::*;
     let result = match args.subcmd {
-        Plugins(args) => plugins::handle_command(args).await,
+        Providers(args) => providers::handle_command(args).await,
         Webhook(args) => webhook::handle_command(args).await,
         WebSockets(args) => ws::handle_command(args).await,
         Login => auth::handle_login_command(args).await,
