@@ -66,6 +66,6 @@ async fn handle_invoke_command(args: InvokeArguments) -> Result<()> {
             }
             Err(e) => Err(anyhow!("unable to serialize result: {:?}", e)),
         },
-        Err(e) => Err(anyhow!("Unable to invoke provider: {:?}", e)),
+        Err(e) => Err(anyhow!("unable to invoke provider: {:?}", e)),
     }
 }
