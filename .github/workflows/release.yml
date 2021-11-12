@@ -2,6 +2,7 @@ on:
   release:
     types:
       - created
+  workflow_dispatch:
 
 jobs:
   build-upload-assets:
@@ -21,11 +22,11 @@ jobs:
             rust: stable
             target: x86_64-unknown-linux-gnu
           - build: macos_x86_64
-            os: macos-latest
+            os: macOS-11
             rust: stable
             target: x86_64-apple-darwin
           - build: macos_aarch64
-            os: macos-latest
+            os: macOS-11
             rust: stable
             target: aarch64-apple-darwin
 
@@ -40,15 +41,8 @@ jobs:
         with:
           credentials: "https://fiberplanebot:${{ secrets.PRIVATE_GITHUB_TOKEN }}@github.com/"
 
-      # - name: Install packages (Ubuntu)
-      #   if: matrix.os == 'ubuntu-18.04'
-      #   run: |
-      #     ci/ubuntu-install-packages
-
-      # - name: Install packages (macOS)
-      #   if: matrix.os == 'macos-latest'
-      #   run: |
-      #     ci/macos-install-packages
+      - name: cargo fetch
+        run: cargo fetch --target ${{ matrix.target }}
 
       - name: Install Rust
         uses: actions-rs/toolchain@v1
@@ -88,6 +82,7 @@ jobs:
       #       /target/arm-unknown-linux-gnueabihf/release/rg
 
       - name: Upload release archive
+        if: github.event_name == 'release'
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -96,3 +91,12 @@ jobs:
           asset_path: target/${{ matrix.target }}/release/fp
           asset_name: fp-${{ matrix.build }}
           asset_content_type: application/octet-stream
+
+      - name: Upload build artifact
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v2
+        with:
+          name: fp-${{ matrix.build }}
+          path: target/${{ matrix.target }}/release/fp
+          if-no-files-found: error
+          retention-days: 1
