@@ -4,13 +4,8 @@ on:
       - created
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-
-  build-assets:
-    name: build-release
+  build-upload-assets:
+    name: build-upload-assets
     runs-on: ${{ matrix.os }}
     env:
       CARGO: cargo
