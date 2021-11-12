@@ -35,6 +35,11 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: setup-git-credentials
+        uses: fusion-engineering/setup-git-credentials@v2
+        with:
+          credentials: "https://fiberplanebot:${{ secrets.PRIVATE_GITHUB_TOKEN }}@github.com/"
+
       # - name: Install packages (Ubuntu)
       #   if: matrix.os == 'ubuntu-18.04'
       #   run: |
