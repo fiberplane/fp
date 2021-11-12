@@ -1,0 +1,93 @@
+on:
+  release:
+    types:
+      - created
+
+jobs:
+  build-upload-assets:
+    name: build-upload-assets
+    runs-on: ${{ matrix.os }}
+    env:
+      CARGO: cargo
+      TARGET_FLAGS: ""
+      TARGET_DIR: ./target
+      RUST_BACKTRACE: 1
+    strategy:
+      matrix:
+        build: [linux_x86_64, macos_x86_64, macos_aarch64]
+        include:
+          - build: linux_x86_64
+            os: ubuntu-latest
+            rust: stable
+            target: x86_64-unknown-linux-gnu
+          - build: macos_x86_64
+            os: macos-latest
+            rust: stable
+            target: x86_64-apple-darwin
+          - build: macos_aarch64
+            os: macos-latest
+            rust: stable
+            target: aarch64-apple-darwin
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+
+      # - name: Install packages (Ubuntu)
+      #   if: matrix.os == 'ubuntu-18.04'
+      #   run: |
+      #     ci/ubuntu-install-packages
+
+      # - name: Install packages (macOS)
+      #   if: matrix.os == 'macos-latest'
+      #   run: |
+      #     ci/macos-install-packages
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          profile: minimal
+          override: true
+          target: ${{ matrix.target }}
+
+      - name: Use Cross
+        run: |
+          cargo install cross
+          echo "CARGO=cross" >> $GITHUB_ENV
+          echo "TARGET_FLAGS=--target ${{ matrix.target }}" >> $GITHUB_ENV
+          echo "TARGET_DIR=./target/${{ matrix.target }}" >> $GITHUB_ENV
+
+      - name: Show command used for Cargo
+        run: |
+          echo "cargo command is: ${{ env.CARGO }}"
+          echo "target flag is: ${{ env.TARGET_FLAGS }}"
+          echo "target dir is: ${{ env.TARGET_DIR }}"
+
+      - name: Build release binary
+        run: ${{ env.CARGO }} build --verbose --release ${{ env.TARGET_FLAGS }}
+
+      - name: Strip release binary (linux and macos)
+        if: matrix.build == 'linux_x86_64' || matrix.build == 'macos_x86_64'
+        run: strip "target/${{ matrix.target }}/release/fp"
+
+      # - name: Strip release binary (arm)
+      #   if: matrix.build == 'macos_aarch64'
+      #   run: |
+      #     docker run --rm -v \
+      #       "$PWD/target:/target:Z" \
+      #       rustembedded/cross:arm-unknown-linux-gnueabihf \
+      #       arm-linux-gnueabihf-strip \
+      #       /target/arm-unknown-linux-gnueabihf/release/rg
+
+      - name: Upload release archive
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: target/${{ matrix.target }}/release/fp
+          asset_name: fp-${{ matrix.build }}
+          asset_content_type: application/octet-stream
