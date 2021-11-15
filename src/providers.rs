@@ -1,7 +1,6 @@
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 use fp_provider_runtime::spec::types::{Config, ProviderRequest, ProviderResponse};
-use wasmer::{Singlepass, Store, Universal};
 
 #[derive(Parser)]
 pub struct Arguments {
@@ -48,13 +47,10 @@ async fn handle_invoke_command(args: InvokeArguments) -> Result<()> {
     let config: Config =
         serde_json::from_str(&args.config).context("unable to deserialize config")?;
 
-    let engine = Universal::new(Singlepass::default()).engine();
-    let store = Store::new(&engine);
-
     let wasm_module = std::fs::read(args.provider_path)
         .map_err(|e| anyhow!("unable to read wasm module: {:?}", e))?;
 
-    let runtime = fp_provider_runtime::Runtime::new(store, wasm_module)
+    let runtime = fp_provider_runtime::Runtime::new(wasm_module)
         .map_err(|e| anyhow!("unable to create runtime: {:?}", e))?;
 
     let result = runtime.invoke(request, config).await;
