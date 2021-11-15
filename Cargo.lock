@@ -479,14 +479,13 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "url",
- "wasmer",
  "webbrowser",
 ]
 
 [[package]]
 name = "fp-provider-runtime"
 version = "1.0.0-alpha.1"
-source = "git+ssh://git@github.com/fiberplane/providers.git?branch=main#a9a1252aa8d2c0ce89120935d9f923e98b5cfef5"
+source = "git+ssh://git@github.com/fiberplane/providers.git?branch=wasmer_store#64d3d5772b33ffb4be5abdb0b3660cfd9666bbd9"
 dependencies = [
  "rand",
  "reqwest",
