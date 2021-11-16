@@ -4,6 +4,8 @@ on:
       - created
   workflow_dispatch:
 
+name: Publish binaries
+
 jobs:
   build-upload-assets:
     name: build-upload-assets
@@ -81,6 +83,15 @@ jobs:
       #       arm-linux-gnueabihf-strip \
       #       /target/arm-unknown-linux-gnueabihf/release/rg
 
+      - name: Upload build artifact
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v2
+        with:
+          name: fp-${{ matrix.build }}
+          path: target/${{ matrix.target }}/release/fp
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Upload release archive
         if: github.event_name == 'release'
         uses: actions/upload-release-asset@v1
@@ -92,11 +103,18 @@ jobs:
           asset_name: fp-${{ matrix.build }}
           asset_content_type: application/octet-stream
 
-      - name: Upload build artifact
-        if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v2
+      - name: Configure AWS Credentials
+        if: github.event_name == 'release'
+        uses: aws-actions/configure-aws-credentials@v1
         with:
-          name: fp-${{ matrix.build }}
-          path: target/${{ matrix.target }}/release/fp
-          if-no-files-found: error
-          retention-days: 1
+          aws-access-key-id: ${{ secrets.DEPLOY_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.DEPLOY_AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-central-1
+
+      - name: Upload binary to S3
+        if: github.event_name == 'release'
+        run: |
+          aws s3 cp \
+            --acl public-read \
+            target/${{ matrix.target }}/release/fp \
+            s3://builds.fiberplane.io/fp/${{ github.event.release.tag_name }}/${{ matrix.build }}/fp
