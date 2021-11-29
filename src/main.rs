@@ -1,11 +1,11 @@
-use std::process;
-
 use clap::{AppSettings, Parser};
+use std::process;
 
 mod auth;
 mod config;
 mod providers;
 mod proxies;
+mod stress_test;
 mod webhook;
 mod ws;
 
@@ -60,6 +60,13 @@ enum SubCommand {
         about = "Commands related to Fiberplane Proxies"
     )]
     Proxies(proxies::Arguments),
+
+    #[clap(
+        name = "stress-test",
+        alias = "stress",
+        about = "Stress test the notebook api"
+    )]
+    StressTest(stress_test::Arguments),
 }
 
 #[tokio::main]
@@ -76,6 +83,7 @@ async fn main() {
         Login => auth::handle_login_command(args).await,
         Logout => auth::handle_logout_command(args).await,
         Proxies(args) => proxies::handle_command(args).await,
+        StressTest(args) => stress_test::handle_command(args).await,
     };
 
     if let Err(e) = result {

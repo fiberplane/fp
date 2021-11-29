@@ -38,6 +38,8 @@ tracing = "0.1"
 tracing-subscriber = "0.2"
 url = "2.2"
 webbrowser = "0.5.5"
+rand = "0.8.4"
+uuid = { version = "0.8", features = ["serde", "v4", "v5"] }
 
 # [patch."ssh://git@github.com/fiberplane/providers.git"]
 # fp-provider-runtime = { path = "../providers/runtimes/fp-provider-runtime/" }
