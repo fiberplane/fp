@@ -6,6 +6,7 @@ mod auth;
 mod config;
 mod providers;
 mod proxies;
+mod templates;
 mod webhook;
 mod ws;
 
@@ -60,6 +61,13 @@ enum SubCommand {
         about = "Commands related to Fiberplane Proxies"
     )]
     Proxies(proxies::Arguments),
+
+    #[clap(
+        name = "templates",
+        alias = "template",
+        about = "Commands related to Fiberplane Templates"
+    )]
+    Templates(templates::Arguments),
 }
 
 #[tokio::main]
@@ -76,6 +84,7 @@ async fn main() {
         Login => auth::handle_login_command(args).await,
         Logout => auth::handle_logout_command(args).await,
         Proxies(args) => proxies::handle_command(args).await,
+        Templates(args) => templates::handle_command(args).await,
     };
 
     if let Err(e) = result {
