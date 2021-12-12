@@ -1,7 +1,8 @@
+use crate::config::api_client_configuration;
 use anyhow::{anyhow, Context, Error, Result};
 use clap::{Parser, ValueHint};
 use fiberplane::protocols::core::{
-    Cell, HeadingCell, HeadingType, NewNotebook, TextCell, TimeRange,
+    Cell, HeadingCell, HeadingType, NewNotebook, Notebook, TextCell, TimeRange,
 };
 use fiberplane_templates::{evaluate_template, notebook_to_template};
 use serde_json::Value;
@@ -21,8 +22,9 @@ pub struct Arguments {
 pub async fn handle_command(args: Arguments) -> Result<()> {
     use SubCommand::*;
     match args.subcmd {
-        New => handle_new_command().await, // Invoke(args) => handle_invoke_command(args).await,
+        New => handle_new_command().await,
         Invoke(args) => handle_invoke_command(args).await,
+        CreateNotebook(args) => handle_create_notebook_command(args).await,
     }
 }
 
@@ -30,8 +32,15 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 enum SubCommand {
     #[clap(name = "new", about = "Generate a blank template and print it")]
     New,
-    // #[clap(name = "invoke", about = "Invoke a template and print the result")]
+
+    #[clap(name = "invoke", about = "Invoke a template and print the result")]
     Invoke(InvokeArguments),
+
+    #[clap(
+        name = "create-notebook",
+        about = "Invoke the template and create a Fiberplane notebook from it"
+    )]
+    CreateNotebook(CreateNotebookArguments),
 }
 
 #[derive(Parser)]
@@ -46,6 +55,18 @@ struct InvokeArguments {
 
     #[clap(name = "template", long, short, about = "Path or URL of template file to invoke", value_hint = ValueHint::AnyPath)]
     template: String,
+}
+
+#[derive(Parser)]
+struct CreateNotebookArguments {
+    #[clap(flatten)]
+    invoke_args: InvokeArguments,
+
+    #[clap(from_global)]
+    base_url: String,
+
+    #[clap(from_global)]
+    config: Option<String>,
 }
 
 struct TemplateArg {
@@ -112,7 +133,7 @@ async fn handle_new_command() -> Result<()> {
     Ok(())
 }
 
-async fn handle_invoke_command(args: InvokeArguments) -> Result<()> {
+async fn invoke_template(args: InvokeArguments) -> Result<NewNotebook> {
     let path = PathBuf::from(&args.template);
     match path.extension().and_then(|s| s.to_str()) {
         Some(ext) if ext == "jsonnet" => {}
@@ -137,8 +158,45 @@ async fn handle_invoke_command(args: InvokeArguments) -> Result<()> {
 
     let args: HashMap<String, Value> = args.args.into_iter().map(|a| (a.name, a.value)).collect();
 
-    let notebook =
-        evaluate_template(template, &args).with_context(|| "Error evaluating template")?;
+    evaluate_template(template, &args).with_context(|| "Error evaluating template")
+}
+
+async fn handle_invoke_command(args: InvokeArguments) -> Result<()> {
+    let notebook = invoke_template(args).await?;
     println!("{}", serde_json::to_string_pretty(&notebook)?);
+    Ok(())
+}
+
+async fn handle_create_notebook_command(args: CreateNotebookArguments) -> Result<()> {
+    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+    let notebook = invoke_template(args.invoke_args).await?;
+    // TODO use generated API client
+
+    let mut url = Url::parse(&config.base_path)?;
+    {
+        url.path_segments_mut()
+            .map_err(|_| anyhow!("Cannot create API URL"))?
+            .push("api")
+            .push("notebooks");
+    }
+
+    let notebook: Notebook = config
+        .client
+        .post(url)
+        .bearer_auth(
+            config
+                .oauth_access_token
+                .or(config.bearer_access_token)
+                .unwrap_or_default(),
+        )
+        .body(serde_json::to_string(&notebook)?)
+        .send()
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+    let notebook_url = format!("{}/notebook/{}", config.base_path, notebook.id);
+    println!("Created notebook: {}", notebook_url);
+
     Ok(())
 }
