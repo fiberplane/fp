@@ -5,6 +5,8 @@ use fiberplane::protocols::core::{
     Cell, HeadingCell, HeadingType, NewNotebook, Notebook, TextCell, TimeRange,
 };
 use fiberplane_templates::{evaluate_template, notebook_to_template};
+use lazy_static::lazy_static;
+use regex::Regex;
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
 use std::env;
@@ -12,6 +14,10 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use tokio::fs;
 use url::Url;
+
+lazy_static! {
+    static ref NOTEBOOK_ID_REGEX: Regex = Regex::from_str("[a-zA-Z0-9]+$").unwrap();
+}
 
 #[derive(Parser)]
 pub struct Arguments {
@@ -25,6 +31,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
         New => handle_new_command().await,
         Invoke(args) => handle_invoke_command(args).await,
         CreateNotebook(args) => handle_create_notebook_command(args).await,
+        FromNotebook(args) => handle_from_notebook_command(args).await,
     }
 }
 
@@ -41,6 +48,12 @@ enum SubCommand {
         about = "Invoke the template and create a Fiberplane notebook from it"
     )]
     CreateNotebook(CreateNotebookArguments),
+
+    #[clap(
+        name = "from-notebook",
+        about = "Create a template from an existing Fiberplane notebook"
+    )]
+    FromNotebook(FromNotebookArguments),
 }
 
 #[derive(Parser)]
@@ -67,6 +80,18 @@ struct CreateNotebookArguments {
 
     #[clap(from_global)]
     config: Option<String>,
+}
+
+#[derive(Parser)]
+struct FromNotebookArguments {
+    #[clap(from_global)]
+    base_url: String,
+
+    #[clap(from_global)]
+    config: Option<String>,
+
+    #[clap(about = "Notebook URL to convert")]
+    notebook_url: String,
 }
 
 struct TemplateArg {
@@ -197,6 +222,52 @@ async fn handle_create_notebook_command(args: CreateNotebookArguments) -> Result
         .await?;
     let notebook_url = format!("{}/notebook/{}", config.base_path, notebook.id);
     println!("Created notebook: {}", notebook_url);
+
+    Ok(())
+}
+
+async fn handle_from_notebook_command(args: FromNotebookArguments) -> Result<()> {
+    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+
+    let notebook_id = &NOTEBOOK_ID_REGEX.captures(&args.notebook_url).unwrap()[0];
+    let mut url = Url::parse(&config.base_path)?;
+    {
+        url.path_segments_mut()
+            .map_err(|_| anyhow!("Cannot create API URL"))?
+            .push("api")
+            .push("notebooks")
+            .push(notebook_id);
+    }
+
+    // TODO use generated API client
+    let notebook: Notebook = config
+        .client
+        .get(url)
+        .bearer_auth(
+            config
+                .oauth_access_token
+                .or(config.bearer_access_token)
+                .unwrap_or_default(),
+        )
+        .send()
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+    let notebook = NewNotebook {
+        title: notebook.title,
+        cells: notebook.cells,
+        data_sources: notebook.data_sources,
+        time_range: notebook.time_range,
+    };
+    let template = notebook_to_template(notebook);
+    println!(
+        "
+// This template was generated from the notebook: {}
+
+{}",
+        args.notebook_url, template
+    );
 
     Ok(())
 }
