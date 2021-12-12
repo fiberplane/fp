@@ -10,6 +10,7 @@ use std::env;
 use std::path::PathBuf;
 use std::str::FromStr;
 use tokio::fs;
+use url::Url;
 
 #[derive(Parser)]
 pub struct Arguments {
@@ -112,22 +113,32 @@ async fn handle_new_command() -> Result<()> {
 }
 
 async fn handle_invoke_command(args: InvokeArguments) -> Result<()> {
-    let path = PathBuf::from(args.template);
+    let path = PathBuf::from(&args.template);
     match path.extension().and_then(|s| s.to_str()) {
         Some(ext) if ext == "jsonnet" => {}
         _ => return Err(anyhow!("Template must be a .jsonnet file")),
     }
 
-    match fs::read_to_string(path).await {
-        Ok(template) => {
-            let args: HashMap<String, Value> =
-                args.args.into_iter().map(|a| (a.name, a.value)).collect();
-
-            let notebook =
-                evaluate_template(template, &args).with_context(|| "Error evaluating template")?;
-            println!("{}", serde_json::to_string_pretty(&notebook)?);
-            Ok(())
+    let template = match fs::read_to_string(path).await {
+        Ok(template) => template,
+        Err(err) => {
+            if let Ok(url) = Url::parse(&args.template) {
+                reqwest::get(url.as_ref())
+                    .await
+                    .with_context(|| format!("Error loading template from URL: {}", url))?
+                    .text()
+                    .await
+                    .with_context(|| format!("Error reading remote file as text"))?
+            } else {
+                return Err(anyhow!("Unable to load template: {:?}", err));
+            }
         }
-        Err(err) => unimplemented!(),
-    }
+    };
+
+    let args: HashMap<String, Value> = args.args.into_iter().map(|a| (a.name, a.value)).collect();
+
+    let notebook =
+        evaluate_template(template, &args).with_context(|| "Error evaluating template")?;
+    println!("{}", serde_json::to_string_pretty(&notebook)?);
+    Ok(())
 }
