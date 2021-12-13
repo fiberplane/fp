@@ -477,19 +477,33 @@ checksum = "4443176a9f2c162692bd3d352d745ef9413eec5782a80d8fd6f8a1ac692a07f7"
 [[package]]
 name = "fiberplane"
 version = "0.1.0"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#7abacd89bf187dc900dbd4327fb7b39ff8cf9e89"
 dependencies = [
  "fp-bindgen",
  "serde",
  "thiserror",
  "time",
- "time_util",
+ "time_util 0.1.0 (git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main)",
+]
+
+[[package]]
+name = "fiberplane"
+version = "0.1.0"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=notebook_models#9a1c29fa99741313b99e6cc42d79d6d6eb4ce55b"
+dependencies = [
+ "fp-bindgen",
+ "serde",
+ "thiserror",
+ "time",
+ "time_util 0.1.0 (git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=notebook_models)",
 ]
 
 [[package]]
 name = "fiberplane-templates"
 version = "0.1.0"
+source = "git+ssh://git@github.com/emschwartz/templates.git?branch=main#c47b46a332dc16ddadcda127afb6553afc4192f4"
 dependencies = [
- "fiberplane",
+ "fiberplane 0.1.0 (git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=notebook_models)",
  "jrsonnet-evaluator",
  "serde_json",
  "thiserror",
@@ -529,7 +543,7 @@ dependencies = [
  "anyhow",
  "clap 3.0.0-beta.5",
  "directories",
- "fiberplane",
+ "fiberplane 0.1.0 (git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main)",
  "fiberplane-templates",
  "fiberplane_api",
  "fp-provider-runtime",
@@ -1947,6 +1961,16 @@ dependencies = [
 [[package]]
 name = "time_util"
 version = "0.1.0"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#7abacd89bf187dc900dbd4327fb7b39ff8cf9e89"
+dependencies = [
+ "serde",
+ "time",
+]
+
+[[package]]
+name = "time_util"
+version = "0.1.0"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=notebook_models#9a1c29fa99741313b99e6cc42d79d6d6eb4ce55b"
 dependencies = [
  "serde",
  "time",

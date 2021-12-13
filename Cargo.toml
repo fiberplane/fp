@@ -11,7 +11,7 @@ about = "A cli to interact with the Fiberplane service"
 anyhow = "1.0.44"
 clap = "3.0.0-beta.5"
 directories = "4.0.1"
-fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "notebook_models" }
+fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main" }
 # fiberplane = { path = "../fiberplane-rs/fiberplane" }
 fiberplane_api = { path = "./generated/fiberplane_api" }
 fiberplane-templates = { git = "ssh://git@github.com/emschwartz/templates.git", branch = "main" }
