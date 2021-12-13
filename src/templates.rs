@@ -108,7 +108,7 @@ impl FromStr for TemplateArg {
             1 => (
                 out[0].to_string(),
                 env::var(out[0])
-                    .or(Err(anyhow!(format!("Missing env var: \"{}\" (if you did not mean to pass this as an env var, you should write it in the form: name=value", out[0]))))?,
+                    .map_err(|_| anyhow!(format!("Missing env var: \"{}\" (if you did not mean to pass this as an env var, you should write it in the form: name=value", out[0])))?,
             ),
             2 => (out[0].to_string(), out[1].to_string()),
             _ => {
@@ -119,7 +119,7 @@ impl FromStr for TemplateArg {
         };
         Ok(TemplateArg {
             name,
-            value: serde_json::from_str(&value).unwrap_or_else(|_| Value::String(value)),
+            value: serde_json::from_str(&value).unwrap_or(Value::String(value)),
         })
     }
 }
@@ -174,7 +174,7 @@ async fn invoke_template(args: InvokeArguments) -> Result<NewNotebook> {
                     .with_context(|| format!("Error loading template from URL: {}", url))?
                     .text()
                     .await
-                    .with_context(|| format!("Error reading remote file as text"))?
+                    .with_context(|| format!("Error reading remote file as text: {}", url))?
             } else {
                 return Err(anyhow!("Unable to load template: {:?}", err));
             }
