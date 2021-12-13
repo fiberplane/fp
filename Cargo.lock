@@ -483,27 +483,15 @@ dependencies = [
  "serde",
  "thiserror",
  "time",
- "time_util 0.1.0 (git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main)",
-]
-
-[[package]]
-name = "fiberplane"
-version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=notebook_models#9a1c29fa99741313b99e6cc42d79d6d6eb4ce55b"
-dependencies = [
- "fp-bindgen",
- "serde",
- "thiserror",
- "time",
- "time_util 0.1.0 (git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=notebook_models)",
+ "time_util",
 ]
 
 [[package]]
 name = "fiberplane-templates"
 version = "0.1.0"
-source = "git+ssh://git@github.com/emschwartz/templates.git?branch=main#c47b46a332dc16ddadcda127afb6553afc4192f4"
+source = "git+ssh://git@github.com/emschwartz/templates.git?branch=main#5cd37e337bef39026ddbf5bc0d13082a0c168b7d"
 dependencies = [
- "fiberplane 0.1.0 (git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=notebook_models)",
+ "fiberplane",
  "jrsonnet-evaluator",
  "serde_json",
  "thiserror",
@@ -543,7 +531,7 @@ dependencies = [
  "anyhow",
  "clap 3.0.0-beta.5",
  "directories",
- "fiberplane 0.1.0 (git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main)",
+ "fiberplane",
  "fiberplane-templates",
  "fiberplane_api",
  "fp-provider-runtime",
@@ -570,7 +558,7 @@ dependencies = [
 [[package]]
 name = "fp-bindgen"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fp-bindgen.git?branch=main#4c5ad81445ce686e5cfecae1db9349309a07148b"
+source = "git+ssh://git@github.com/fiberplane/fp-bindgen.git?branch=main#0e35fe492f91ce589db6d03e42016d520f615827"
 dependencies = [
  "Inflector",
  "dashmap",
@@ -587,7 +575,7 @@ dependencies = [
 [[package]]
 name = "fp-bindgen-macros"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fp-bindgen.git?branch=main#4c5ad81445ce686e5cfecae1db9349309a07148b"
+source = "git+ssh://git@github.com/fiberplane/fp-bindgen.git?branch=main#0e35fe492f91ce589db6d03e42016d520f615827"
 dependencies = [
  "once_cell",
  "proc-macro-error",
@@ -1962,15 +1950,6 @@ dependencies = [
 name = "time_util"
 version = "0.1.0"
 source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#7abacd89bf187dc900dbd4327fb7b39ff8cf9e89"
-dependencies = [
- "serde",
- "time",
-]
-
-[[package]]
-name = "time_util"
-version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=notebook_models#9a1c29fa99741313b99e6cc42d79d6d6eb4ce55b"
 dependencies = [
  "serde",
  "time",
