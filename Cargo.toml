@@ -14,7 +14,7 @@ directories = "4.0.1"
 fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main" }
 # fiberplane = { path = "../fiberplane-rs/fiberplane" }
 fiberplane_api = { path = "./generated/fiberplane_api" }
-fiberplane-templates = { git = "ssh://git@github.com/emschwartz/templates.git", branch = "main" }
+fiberplane-templates = { git = "ssh://git@github.com/fiberplane/templates.git", branch = "main" }
 fp-provider-runtime = { git = "ssh://git@github.com/fiberplane/providers.git", branch = "main" }
 futures-util = "0.3"
 hyper = { version = "0.14.13", features = [
