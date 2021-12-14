@@ -9,7 +9,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
-use std::env;
+use std::env::{self, current_dir};
 use std::path::PathBuf;
 use std::str::FromStr;
 use tokio::fs;
@@ -28,7 +28,7 @@ pub struct Arguments {
 pub async fn handle_command(args: Arguments) -> Result<()> {
     use SubCommand::*;
     match args.subcmd {
-        New => handle_new_command().await,
+        Init => handle_init_command().await,
         Invoke(args) => handle_invoke_command(args).await,
         CreateNotebook(args) => handle_create_notebook_command(args).await,
         FromNotebook(args) => handle_from_notebook_command(args).await,
@@ -37,8 +37,11 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 
 #[derive(Parser)]
 enum SubCommand {
-    #[clap(name = "new", about = "Generate a blank template and print it")]
-    New,
+    #[clap(
+        name = "init",
+        about = "Create a blank template and save it in the current directory as template.jsonnet"
+    )]
+    Init,
 
     #[clap(name = "invoke", about = "Invoke a template and print the result")]
     Invoke(InvokeArguments),
@@ -124,7 +127,7 @@ impl FromStr for TemplateArg {
     }
 }
 
-async fn handle_new_command() -> Result<()> {
+async fn handle_init_command() -> Result<()> {
     let notebook = NewNotebook {
         title: "Replace me!".to_string(),
         time_range: TimeRange {
@@ -147,14 +150,13 @@ async fn handle_new_command() -> Result<()> {
         ],
     };
     let template = notebook_to_template(notebook);
-    println!(
-        "// This is a Fiberplane Template. Save it to a file
-// with the extension \".jsonnet\" and edit it
-// however you like!
-    
-{}",
-        template
-    );
+
+    let mut path = current_dir()?;
+    path.push("template.jsonnet");
+
+    fs::write(&path, template).await?;
+    println!("Saved template to: {}", path.display());
+
     Ok(())
 }
 
