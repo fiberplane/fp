@@ -174,6 +174,7 @@ impl<'a> ApplyOperationState for NotebookState<'a> {
 struct Inner {
     notebook: MemoryNotebook,
     reply_waiters: HashMap<String, oneshot::Sender<ServerRealtimeMessage>>,
+    operations_queue: HashMap<String, Operation>,
 }
 
 pub struct Worker {
@@ -213,6 +214,7 @@ impl Worker {
             inner: Arc::new(RwLock::new(Inner {
                 notebook: inb,
                 reply_waiters: HashMap::new(),
+                operations_queue: HashMap::new(),
             })),
             queue: tx,
             notebook_id: notebook_id.clone(),
@@ -274,32 +276,46 @@ impl Worker {
             .cloned()
     }
 
-    pub async fn insert_text_cell(&self, content: String) {
-        //let cell = self.get_random_cell();
-
+    pub async fn insert_text_cell(&self, content: String) -> Result<String> {
         loop {
             let id = Uuid::new_v4().to_string();
             let op_id = Uuid::new_v4().to_string();
             let (revision, len) = {
                 let inner = self.inner.read().unwrap();
-                (inner.notebook.0.revision, inner.notebook.0.cells.len())
+                let res = (
+                    inner.notebook.0.revision + 1,
+                    inner.notebook.0.cells.len() - 1,
+                );
+                res
             };
+
+            let operation = Operation::AddCells(AddCellsOperation {
+                cells: vec![CellWithIndex {
+                    cell: Cell::Text(TextCell {
+                        id: id.clone(),
+                        content: content.clone(),
+                        read_only: Some(false),
+                    }),
+                    index: len as u32,
+                }],
+                referencing_cells: None,
+            });
+
+            {
+                let mut inner = self.inner.write().unwrap();
+                if let Ok(nb) = inner.notebook.apply_operation(&operation) {
+                    inner.notebook = nb;
+                    inner.notebook.0.revision = revision;
+                } else {
+                    break Err(anyhow!("Failed to apply operation locally"));
+                }
+            }
 
             let res = self
                 .send_message(ClientRealtimeMessage::ApplyOperation(Box::new(
                     ApplyOperationMessage {
                         notebook_id: self.notebook_id.clone(),
-                        operation: Operation::AddCells(AddCellsOperation {
-                            cells: vec![CellWithIndex {
-                                cell: Cell::Text(TextCell {
-                                    id: id.clone(),
-                                    content: content.clone(),
-                                    read_only: Some(false),
-                                }),
-                                index: len as u32,
-                            }],
-                            referencing_cells: None,
-                        }),
+                        operation: operation.clone(),
                         revision,
                         op_id: Some(op_id.clone()),
                     },
@@ -310,24 +326,64 @@ impl Worker {
 
             if let Ok(msg) = res {
                 match msg {
-                    ServerRealtimeMessage::Ack(_) => break,
+                    ServerRealtimeMessage::Ack(_) => break Ok(id),
                     _ => {
-                        tokio::time::sleep(Duration::from_millis(200)).await;
+                        tokio::time::sleep(Duration::from_secs(1)).await;
                     }
                 }
             }
         }
     }
 
+    pub async fn write_text_cell(
+        &self,
+        content: String,
+        character_delay: Option<Duration>,
+    ) -> Result<()> {
+        let cell_id = self.insert_text_cell(String::new()).await?;
+
+        for c in content.chars() {
+            let revision = self.get_next_revision();
+            let cell = Box::new(self.get_cell(&cell_id).unwrap());
+            let operation = Operation::UpdateCell(UpdateCellOperation {
+                updated_cell: Box::new(cell.with_appended_content(&c.to_string())),
+                old_cell: cell,
+            });
+
+            let _res = self
+                .send_message(ClientRealtimeMessage::ApplyOperation(Box::new(
+                    ApplyOperationMessage {
+                        notebook_id: self.notebook_id.clone(),
+                        operation,
+                        revision,
+                        op_id: Some(Uuid::new_v4().to_string()),
+                    },
+                )))
+                .await;
+
+            if let Some(dur) = &character_delay {
+                tokio::time::sleep(dur.clone()).await;
+            }
+        }
+
+        Ok(())
+    }
+
     async fn send_message(&self, message: ClientRealtimeMessage) -> Result<ServerRealtimeMessage> {
         info!(?message, "Queueing message");
         let (tx, rx) = oneshot::channel();
 
-        self.inner
-            .write()
-            .unwrap()
-            .reply_waiters
-            .insert(message.op_id().clone().unwrap(), tx);
+        {
+            let mut inner = self.inner.write().unwrap();
+            let k = message.op_id().clone().unwrap();
+
+            if let ClientRealtimeMessage::ApplyOperation(apply) = &message {
+                inner
+                    .operations_queue
+                    .insert(k.clone(), apply.operation.clone());
+            }
+            inner.reply_waiters.insert(k, tx);
+        }
 
         self.queue.send(message).await?;
         info!("Queueing done, awaiting response");
@@ -385,10 +441,26 @@ impl Worker {
 
                     let inner = &mut inner.write().unwrap();
 
-                    if let ServerRealtimeMessage::ApplyOperation(op) = &msg {
-                        if let Ok(nb) = inner.notebook.apply_operation(&op.operation) {
-                            inner.notebook = nb;
+                    match &msg {
+                        ServerRealtimeMessage::ApplyOperation(op) => {
+                            if let Ok(nb) = inner.notebook.apply_operation(&op.operation) {
+                                inner.notebook = nb;
+                                inner.notebook.0.revision = op.revision;
+                            }
                         }
+                        ServerRealtimeMessage::Reject(r) => {
+                            debug!("reverting rejected operation");
+                            if let Some(op_id) = &r.op_id {
+                                if let Some(operation) = inner.operations_queue.remove(op_id) {
+                                    let revert = invert_operation(&operation);
+                                    if let Ok(nb) = inner.notebook.apply_operation(&revert) {
+                                        inner.notebook = nb;
+                                        inner.notebook.0.revision = r.current_revision;
+                                    }
+                                }
+                            }
+                        }
+                        _ => {}
                     }
 
                     get_op_id(&msg)
@@ -403,6 +475,23 @@ impl Worker {
         }
 
         warn!("Reader loop exited");
+    }
+
+    fn get_cell(&self, id: impl AsRef<str>) -> Option<Cell> {
+        self.inner
+            .read()
+            .unwrap()
+            .notebook
+            .0
+            .cell(id.as_ref())
+            .cloned()
+    }
+
+    fn get_revision(&self) -> u32 {
+        self.inner.read().unwrap().notebook.0.revision
+    }
+    fn get_next_revision(&self) -> u32 {
+        self.get_revision() + 1
     }
 }
 

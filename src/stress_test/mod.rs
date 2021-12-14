@@ -55,9 +55,12 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 pub async fn execute_stress_test(args: ExecuteArguments) -> Result<()> {
     let worker = worker::Worker::new(args.base_url, args.notebook_id, args.config).await?;
 
-    worker.insert_text_cell("Hello world?".to_owned()).await;
-    tokio::time::sleep(Duration::from_secs(3)).await;
-    worker.insert_text_cell("Hello foobar!".to_owned()).await;
+    for _ in 0..100 {
+        let _ = worker
+            .write_text_cell("Hello world?".to_owned(), Some(Duration::from_millis(60)))
+            .await;
+        tokio::time::sleep(Duration::from_millis(1000)).await;
+    }
 
     tokio::time::sleep(Duration::from_secs(10)).await;
 
