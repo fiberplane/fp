@@ -106,24 +106,16 @@ impl FromStr for TemplateArg {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
-        let out: Vec<_> = s.split('=').collect();
-        let (name, value) = match out.len() {
-            1 => (
-                out[0].to_string(),
-                env::var(out[0])
-                    .map_err(|_| anyhow!(format!("Missing env var: \"{}\" (if you did not mean to pass this as an env var, you should write it in the form: name=value", out[0])))?,
-            ),
-            2 => (out[0].to_string(), out[1].to_string()),
-            _ => {
-                return Err(anyhow!(
-                    "Invalid argument syntax. Must be in the form name=value"
-                ))
-            }
-        };
-        Ok(TemplateArg {
-            name,
-            value: serde_json::from_str(&value).unwrap_or(Value::String(value)),
-        })
+        if let Some((name, value)) = s.split_once('=') {
+            Ok(TemplateArg {
+                name: name.to_string(),
+                value: serde_json::from_str(value).unwrap_or(Value::String(value.to_string())),
+            })
+        } else {
+            Err(anyhow!(
+                "Invalid argument syntax. Must be in the form name=value"
+            ))
+        }
     }
 }
 
