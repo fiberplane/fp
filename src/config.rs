@@ -75,10 +75,9 @@ pub(crate) async fn api_client_configuration(
     config_path: Option<&str>,
     base_url: &str,
 ) -> Result<Configuration> {
-    let token = Config::load(config_path)
-        .await?
-        .api_token
-        .ok_or_else(|| anyhow!("Must be logged in to add a proxy. Please run `fp login` first."))?;
+    let token = Config::load(config_path).await?.api_token.ok_or_else(|| {
+        anyhow!("Must be logged in to run this command. Please run `fp login` first.")
+    })?;
 
     let config = Configuration {
         base_path: base_url.to_string(),

@@ -13,6 +13,7 @@ use std::env::{self, current_dir};
 use std::path::PathBuf;
 use std::str::FromStr;
 use tokio::fs;
+use tokio::io::{self, AsyncReadExt};
 use url::Url;
 
 lazy_static! {
@@ -30,7 +31,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
     match args.subcmd {
         Init => handle_init_command().await,
         Expand(args) => handle_expand_command(args).await,
-        FromNotebook(args) => handle_from_notebook_command(args).await,
+        Convert(args) => handle_convert_command(args).await,
     }
 }
 
@@ -49,10 +50,10 @@ enum SubCommand {
     Expand(ExpandArguments),
 
     #[clap(
-        name = "from-notebook",
+        name = "convert",
         about = "Create a template from an existing Fiberplane notebook"
     )]
-    FromNotebook(FromNotebookArguments),
+    Convert(ConvertArguments),
 }
 
 #[derive(Parser)]
@@ -83,20 +84,16 @@ struct ExpandArguments {
 }
 
 #[derive(Parser)]
-struct CreateNotebookArguments {
-    #[clap(flatten)]
-    expand_args: ExpandArguments,
-}
-
-#[derive(Parser)]
-struct FromNotebookArguments {
+struct ConvertArguments {
     #[clap(from_global)]
     base_url: String,
 
     #[clap(from_global)]
     config: Option<String>,
 
-    #[clap(about = "Notebook URL to convert")]
+    #[clap(
+        about = "Notebook URL to convert. Pass \"-\" to read the Notebook JSON representation from stdin"
+    )]
     notebook_url: String,
 }
 
@@ -228,47 +225,57 @@ async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
     Ok(())
 }
 
-async fn handle_from_notebook_command(args: FromNotebookArguments) -> Result<()> {
-    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
+    let (notebook, url) = if args.notebook_url == "-" {
+        let mut notebook_json = String::new();
+        io::stdin().read_to_string(&mut notebook_json).await?;
+        let notebook: Notebook = serde_json::from_str(&notebook_json)?;
+        let url = format!("{}/notebook/{}", args.base_url, &notebook.id);
+        (notebook, url)
+    } else {
+        let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
 
-    let notebook_id = &NOTEBOOK_ID_REGEX.captures(&args.notebook_url).unwrap()[0];
-    let mut url = Url::parse(&config.base_path)?;
-    {
-        url.path_segments_mut()
-            .map_err(|_| anyhow!("Cannot create API URL"))?
-            .push("api")
-            .push("notebooks")
-            .push(notebook_id);
-    }
+        let notebook_id = &NOTEBOOK_ID_REGEX.captures(&args.notebook_url).unwrap()[0];
+        let mut url = Url::parse(&config.base_path)?;
+        {
+            url.path_segments_mut()
+                .map_err(|_| anyhow!("Cannot create API URL"))?
+                .push("api")
+                .push("notebooks")
+                .push(notebook_id);
+        }
 
-    // TODO use generated API client
-    let notebook: Notebook = config
-        .client
-        .get(url)
-        .bearer_auth(
-            config
-                .oauth_access_token
-                .or(config.bearer_access_token)
-                .unwrap_or_default(),
-        )
-        .send()
-        .await?
-        .error_for_status()?
-        .json()
-        .await?;
+        // TODO use generated API client
+        let notebook: Notebook = config
+            .client
+            .get(url)
+            .bearer_auth(
+                config
+                    .oauth_access_token
+                    .or(config.bearer_access_token)
+                    .unwrap_or_default(),
+            )
+            .send()
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        (notebook, args.notebook_url)
+    };
     let notebook = NewNotebook {
         title: notebook.title,
         cells: notebook.cells,
         data_sources: notebook.data_sources,
         time_range: notebook.time_range,
     };
+
     let template = notebook_to_template(notebook);
     println!(
         "
 // This template was generated from the notebook: {}
 
 {}",
-        args.notebook_url, template
+        url, template
     );
 
     Ok(())
