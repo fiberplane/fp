@@ -12,7 +12,6 @@ anyhow = "1.0.44"
 clap = "3.0.0-beta.5"
 directories = "4.0.1"
 fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main" }
-# fiberplane = { path = "../fiberplane-rs/fiberplane" }
 fiberplane_api = { path = "./generated/fiberplane_api" }
 fiberplane-templates = { git = "ssh://git@github.com/fiberplane/templates.git", branch = "main" }
 fp-provider-runtime = { git = "ssh://git@github.com/fiberplane/providers.git", branch = "main" }
@@ -45,3 +44,9 @@ webbrowser = "0.5.5"
 
 # [patch."ssh://git@github.com/fiberplane/providers.git"]
 # fp-provider-runtime = { path = "../providers/runtimes/fp-provider-runtime/" }
+
+# [patch."ssh://git@github.com/fiberplane/fiberplane-rs.git"]
+# fiberplane = { path = "../fiberplane-rs/fiberplane" }
+
+# [patch."ssh://git@github.com/fiberplane/fiberplane-templates.git"]
+# fiberplane-templates = { path = "../fiberplane-templates" }
