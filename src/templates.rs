@@ -29,8 +29,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
     use SubCommand::*;
     match args.subcmd {
         Init => handle_init_command().await,
-        Invoke(args) => handle_invoke_command(args).await,
-        CreateNotebook(args) => handle_create_notebook_command(args).await,
+        Expand(args) => handle_expand_command(args).await,
         FromNotebook(args) => handle_from_notebook_command(args).await,
     }
 }
@@ -43,14 +42,11 @@ enum SubCommand {
     )]
     Init,
 
-    #[clap(name = "invoke", about = "Invoke a template and print the result")]
-    Invoke(InvokeArguments),
-
     #[clap(
-        name = "create-notebook",
-        about = "Invoke the template and create a Fiberplane notebook from it"
+        name = "expand",
+        about = "Expand a template into a Fiberplane notebook"
     )]
-    CreateNotebook(CreateNotebookArguments),
+    Expand(ExpandArguments),
 
     #[clap(
         name = "from-notebook",
@@ -60,7 +56,7 @@ enum SubCommand {
 }
 
 #[derive(Parser)]
-struct InvokeArguments {
+struct ExpandArguments {
     #[clap(
         name = "arg",
         short,
@@ -69,20 +65,27 @@ struct InvokeArguments {
     )]
     args: Vec<TemplateArg>,
 
-    #[clap(name = "template", long, short, about = "Path or URL of template file to invoke", value_hint = ValueHint::AnyPath)]
+    #[clap(name = "template", long, short, about = "Path or URL of template file to expand", value_hint = ValueHint::AnyPath)]
     template: String,
-}
 
-#[derive(Parser)]
-struct CreateNotebookArguments {
-    #[clap(flatten)]
-    invoke_args: InvokeArguments,
+    #[clap(
+        name = "create-notebook",
+        long,
+        about = "Create the notebook on Fiberplane.com and return the URL"
+    )]
+    create_notebook: bool,
 
     #[clap(from_global)]
     base_url: String,
 
     #[clap(from_global)]
     config: Option<String>,
+}
+
+#[derive(Parser)]
+struct CreateNotebookArguments {
+    #[clap(flatten)]
+    expand_args: ExpandArguments,
 }
 
 #[derive(Parser)]
@@ -160,8 +163,8 @@ async fn handle_init_command() -> Result<()> {
     Ok(())
 }
 
-async fn invoke_template(args: InvokeArguments) -> Result<NewNotebook> {
-    let path = PathBuf::from(&args.template);
+async fn expand_template(template_path: &str, args: HashMap<String, Value>) -> Result<NewNotebook> {
+    let path = PathBuf::from(template_path);
     match path.extension().and_then(|s| s.to_str()) {
         Some(ext) if ext == "jsonnet" => {}
         _ => return Err(anyhow!("Template must be a .jsonnet file")),
@@ -170,7 +173,7 @@ async fn invoke_template(args: InvokeArguments) -> Result<NewNotebook> {
     let template = match fs::read_to_string(path).await {
         Ok(template) => template,
         Err(err) => {
-            if let Ok(url) = Url::parse(&args.template) {
+            if let Ok(url) = Url::parse(&template_path) {
                 reqwest::get(url.as_ref())
                     .await
                     .with_context(|| format!("Error loading template from URL: {}", url))?
@@ -183,48 +186,45 @@ async fn invoke_template(args: InvokeArguments) -> Result<NewNotebook> {
         }
     };
 
-    let args: HashMap<String, Value> = args.args.into_iter().map(|a| (a.name, a.value)).collect();
-
     evaluate_template(template, &args).with_context(|| "Error evaluating template")
 }
 
-async fn handle_invoke_command(args: InvokeArguments) -> Result<()> {
-    let notebook = invoke_template(args).await?;
-    println!("{}", serde_json::to_string_pretty(&notebook)?);
-    Ok(())
-}
+async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
+    let template_args: HashMap<String, Value> =
+        args.args.into_iter().map(|a| (a.name, a.value)).collect();
 
-async fn handle_create_notebook_command(args: CreateNotebookArguments) -> Result<()> {
-    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
-    let notebook = invoke_template(args.invoke_args).await?;
-    // TODO use generated API client
+    let notebook = expand_template(&args.template, template_args).await?;
 
-    let mut url = Url::parse(&config.base_path)?;
-    {
-        url.path_segments_mut()
-            .map_err(|_| anyhow!("Cannot create API URL"))?
-            .push("api")
-            .push("notebooks");
+    if !args.create_notebook {
+        println!("{}", serde_json::to_string_pretty(&notebook)?);
+    } else {
+        let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+        let mut url = Url::parse(&config.base_path)?;
+        {
+            url.path_segments_mut()
+                .map_err(|_| anyhow!("Cannot create API URL"))?
+                .push("api")
+                .push("notebooks");
+        }
+
+        let notebook: Notebook = config
+            .client
+            .post(url)
+            .bearer_auth(
+                config
+                    .oauth_access_token
+                    .or(config.bearer_access_token)
+                    .unwrap_or_default(),
+            )
+            .body(serde_json::to_string(&notebook)?)
+            .send()
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        let notebook_url = format!("{}/notebook/{}", config.base_path, notebook.id);
+        println!("Created notebook: {}", notebook_url);
     }
-
-    let notebook: Notebook = config
-        .client
-        .post(url)
-        .bearer_auth(
-            config
-                .oauth_access_token
-                .or(config.bearer_access_token)
-                .unwrap_or_default(),
-        )
-        .body(serde_json::to_string(&notebook)?)
-        .send()
-        .await?
-        .error_for_status()?
-        .json()
-        .await?;
-    let notebook_url = format!("{}/notebook/{}", config.base_path, notebook.id);
-    println!("Created notebook: {}", notebook_url);
-
     Ok(())
 }
 
