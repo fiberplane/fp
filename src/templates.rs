@@ -4,12 +4,15 @@ use clap::{Parser, ValueHint};
 use fiberplane::protocols::core::{
     Cell, HeadingCell, HeadingType, NewNotebook, Notebook, TextCell, TimeRange,
 };
-use fiberplane_templates::{evaluate_template, notebook_to_template};
+use fiberplane_templates::{
+    evaluate_template, evaluate_template_with_settings, notebook_to_template, JsonnetSettings,
+    ManifestFormat,
+};
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
-use std::env::{self, current_dir};
+use std::env::current_dir;
 use std::path::PathBuf;
 use std::str::FromStr;
 use tokio::fs;
@@ -152,15 +155,15 @@ async fn handle_init_command() -> Result<()> {
     Ok(())
 }
 
-async fn expand_template(template_path: &str, args: HashMap<String, Value>) -> Result<NewNotebook> {
+async fn load_template(template_path: &str) -> Result<String> {
     let path = PathBuf::from(template_path);
     match path.extension().and_then(|s| s.to_str()) {
         Some(ext) if ext == "jsonnet" => {}
         _ => return Err(anyhow!("Template must be a .jsonnet file")),
     }
 
-    let template = match fs::read_to_string(path).await {
-        Ok(template) => template,
+    match fs::read_to_string(path).await {
+        Ok(template) => Ok(template),
         Err(err) => {
             if let Ok(url) = Url::parse(&template_path) {
                 reqwest::get(url.as_ref())
@@ -168,25 +171,28 @@ async fn expand_template(template_path: &str, args: HashMap<String, Value>) -> R
                     .with_context(|| format!("Error loading template from URL: {}", url))?
                     .text()
                     .await
-                    .with_context(|| format!("Error reading remote file as text: {}", url))?
+                    .with_context(|| format!("Error reading remote file as text: {}", url))
             } else {
                 return Err(anyhow!("Unable to load template: {:?}", err));
             }
         }
-    };
-
-    evaluate_template(template, &args).with_context(|| "Error evaluating template")
+    }
 }
 
 async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
+    let template = load_template(&args.template).await?;
     let template_args: HashMap<String, Value> =
         args.args.into_iter().map(|a| (a.name, a.value)).collect();
 
-    let notebook = expand_template(&args.template, template_args).await?;
-
     if !args.create_notebook {
+        let settings = JsonnetSettings {
+            output_format: ManifestFormat::Json(2),
+            ..JsonnetSettings::default()
+        };
+        let notebook = evaluate_template_with_settings(settings, &args.template, &template_args)?;
         println!("{}", serde_json::to_string_pretty(&notebook)?);
     } else {
+        let notebook = evaluate_template(template, &template_args)?;
         let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
         let mut url = Url::parse(&config.base_path)?;
         {
