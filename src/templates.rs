@@ -16,7 +16,7 @@ use std::env::current_dir;
 use std::path::PathBuf;
 use std::str::FromStr;
 use tokio::fs;
-use tokio::io::{self, AsyncReadExt};
+use tokio::io::{self, AsyncReadExt, AsyncWriteExt};
 use url::Url;
 
 lazy_static! {
@@ -93,6 +93,14 @@ struct ConvertArguments {
 
     #[clap(from_global)]
     config: Option<String>,
+
+    #[clap(
+        name = "out",
+        about = "If specified, save the template to the given file. If not, write the template to stdout",
+        long,
+        short
+    )]
+    out: Option<PathBuf>,
 
     #[clap(
         about = "Notebook URL to convert. Pass \"-\" to read the Notebook JSON representation from stdin"
@@ -262,13 +270,23 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
     };
 
     let template = notebook_to_template(notebook);
-    println!(
+    let template = format!(
         "
 // This template was generated from the notebook: {}
 
 {}",
         url, template
     );
+    if let Some(mut path) = args.out {
+        // If the given path is a directory, add the filename
+        if path.file_name().is_none() {
+            path.push("template.jsonnet");
+        }
+
+        fs::write(path, template).await?;
+    } else {
+        io::stdout().write_all(template.as_bytes()).await?;
+    }
 
     Ok(())
 }
