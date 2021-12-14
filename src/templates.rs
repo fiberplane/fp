@@ -260,12 +260,6 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
             .await?;
         (notebook, args.notebook_url)
     };
-    let notebook = NewNotebook {
-        title: notebook.title,
-        cells: notebook.cells,
-        data_sources: notebook.data_sources,
-        time_range: notebook.time_range,
-    };
 
     let template = notebook_to_template(notebook);
     println!(
