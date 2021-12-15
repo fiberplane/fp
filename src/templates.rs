@@ -117,7 +117,8 @@ impl FromStr for TemplateArg {
         if let Some((name, value)) = s.split_once('=') {
             Ok(TemplateArg {
                 name: name.to_string(),
-                value: serde_json::from_str(value).unwrap_or(Value::String(value.to_string())),
+                value: serde_json::from_str(value)
+                    .unwrap_or_else(|_| Value::String(value.to_string())),
             })
         } else {
             Err(anyhow!(
@@ -170,7 +171,7 @@ async fn load_template(template_path: &str) -> Result<String> {
     match fs::read_to_string(path).await {
         Ok(template) => Ok(template),
         Err(err) => {
-            if let Ok(url) = Url::parse(&template_path) {
+            if let Ok(url) = Url::parse(template_path) {
                 reqwest::get(url.as_ref())
                     .await
                     .with_context(|| format!("Error loading template from URL: {}", url))?
