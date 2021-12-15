@@ -1,13 +1,10 @@
 use crate::config::api_client_configuration;
 use anyhow::{anyhow, Context, Error, Result};
 use clap::{Parser, ValueHint};
-use fiberplane::protocols::core::{
-    Cell, HeadingCell, HeadingType, NewNotebook, Notebook, TextCell, TimeRange,
-};
-use fiberplane_templates::{
-    evaluate_template, evaluate_template_with_settings, notebook_to_template, JsonnetSettings,
-    ManifestFormat,
-};
+use fiberplane::protocols::core::{self, Cell, HeadingCell, HeadingType, TextCell, TimeRange};
+use fiberplane_api::apis::default_api::{get_notebook, notebook_create};
+use fiberplane_api::models::{NewNotebook, Notebook};
+use fiberplane_templates::{notebook_to_template, TemplateExpander};
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde_json::Value;
@@ -131,7 +128,7 @@ impl FromStr for TemplateArg {
 }
 
 async fn handle_init_command() -> Result<()> {
-    let notebook = NewNotebook {
+    let notebook = core::NewNotebook {
         title: "Replace me!".to_string(),
         time_range: TimeRange {
             from: 0.0,
@@ -192,39 +189,17 @@ async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
     let template_args: HashMap<String, Value> =
         args.args.into_iter().map(|a| (a.name, a.value)).collect();
 
-    if !args.create_notebook {
-        let settings = JsonnetSettings {
-            output_format: ManifestFormat::Json(2),
-            ..JsonnetSettings::default()
-        };
-        let notebook = evaluate_template_with_settings(settings, &args.template, &template_args)?;
-        println!("{}", serde_json::to_string_pretty(&notebook)?);
-    } else {
-        let notebook = evaluate_template(template, &template_args)?;
-        let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
-        let mut url = Url::parse(&config.base_path)?;
-        {
-            url.path_segments_mut()
-                .map_err(|_| anyhow!("Cannot create API URL"))?
-                .push("api")
-                .push("notebooks");
-        }
+    let expander = TemplateExpander::default();
 
-        let notebook: Notebook = config
-            .client
-            .post(url)
-            .bearer_auth(
-                config
-                    .oauth_access_token
-                    .or(config.bearer_access_token)
-                    .unwrap_or_default(),
-            )
-            .body(serde_json::to_string(&notebook)?)
-            .send()
-            .await?
-            .error_for_status()?
-            .json()
-            .await?;
+    if !args.create_notebook {
+        let notebook = expander.expand_template_to_string(template, &template_args, true)?;
+        println!("{}", notebook);
+    } else {
+        let notebook = expander.expand_template_to_string(template, &template_args, false)?;
+        let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+
+        let notebook: NewNotebook = serde_json::from_str(&notebook)?;
+        let notebook = notebook_create(&config, Some(notebook)).await?;
         let notebook_url = format!("{}/notebook/{}", config.base_path, notebook.id);
         println!("Created notebook: {}", notebook_url);
     }
@@ -237,38 +212,18 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
         io::stdin().read_to_string(&mut notebook_json).await?;
         let notebook: Notebook = serde_json::from_str(&notebook_json)?;
         let url = format!("{}/notebook/{}", args.base_url, &notebook.id);
-        (notebook, url)
+        (notebook_json, url)
     } else {
         let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
-
-        let notebook_id = &NOTEBOOK_ID_REGEX.captures(&args.notebook_url).unwrap()[0];
-        let mut url = Url::parse(&config.base_path)?;
-        {
-            url.path_segments_mut()
-                .map_err(|_| anyhow!("Cannot create API URL"))?
-                .push("api")
-                .push("notebooks")
-                .push(notebook_id);
-        }
-
-        // TODO use generated API client
-        let notebook: Notebook = config
-            .client
-            .get(url)
-            .bearer_auth(
-                config
-                    .oauth_access_token
-                    .or(config.bearer_access_token)
-                    .unwrap_or_default(),
-            )
-            .send()
-            .await?
-            .error_for_status()?
-            .json()
-            .await?;
+        let id = &NOTEBOOK_ID_REGEX.captures(&args.notebook_url).unwrap()[0];
+        let notebook = get_notebook(&config, id).await?;
+        let notebook = serde_json::to_string(&notebook)?;
         (notebook, args.notebook_url)
     };
 
+    // TODO remove the extra (de)serialization when we unify the generated API client
+    // types with those in fiberplane-rs
+    let notebook: core::NewNotebook = serde_json::from_str(&notebook)?;
     let template = notebook_to_template(notebook);
     let template = format!(
         "
