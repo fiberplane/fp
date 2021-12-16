@@ -2,7 +2,7 @@ use crate::config::api_client_configuration;
 use anyhow::{anyhow, Context, Error, Result};
 use clap::{Parser, ValueHint};
 use fiberplane::protocols::core::{self, Cell, HeadingCell, HeadingType, TextCell, TimeRange};
-use fiberplane_api::apis::default_api::{get_notebook, notebook_create};
+use fiberplane_api::apis::default_api::{get_notebook, notebook_create, proxy_data_sources_list};
 use fiberplane_api::models::{NewNotebook, Notebook};
 use fiberplane_templates::{notebook_to_template, TemplateExpander};
 use lazy_static::lazy_static;
@@ -14,10 +14,32 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use tokio::fs;
 use tokio::io::{self, AsyncReadExt, AsyncWriteExt};
+use tracing::debug;
 use url::Url;
 
 lazy_static! {
     static ref NOTEBOOK_ID_REGEX: Regex = Regex::from_str("[a-zA-Z0-9]+$").unwrap();
+}
+
+// TODO remove these once the relay schema matches the generated API client
+use serde::{Deserialize, Serialize};
+#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum DataSourceType {
+    Prometheus,
+}
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub struct ProxyDataSource {
+    pub name: String,
+    #[serde(rename = "type")]
+    pub ty: DataSourceType,
+    pub proxy: ProxySummary,
+}
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ProxySummary {
+    pub id: String,
+    pub name: String,
 }
 
 #[derive(Parser)]
@@ -190,14 +212,50 @@ async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
     let template_args: HashMap<String, Value> =
         args.args.into_iter().map(|a| (a.name, a.value)).collect();
 
-    let expander = TemplateExpander::default();
+    let config = api_client_configuration(args.config.as_deref(), &args.base_url)
+        .await
+        .ok();
+
+    let mut expander = TemplateExpander::default();
+
+    // If the user is logged in, load the list of data sources to inject into the template runtime
+    let data_sources = if let Some(config) = &config {
+        // let data_sources = proxy_data_sources_list(config).await?;
+        let data_sources: Vec<ProxyDataSource> = reqwest::Client::new()
+            .request(
+                reqwest::Method::GET,
+                &format!("{}/api/proxies/datasources", args.base_url),
+            )
+            .bearer_auth(
+                config
+                    .oauth_access_token
+                    .as_ref()
+                    .or(config.bearer_access_token.as_ref())
+                    .unwrap(),
+            )
+            .send()
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        debug!(?data_sources, "Loaded data sources");
+
+        data_sources
+    } else {
+        Vec::new()
+    };
+    expander.add_ext_var(
+        "PROXY_DATA_SOURCES".into(),
+        serde_json::to_value(&data_sources)?,
+    );
 
     if !args.create_notebook {
-        let notebook = expander.expand_template_to_string(template, &template_args, true)?;
+        let notebook = expander.expand_template_to_string(template, template_args, true)?;
         println!("{}", notebook);
     } else {
-        let notebook = expander.expand_template_to_string(template, &template_args, false)?;
-        let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+        let notebook = expander.expand_template_to_string(template, template_args, false)?;
+        debug!(%notebook, "Expanded template to notebook");
+        let config = config.ok_or(anyhow!("Must be logged in to create notebook"))?;
 
         let notebook: NewNotebook = serde_json::from_str(&notebook)?;
         let notebook = notebook_create(&config, Some(notebook)).await?;
