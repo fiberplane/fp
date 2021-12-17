@@ -1,12 +1,9 @@
 use crate::config::api_client_configuration;
 use anyhow::{anyhow, Context, Error, Result};
 use clap::{Parser, ValueHint};
-use fiberplane::protocols::core::{
-    self, Cell, HeadingCell, HeadingType, NewNotebook, Notebook, TextCell, TimeRange,
-};
-// use fiberplane_api::apis::default_api::{get_notebook, notebook_create, proxy_data_sources_list};
-// use fiberplane_api::models::{NewNotebook, Notebook};
-
+use fiberplane::protocols::core::{self, Cell, HeadingCell, HeadingType, TextCell, TimeRange};
+use fiberplane_api::apis::default_api::{get_notebook, notebook_create};
+use fiberplane_api::models::{NewNotebook, Notebook};
 use fiberplane_templates::{notebook_to_template, TemplateExpander};
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -219,38 +216,7 @@ async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
         .await
         .ok();
 
-    let mut expander = TemplateExpander::default();
-
-    // If the user is logged in, load the list of data sources to inject into the template runtime
-    let data_sources = if let Some(config) = &config {
-        // let data_sources = proxy_data_sources_list(config).await?;
-        let data_sources: Vec<ProxyDataSource> = reqwest::Client::new()
-            .request(
-                reqwest::Method::GET,
-                &format!("{}/api/proxies/datasources", args.base_url),
-            )
-            .bearer_auth(
-                config
-                    .oauth_access_token
-                    .as_ref()
-                    .or(config.bearer_access_token.as_ref())
-                    .unwrap(),
-            )
-            .send()
-            .await?
-            .error_for_status()?
-            .json()
-            .await?;
-        debug!(?data_sources, "Loaded data sources");
-
-        data_sources
-    } else {
-        Vec::new()
-    };
-    expander.add_ext_var(
-        "PROXY_DATA_SOURCES".into(),
-        serde_json::to_value(&data_sources)?,
-    );
+    let expander = TemplateExpander::default();
 
     if !args.create_notebook {
         let notebook = expander.expand_template_to_string(template, template_args, true)?;
@@ -260,24 +226,11 @@ async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
         debug!(%notebook, "Expanded template to notebook");
         let config = config.ok_or(anyhow!("Must be logged in to create notebook"))?;
 
-        let notebook: NewNotebook = serde_json::from_str(&notebook)?;
-        // let notebook = notebook_create(&config, Some(notebook)).await?;
-        let url = format!("{}/api/notebooks", args.base_url);
-        let notebook: Notebook = config
-            .client
-            .post(url)
-            .bearer_auth(
-                config
-                    .oauth_access_token
-                    .or(config.bearer_access_token)
-                    .unwrap_or_default(),
-            )
-            .body(serde_json::to_string(&notebook)?)
-            .send()
-            .await?
-            .error_for_status()?
-            .json()
-            .await?;
+        let notebook: NewNotebook = serde_json::from_str(&notebook)
+            .with_context(|| "Template did not produce a valid NewNotebook")?;
+        let notebook = notebook_create(&config, Some(notebook))
+            .await
+            .with_context(|| "Error creating notebook")?;
         let notebook_url = format!("{}/notebook/{}", config.base_path, notebook.id);
         println!("Created notebook: {}", notebook_url);
     }
@@ -287,44 +240,30 @@ async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
 async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
     let (notebook, url) = if args.notebook_url == "-" {
         let mut notebook_json = String::new();
-        io::stdin().read_to_string(&mut notebook_json).await?;
-        let notebook: Notebook = serde_json::from_str(&notebook_json)?;
+        io::stdin()
+            .read_to_string(&mut notebook_json)
+            .await
+            .with_context(|| "Error reading from stdin")?;
+        let notebook: Notebook =
+            serde_json::from_str(&notebook_json).with_context(|| "Notebook is invalid")?;
         let url = format!("{}/notebook/{}", args.base_url, &notebook.id);
         (notebook_json, url)
     } else {
         let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
-        // let id = &NOTEBOOK_ID_REGEX.captures(&args.notebook_url).unwrap()[0];
-        // let notebook = get_notebook(&config, id).await?;
-        let notebook_id = &NOTEBOOK_ID_REGEX.captures(&args.notebook_url).unwrap()[1];
-        let mut url = Url::parse(&config.base_path)?;
-        {
-            url.path_segments_mut()
-                .map_err(|_| anyhow!("Cannot create API URL"))?
-                .push("api")
-                .push("notebooks")
-                .push(notebook_id);
-        }
-        let notebook: Notebook = config
-            .client
-            .get(url)
-            .bearer_auth(
-                config
-                    .oauth_access_token
-                    .or(config.bearer_access_token)
-                    .unwrap_or_default(),
-            )
-            .send()
-            .await?
-            .error_for_status()?
-            .json()
-            .await?;
+        let id = &NOTEBOOK_ID_REGEX
+            .captures(&args.notebook_url)
+            .ok_or(anyhow!("Notebook URL is invalid"))?[1];
+        let notebook = get_notebook(&config, id)
+            .await
+            .with_context(|| "Error fetching notebook")?;
         let notebook = serde_json::to_string(&notebook)?;
         (notebook, args.notebook_url)
     };
 
     // TODO remove the extra (de)serialization when we unify the generated API client
     // types with those in fiberplane-rs
-    let notebook: core::NewNotebook = serde_json::from_str(&notebook)?;
+    let notebook: core::NewNotebook = serde_json::from_str(&notebook)
+        .with_context(|| "Error deserializing response as core::NewNotebook")?;
     let template = notebook_to_template(notebook);
     let template = format!(
         "
