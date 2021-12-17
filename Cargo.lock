@@ -489,6 +489,7 @@ dependencies = [
 [[package]]
 name = "fiberplane-templates"
 version = "0.1.0"
+source = "git+ssh://git@github.com/fiberplane/templates.git?branch=main#d4a3b519c38efa4d58608dd091d1646586b9a2d7"
 dependencies = [
  "fiberplane",
  "jrsonnet-evaluator",
