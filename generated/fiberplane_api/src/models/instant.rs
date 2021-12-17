@@ -17,16 +17,16 @@ pub struct Instant {
     pub metric: Box<crate::models::Metric>,
     #[serde(rename = "point")]
     pub point: Box<crate::models::Point>,
-    #[serde(rename = "pointType", skip_serializing_if = "Option::is_none")]
-    pub point_type: Option<crate::models::PointType>,
+    #[serde(rename = "pointType")]
+    pub point_type: crate::models::PointType,
 }
 
 impl Instant {
-    pub fn new(metric: crate::models::Metric, point: crate::models::Point) -> Instant {
+    pub fn new(metric: crate::models::Metric, point: crate::models::Point, point_type: crate::models::PointType) -> Instant {
         Instant {
             metric: Box::new(metric),
             point: Box::new(point),
-            point_type: None,
+            point_type,
         }
     }
 }

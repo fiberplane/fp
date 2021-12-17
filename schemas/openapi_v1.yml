@@ -41,6 +41,7 @@ components:
       oneOf:
         - $ref: "#/components/schemas/checkboxCell"
         - $ref: "#/components/schemas/codeCell"
+        - $ref: "#/components/schemas/dividerCell"
         - $ref: "#/components/schemas/graphCell"
         - $ref: "#/components/schemas/headingCell"
         - $ref: "#/components/schemas/listItemCell"
@@ -53,6 +54,7 @@ components:
         mapping:
           checkbox: "#/components/schemas/checkboxCell"
           code: "#/components/schemas/codeCell"
+          divider: "#/components/schemas/dividerCell"
           graph: "#/components/schemas/graphCell"
           heading: "#/components/schemas/headingCell"
           list_item: "#/components/schemas/listItemCell"
@@ -65,6 +67,7 @@ components:
       enum:
         - checkbox
         - code
+        - divider
         - graph
         - heading
         - list_item
@@ -109,6 +112,18 @@ components:
           type: boolean
         syntax:
           type: string
+    dividerCell:
+      type: object
+      required:
+        - type
+        - id
+      properties:
+        type:
+          $ref: "#/components/schemas/cellType"
+        id:
+          type: string
+        readOnly:
+          type: boolean
     graphCell:
       type: object
       required:
@@ -195,6 +210,8 @@ components:
           type: number
         readOnly:
           type: boolean
+        startNumber:
+          type: number
     prometheusCell:
       type: object
       required:
@@ -266,11 +283,11 @@ components:
         readOnly:
           type: boolean
         width:
-          type: number
-          format: integer
+          type: integer
+          format: int32
         height:
-          type: number
-          format: integer
+          type: integer
+          format: int32
         preview:
           type: string
     notebook:
@@ -281,6 +298,7 @@ components:
         - title
         - cells
         - createdAt
+        - createdBy
         - timeRange
         - updatedAt
       properties:
@@ -297,21 +315,33 @@ components:
         createdAt:
           type: string
           format: date-time
+        createdBy:
+          $ref: "#/components/schemas/createdBy"
         dataSources:
           type: object
           additionalProperties:
             $ref: "#/components/schemas/notebookDataSource"
+        readOnly:
+          type: boolean
         timeRange:
           $ref: "#/components/schemas/timeRange"
         updatedAt:
           type: string
           format: date-time
+        visibility:
+          $ref: "#/components/schemas/notebookVisibility"
+    notebookPatch:
+      type: object
+      properties:
+        visibility:
+          $ref: "#/components/schemas/notebookVisibility"
     notebookSummary:
       type: object
       required:
         - id
         - title
         - createdAt
+        - createdBy
         - updatedAt
       properties:
         id:
@@ -321,9 +351,18 @@ components:
         createdAt:
           type: string
           format: date-time
+        createdBy:
+          $ref: "#/components/schemas/createdBy"
         updatedAt:
           type: string
           format: date-time
+        visibility:
+          $ref: "#/components/schemas/notebookVisibility"
+    notebookVisibility:
+      type: string
+      enum:
+        - public
+        - private
     timeRange:
       type: object
       required:
@@ -341,6 +380,7 @@ components:
       required:
         - metric
         - point
+        - pointType
       properties:
         metric:
           $ref: "#/components/schemas/metric"
@@ -353,6 +393,7 @@ components:
       required:
         - metric
         - points
+        - pointType
         - visible
       properties:
         metric:
@@ -443,6 +484,7 @@ components:
     dataSource:
       oneOf:
         - $ref: "#/components/schemas/prometheusDataSource"
+        - $ref: "#/components/schemas/proxyDataSource"
       discriminator:
         propertyName: type
         mapping:
@@ -490,6 +532,15 @@ components:
         - file
       properties:
         file:
+          type: string
+          format: binary
+    ProfileUploadData:
+      description: "upload file payload"
+      type: object
+      required:
+        - picture
+      properties:
+        picture:
           type: string
           format: binary
     user:
@@ -611,13 +662,57 @@ components:
           type: string
         proxy:
           $ref: "#/components/schemas/proxySummary"
+    trigger:
+      type: object
+      required:
+        - id
+        - url
+        - triggerType
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+        url:
+          type: string
+        triggerType:
+          $ref: "#/components/schemas/triggerType"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    triggerType:
+      type: string
+      enum:
+        - Prometheus
+    createdBy:
+      type: object
+      required:
+        - name
+        - type
+      properties:
+        name:
+          type: string
+        type:
+          $ref: "#/components/schemas/userType"
+        proxy:
+          $ref: "#/components/schemas/proxySummary"
+    userType:
+      type: string
+      enum:
+        - organization
+        - individual
+# Most routes require authentication. The ones
+# that do not will specify "security: []"
+security:
+  - userToken: []
 paths:
   /api/notebooks:
     get:
       operationId: notebook_list
       description: "List all accessible notebooks"
-      security:
-        - userToken: []
       responses:
         "200":
           description: OK
@@ -654,8 +749,6 @@ paths:
     get:
       operationId: get_notebook
       description: "Fetch a single notebook"
-      security:
-        - userToken: []
       responses:
         "200":
           content:
@@ -668,12 +761,22 @@ paths:
       responses:
         "200":
           description: OK
+    patch:
+      operationId: patch_notebook
+      description: "Modifies individual properties of a single notebook"
+      requestBody:
+        description: updated properties
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/notebookPatch"
+      responses:
+        "200":
+          description: OK
   /api/datasources:
     post:
       operationId: org_data_source_create
       description: "Create an organization data-source"
-      security:
-        - userToken: []
       requestBody:
         description: new data-source
         content:
@@ -697,9 +800,7 @@ paths:
           type: string
     post:
       operationId: file_upload
-      description: upload a file
-      security:
-        - userToken: []
+      description: "upload a file"
       requestBody:
         description: a file
         content:
@@ -730,16 +831,12 @@ paths:
     delete:
       operationId: delete_file
       description: "Delete a file"
-      security:
-        - userToken: []
       responses:
         "200":
           description: OK
     get:
       operationId: get_file
       description: "Get a file"
-      security:
-        - userToken: []
       responses:
         "200":
           description: OK
@@ -752,8 +849,6 @@ paths:
     get:
       operationId: get_profile
       description: "Fetch the profile of the authenticated user"
-      security:
-        - userToken: []
       responses:
         "200":
           content:
@@ -761,12 +856,36 @@ paths:
               schema:
                 $ref: "#/components/schemas/user"
           description: OK
+  /api/profile/picture:
+    get:
+      operationId: get_profile_picture
+      description: "Retrieve profile image"
+      # can be unauthenticated
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+    post:
+      operationId: update_profile_picture
+      description: "Upload profile image"
+      requestBody:
+        description: a file
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/ProfileUploadData"
+      responses:
+        "200":
+          description: OK
   /api/pinnednotebooks:
     get:
       operationId: pinned_notebook_list
       description: "List all pinned notebooks"
-      security:
-        - userToken: []
       responses:
         "200":
           description: OK
@@ -779,8 +898,6 @@ paths:
     post:
       operationId: pinned_notebook_create
       description: "Create a new notebook"
-      security:
-        - userToken: []
       requestBody:
         description: new notebook
         content:
@@ -799,19 +916,14 @@ paths:
         schema:
           type: string
     delete:
-      security:
-        - userToken: []
       operationId: pinned_notebook_delete
       responses:
         "200":
           description: OK
-
   /api/proxies:
     get:
       operationId: proxy_list
       description: "List all proxies"
-      security:
-        - userToken: []
       responses:
         "200":
           description: OK
@@ -824,8 +936,6 @@ paths:
     post:
       operationId: proxy_create
       description: "Create a new proxy"
-      security:
-        - userToken: []
       requestBody:
         description: new proxy
         content:
@@ -843,8 +953,6 @@ paths:
     get:
       operationId: proxy_data_sources_list
       description: Get all of the data sources for all proxies that belong to the same organization as the user
-      security:
-        - userToken: []
       responses:
         "200":
           description: OK
@@ -864,16 +972,12 @@ paths:
           type: string
     delete:
       operationId: proxy_delete
-      security:
-        - userToken: []
       responses:
         "200":
           description: OK
     get:
       operationId: proxy_get
       description: "Retrieve a single proxy"
-      security:
-        - userToken: []
       responses:
         "200":
           description: OK
@@ -898,8 +1002,6 @@ paths:
     post:
       operationId: proxy_relay
       description: "Relay a query to a remote proxy"
-      security:
-        - userToken: []
       responses:
         "200":
           description: OK
@@ -920,8 +1022,6 @@ paths:
     get:
       operationId: oidc_authorize_google
       description: Start the Google OAuth flow to authenticate a user
-      security:
-        - userToken: []
       responses:
         "307":
           description: Redirect to Google
@@ -929,8 +1029,18 @@ paths:
     post:
       operationId: logout
       description: Log out of Fiberplane
-      security:
-        - userToken: []
       responses:
         "200":
           description: OK
+  /api/triggers:
+    get:
+      operationId: triggers_list
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/trigger"

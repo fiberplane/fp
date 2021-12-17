@@ -24,9 +24,9 @@ pub struct ImageCell {
     #[serde(rename = "readOnly", skip_serializing_if = "Option::is_none")]
     pub read_only: Option<bool>,
     #[serde(rename = "width", skip_serializing_if = "Option::is_none")]
-    pub width: Option<f32>,
+    pub width: Option<i32>,
     #[serde(rename = "height", skip_serializing_if = "Option::is_none")]
-    pub height: Option<f32>,
+    pub height: Option<i32>,
     #[serde(rename = "preview", skip_serializing_if = "Option::is_none")]
     pub preview: Option<String>,
 }

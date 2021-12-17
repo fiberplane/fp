@@ -10,11 +10,13 @@ Method | HTTP request | Description
 [**get_file**](DefaultApi.md#get_file) | **GET** /api/files/{notebookId}/{fileId} | 
 [**get_notebook**](DefaultApi.md#get_notebook) | **GET** /api/notebooks/{id} | 
 [**get_profile**](DefaultApi.md#get_profile) | **GET** /api/profile | 
+[**get_profile_picture**](DefaultApi.md#get_profile_picture) | **GET** /api/profile/picture | 
 [**logout**](DefaultApi.md#logout) | **POST** /api/logout | 
 [**notebook_create**](DefaultApi.md#notebook_create) | **POST** /api/notebooks | 
 [**notebook_list**](DefaultApi.md#notebook_list) | **GET** /api/notebooks | 
 [**oidc_authorize_google**](DefaultApi.md#oidc_authorize_google) | **GET** /api/oidc/authorize/google | 
 [**org_data_source_create**](DefaultApi.md#org_data_source_create) | **POST** /api/datasources | 
+[**patch_notebook**](DefaultApi.md#patch_notebook) | **PATCH** /api/notebooks/{id} | 
 [**pinned_notebook_create**](DefaultApi.md#pinned_notebook_create) | **POST** /api/pinnednotebooks | 
 [**pinned_notebook_delete**](DefaultApi.md#pinned_notebook_delete) | **DELETE** /api/pinnednotebooks/{notebookId} | 
 [**pinned_notebook_list**](DefaultApi.md#pinned_notebook_list) | **GET** /api/pinnednotebooks | 
@@ -24,6 +26,8 @@ Method | HTTP request | Description
 [**proxy_get**](DefaultApi.md#proxy_get) | **GET** /api/proxies/{proxyId} | 
 [**proxy_list**](DefaultApi.md#proxy_list) | **GET** /api/proxies | 
 [**proxy_relay**](DefaultApi.md#proxy_relay) | **POST** /api/proxies/{proxyId}/relay | 
+[**triggers_list**](DefaultApi.md#triggers_list) | **GET** /api/triggers | 
+[**update_profile_picture**](DefaultApi.md#update_profile_picture) | **POST** /api/profile/picture | 
 
 
 
@@ -76,7 +80,7 @@ Name | Type | Description  | Required | Notes
 
 ### Authorization
 
-No authorization required
+[userToken](../README.md#userToken)
 
 ### HTTP request headers
 
@@ -205,6 +209,33 @@ This endpoint does not need any parameter.
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 
+## get_profile_picture
+
+> std::path::PathBuf get_profile_picture()
+
+
+Retrieve profile image
+
+### Parameters
+
+This endpoint does not need any parameter.
+
+### Return type
+
+[**std::path::PathBuf**](std::path::PathBuf.md)
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: image/_*
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+
 ## logout
 
 > logout()
@@ -252,7 +283,7 @@ Name | Type | Description  | Required | Notes
 
 ### Authorization
 
-No authorization required
+[userToken](../README.md#userToken)
 
 ### HTTP request headers
 
@@ -346,6 +377,37 @@ Name | Type | Description  | Required | Notes
 
 - **Content-Type**: application/json
 - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+
+## patch_notebook
+
+> patch_notebook(id, notebook_patch)
+
+
+Modifies individual properties of a single notebook
+
+### Parameters
+
+
+Name | Type | Description  | Required | Notes
+------------- | ------------- | ------------- | ------------- | -------------
+**id** | **String** | ID of the notebook | [required] |
+**notebook_patch** | Option<[**NotebookPatch**](NotebookPatch.md)> | updated properties |  |
+
+### Return type
+
+ (empty response body)
+
+### Authorization
+
+[userToken](../README.md#userToken)
+
+### HTTP request headers
+
+- **Content-Type**: application/json
+- **Accept**: Not defined
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
@@ -603,6 +665,61 @@ Name | Type | Description  | Required | Notes
 ### HTTP request headers
 
 - **Content-Type**: Not defined
+- **Accept**: Not defined
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+
+## triggers_list
+
+> Vec<crate::models::Trigger> triggers_list()
+
+
+### Parameters
+
+This endpoint does not need any parameter.
+
+### Return type
+
+[**Vec<crate::models::Trigger>**](trigger.md)
+
+### Authorization
+
+[userToken](../README.md#userToken)
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+
+## update_profile_picture
+
+> update_profile_picture(picture)
+
+
+Upload profile image
+
+### Parameters
+
+
+Name | Type | Description  | Required | Notes
+------------- | ------------- | ------------- | ------------- | -------------
+**picture** | **std::path::PathBuf** |  | [required] |
+
+### Return type
+
+ (empty response body)
+
+### Authorization
+
+[userToken](../README.md#userToken)
+
+### HTTP request headers
+
+- **Content-Type**: multipart/form-data
 - **Accept**: Not defined
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)

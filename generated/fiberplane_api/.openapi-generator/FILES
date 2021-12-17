@@ -6,11 +6,13 @@ docs/Cell.md
 docs/CellType.md
 docs/CheckboxCell.md
 docs/CodeCell.md
+docs/CreatedBy.md
 docs/DataSource.md
 docs/DataSourceAndProxySummary.md
 docs/DataSourceSummary.md
 docs/DataSourceType.md
 docs/DefaultApi.md
+docs/DividerCell.md
 docs/FileSummary.md
 docs/GraphCell.md
 docs/HeadingCell.md
@@ -26,7 +28,9 @@ docs/NewPinnedNotebook.md
 docs/NewProxy.md
 docs/Notebook.md
 docs/NotebookDataSource.md
+docs/NotebookPatch.md
 docs/NotebookSummary.md
+docs/NotebookVisibility.md
 docs/OrgDataSource.md
 docs/Point.md
 docs/PointType.md
@@ -42,7 +46,10 @@ docs/SeriesQuery.md
 docs/TableCell.md
 docs/TextCell.md
 docs/TimeRange.md
+docs/Trigger.md
+docs/TriggerType.md
 docs/User.md
+docs/UserType.md
 git_push.sh
 src/apis/configuration.rs
 src/apis/default_api.rs
@@ -52,10 +59,12 @@ src/models/cell.rs
 src/models/cell_type.rs
 src/models/checkbox_cell.rs
 src/models/code_cell.rs
+src/models/created_by.rs
 src/models/data_source.rs
 src/models/data_source_and_proxy_summary.rs
 src/models/data_source_summary.rs
 src/models/data_source_type.rs
+src/models/divider_cell.rs
 src/models/file_summary.rs
 src/models/graph_cell.rs
 src/models/heading_cell.rs
@@ -72,7 +81,9 @@ src/models/new_pinned_notebook.rs
 src/models/new_proxy.rs
 src/models/notebook.rs
 src/models/notebook_data_source.rs
+src/models/notebook_patch.rs
 src/models/notebook_summary.rs
+src/models/notebook_visibility.rs
 src/models/org_data_source.rs
 src/models/point.rs
 src/models/point_type.rs
@@ -88,4 +99,7 @@ src/models/series_query.rs
 src/models/table_cell.rs
 src/models/text_cell.rs
 src/models/time_range.rs
+src/models/trigger.rs
+src/models/trigger_type.rs
 src/models/user.rs
+src/models/user_type.rs

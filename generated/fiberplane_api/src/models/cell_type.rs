@@ -16,6 +16,8 @@ pub enum CellType {
     Checkbox,
     #[serde(rename = "code")]
     Code,
+    #[serde(rename = "divider")]
+    Divider,
     #[serde(rename = "graph")]
     Graph,
     #[serde(rename = "heading")]
@@ -38,6 +40,7 @@ impl ToString for CellType {
         match self {
             Self::Checkbox => String::from("checkbox"),
             Self::Code => String::from("code"),
+            Self::Divider => String::from("divider"),
             Self::Graph => String::from("graph"),
             Self::Heading => String::from("heading"),
             Self::ListItem => String::from("list_item"),

@@ -25,6 +25,8 @@ pub struct ListItemCell {
     pub level: Option<f32>,
     #[serde(rename = "readOnly", skip_serializing_if = "Option::is_none")]
     pub read_only: Option<bool>,
+    #[serde(rename = "startNumber", skip_serializing_if = "Option::is_none")]
+    pub start_number: Option<f32>,
 }
 
 impl ListItemCell {
@@ -36,6 +38,7 @@ impl ListItemCell {
             content,
             level: None,
             read_only: None,
+            start_number: None,
         }
     }
 }
