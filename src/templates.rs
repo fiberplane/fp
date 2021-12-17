@@ -1,9 +1,12 @@
 use crate::config::api_client_configuration;
 use anyhow::{anyhow, Context, Error, Result};
 use clap::{Parser, ValueHint};
-use fiberplane::protocols::core::{self, Cell, HeadingCell, HeadingType, TextCell, TimeRange};
-use fiberplane_api::apis::default_api::{get_notebook, notebook_create, proxy_data_sources_list};
-use fiberplane_api::models::{NewNotebook, Notebook};
+use fiberplane::protocols::core::{
+    self, Cell, HeadingCell, HeadingType, NewNotebook, Notebook, TextCell, TimeRange,
+};
+// use fiberplane_api::apis::default_api::{get_notebook, notebook_create, proxy_data_sources_list};
+// use fiberplane_api::models::{NewNotebook, Notebook};
+
 use fiberplane_templates::{notebook_to_template, TemplateExpander};
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -18,7 +21,7 @@ use tracing::debug;
 use url::Url;
 
 lazy_static! {
-    static ref NOTEBOOK_ID_REGEX: Regex = Regex::from_str("[a-zA-Z0-9]+$").unwrap();
+    static ref NOTEBOOK_ID_REGEX: Regex = Regex::from_str("--([a-zA-Z0-9-]+)$").unwrap();
 }
 
 // TODO remove these once the relay schema matches the generated API client
@@ -258,7 +261,23 @@ async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
         let config = config.ok_or(anyhow!("Must be logged in to create notebook"))?;
 
         let notebook: NewNotebook = serde_json::from_str(&notebook)?;
-        let notebook = notebook_create(&config, Some(notebook)).await?;
+        // let notebook = notebook_create(&config, Some(notebook)).await?;
+        let url = format!("{}/api/notebooks", args.base_url);
+        let notebook: Notebook = config
+            .client
+            .post(url)
+            .bearer_auth(
+                config
+                    .oauth_access_token
+                    .or(config.bearer_access_token)
+                    .unwrap_or_default(),
+            )
+            .body(serde_json::to_string(&notebook)?)
+            .send()
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
         let notebook_url = format!("{}/notebook/{}", config.base_path, notebook.id);
         println!("Created notebook: {}", notebook_url);
     }
@@ -274,8 +293,31 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
         (notebook_json, url)
     } else {
         let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
-        let id = &NOTEBOOK_ID_REGEX.captures(&args.notebook_url).unwrap()[0];
-        let notebook = get_notebook(&config, id).await?;
+        // let id = &NOTEBOOK_ID_REGEX.captures(&args.notebook_url).unwrap()[0];
+        // let notebook = get_notebook(&config, id).await?;
+        let notebook_id = &NOTEBOOK_ID_REGEX.captures(&args.notebook_url).unwrap()[1];
+        let mut url = Url::parse(&config.base_path)?;
+        {
+            url.path_segments_mut()
+                .map_err(|_| anyhow!("Cannot create API URL"))?
+                .push("api")
+                .push("notebooks")
+                .push(notebook_id);
+        }
+        let notebook: Notebook = config
+            .client
+            .get(url)
+            .bearer_auth(
+                config
+                    .oauth_access_token
+                    .or(config.bearer_access_token)
+                    .unwrap_or_default(),
+            )
+            .send()
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
         let notebook = serde_json::to_string(&notebook)?;
         (notebook, args.notebook_url)
     };
