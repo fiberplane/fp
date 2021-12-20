@@ -76,6 +76,7 @@ pub async fn handle_monitor_command(args: MonitorArguments) -> Result<()> {
         let message = realtime::SubscribeMessage {
             op_id: Some(format!("sub_{:?}", notebook)),
             notebook_id: notebook,
+            revision: None,
         };
         let message = realtime::ClientRealtimeMessage::Subscribe(message);
         let message = serde_json::to_string(&message).unwrap();

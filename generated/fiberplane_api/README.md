@@ -30,11 +30,13 @@ Class | Method | HTTP request | Description
 *DefaultApi* | [**get_file**](docs/DefaultApi.md#get_file) | **GET** /api/files/{notebookId}/{fileId} | 
 *DefaultApi* | [**get_notebook**](docs/DefaultApi.md#get_notebook) | **GET** /api/notebooks/{id} | 
 *DefaultApi* | [**get_profile**](docs/DefaultApi.md#get_profile) | **GET** /api/profile | 
+*DefaultApi* | [**get_profile_picture**](docs/DefaultApi.md#get_profile_picture) | **GET** /api/profile/picture | 
 *DefaultApi* | [**logout**](docs/DefaultApi.md#logout) | **POST** /api/logout | 
 *DefaultApi* | [**notebook_create**](docs/DefaultApi.md#notebook_create) | **POST** /api/notebooks | 
 *DefaultApi* | [**notebook_list**](docs/DefaultApi.md#notebook_list) | **GET** /api/notebooks | 
 *DefaultApi* | [**oidc_authorize_google**](docs/DefaultApi.md#oidc_authorize_google) | **GET** /api/oidc/authorize/google | 
 *DefaultApi* | [**org_data_source_create**](docs/DefaultApi.md#org_data_source_create) | **POST** /api/datasources | 
+*DefaultApi* | [**patch_notebook**](docs/DefaultApi.md#patch_notebook) | **PATCH** /api/notebooks/{id} | 
 *DefaultApi* | [**pinned_notebook_create**](docs/DefaultApi.md#pinned_notebook_create) | **POST** /api/pinnednotebooks | 
 *DefaultApi* | [**pinned_notebook_delete**](docs/DefaultApi.md#pinned_notebook_delete) | **DELETE** /api/pinnednotebooks/{notebookId} | 
 *DefaultApi* | [**pinned_notebook_list**](docs/DefaultApi.md#pinned_notebook_list) | **GET** /api/pinnednotebooks | 
@@ -44,6 +46,8 @@ Class | Method | HTTP request | Description
 *DefaultApi* | [**proxy_get**](docs/DefaultApi.md#proxy_get) | **GET** /api/proxies/{proxyId} | 
 *DefaultApi* | [**proxy_list**](docs/DefaultApi.md#proxy_list) | **GET** /api/proxies | 
 *DefaultApi* | [**proxy_relay**](docs/DefaultApi.md#proxy_relay) | **POST** /api/proxies/{proxyId}/relay | 
+*DefaultApi* | [**triggers_list**](docs/DefaultApi.md#triggers_list) | **GET** /api/triggers | 
+*DefaultApi* | [**update_profile_picture**](docs/DefaultApi.md#update_profile_picture) | **POST** /api/profile/picture | 
 
 
 ## Documentation For Models
@@ -52,10 +56,12 @@ Class | Method | HTTP request | Description
  - [CellType](docs/CellType.md)
  - [CheckboxCell](docs/CheckboxCell.md)
  - [CodeCell](docs/CodeCell.md)
+ - [CreatedBy](docs/CreatedBy.md)
  - [DataSource](docs/DataSource.md)
  - [DataSourceAndProxySummary](docs/DataSourceAndProxySummary.md)
  - [DataSourceSummary](docs/DataSourceSummary.md)
  - [DataSourceType](docs/DataSourceType.md)
+ - [DividerCell](docs/DividerCell.md)
  - [FileSummary](docs/FileSummary.md)
  - [GraphCell](docs/GraphCell.md)
  - [HeadingCell](docs/HeadingCell.md)
@@ -71,7 +77,9 @@ Class | Method | HTTP request | Description
  - [NewProxy](docs/NewProxy.md)
  - [Notebook](docs/Notebook.md)
  - [NotebookDataSource](docs/NotebookDataSource.md)
+ - [NotebookPatch](docs/NotebookPatch.md)
  - [NotebookSummary](docs/NotebookSummary.md)
+ - [NotebookVisibility](docs/NotebookVisibility.md)
  - [OrgDataSource](docs/OrgDataSource.md)
  - [Point](docs/Point.md)
  - [PointType](docs/PointType.md)
@@ -87,7 +95,10 @@ Class | Method | HTTP request | Description
  - [TableCell](docs/TableCell.md)
  - [TextCell](docs/TextCell.md)
  - [TimeRange](docs/TimeRange.md)
+ - [Trigger](docs/Trigger.md)
+ - [TriggerType](docs/TriggerType.md)
  - [User](docs/User.md)
+ - [UserType](docs/UserType.md)
 
 
 To get access to the crate's generated documentation, use:

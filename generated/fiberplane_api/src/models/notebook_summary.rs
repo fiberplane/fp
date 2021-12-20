@@ -19,17 +19,23 @@ pub struct NotebookSummary {
     pub title: String,
     #[serde(rename = "createdAt")]
     pub created_at: String,
+    #[serde(rename = "createdBy")]
+    pub created_by: Box<crate::models::CreatedBy>,
     #[serde(rename = "updatedAt")]
     pub updated_at: String,
+    #[serde(rename = "visibility", skip_serializing_if = "Option::is_none")]
+    pub visibility: Option<crate::models::NotebookVisibility>,
 }
 
 impl NotebookSummary {
-    pub fn new(id: String, title: String, created_at: String, updated_at: String) -> NotebookSummary {
+    pub fn new(id: String, title: String, created_at: String, created_by: crate::models::CreatedBy, updated_at: String) -> NotebookSummary {
         NotebookSummary {
             id,
             title,
             created_at,
+            created_by: Box::new(created_by),
             updated_at,
+            visibility: None,
         }
     }
 }

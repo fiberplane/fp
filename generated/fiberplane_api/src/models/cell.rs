@@ -37,6 +37,13 @@ pub enum Cell {
         #[serde(rename = "syntax", skip_serializing_if = "Option::is_none")]
         syntax: Option<String>,
     },
+    #[serde(rename="divider")]
+    DividerCell {
+        #[serde(rename = "id")]
+        id: String,
+        #[serde(rename = "readOnly", skip_serializing_if = "Option::is_none")]
+        read_only: Option<bool>,
+    },
     #[serde(rename="graph")]
     GraphCell {
         #[serde(rename = "id")]
@@ -78,9 +85,9 @@ pub enum Cell {
         #[serde(rename = "readOnly", skip_serializing_if = "Option::is_none")]
         read_only: Option<bool>,
         #[serde(rename = "width", skip_serializing_if = "Option::is_none")]
-        width: Option<f32>,
+        width: Option<i32>,
         #[serde(rename = "height", skip_serializing_if = "Option::is_none")]
-        height: Option<f32>,
+        height: Option<i32>,
         #[serde(rename = "preview", skip_serializing_if = "Option::is_none")]
         preview: Option<String>,
     },
@@ -96,6 +103,8 @@ pub enum Cell {
         level: Option<f32>,
         #[serde(rename = "readOnly", skip_serializing_if = "Option::is_none")]
         read_only: Option<bool>,
+        #[serde(rename = "startNumber", skip_serializing_if = "Option::is_none")]
+        start_number: Option<f32>,
     },
     #[serde(rename="prometheus")]
     PrometheusCell {
