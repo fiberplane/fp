@@ -178,7 +178,7 @@ async fn handle_init_command() -> Result<()> {
     path.push("template.jsonnet");
 
     fs::write(&path, template).await?;
-    println!("Saved template to: {}", path.display());
+    eprintln!("Saved template to: {}", path.display());
 
     Ok(())
 }
@@ -220,7 +220,7 @@ async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
 
     if !args.create_notebook {
         let notebook = expander.expand_template_to_string(template, template_args, true)?;
-        println!("{}", notebook);
+        io::stdout().write_all(notebook.as_bytes()).await?;
     } else {
         let notebook = expander.expand_template_to_string(template, template_args, false)?;
         debug!(%notebook, "Expanded template to notebook");
@@ -232,7 +232,7 @@ async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
             .await
             .with_context(|| "Error creating notebook")?;
         let notebook_url = format!("{}/notebook/{}", config.base_path, notebook.id);
-        println!("Created notebook: {}", notebook_url);
+        eprintln!("Created notebook: {}", notebook_url);
     }
     Ok(())
 }
