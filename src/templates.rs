@@ -18,7 +18,7 @@ use tracing::debug;
 use url::Url;
 
 lazy_static! {
-    static ref NOTEBOOK_ID_REGEX: Regex = Regex::from_str("--([a-zA-Z0-9-]+)$").unwrap();
+    static ref NOTEBOOK_ID_REGEX: Regex = Regex::from_str("-([a-zA-Z0-9_-]{22})$").unwrap();
 }
 
 // TODO remove these once the relay schema matches the generated API client
