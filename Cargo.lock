@@ -489,7 +489,7 @@ dependencies = [
 [[package]]
 name = "fiberplane-templates"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/templates.git?branch=main#d4a3b519c38efa4d58608dd091d1646586b9a2d7"
+source = "git+ssh://git@github.com/fiberplane/templates.git?branch=main#9d1ba579c60a1ee7ca77f65e72964e8974eedf13"
 dependencies = [
  "fiberplane",
  "jrsonnet-evaluator",
@@ -558,11 +558,12 @@ dependencies = [
 [[package]]
 name = "fp-bindgen"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fp-bindgen.git?branch=main#e0eac6f12eba9bb184e55311b3e4a3323259efa6"
+source = "git+ssh://git@github.com/fiberplane/fp-bindgen.git?branch=main#bee60708db97351e8b72f86f82cdaf22cbbe0420"
 dependencies = [
  "Inflector",
  "dashmap",
  "fp-bindgen-macros",
+ "http",
  "once_cell",
  "pretty_assertions",
  "proc-macro2",
@@ -575,7 +576,7 @@ dependencies = [
 [[package]]
 name = "fp-bindgen-macros"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fp-bindgen.git?branch=main#e0eac6f12eba9bb184e55311b3e4a3323259efa6"
+source = "git+ssh://git@github.com/fiberplane/fp-bindgen.git?branch=main#bee60708db97351e8b72f86f82cdaf22cbbe0420"
 dependencies = [
  "once_cell",
  "proc-macro-error",

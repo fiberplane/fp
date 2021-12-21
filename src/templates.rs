@@ -2,7 +2,7 @@ use crate::config::api_client_configuration;
 use anyhow::{anyhow, Context, Error, Result};
 use clap::{Parser, ValueHint};
 use fiberplane::protocols::core::{self, Cell, HeadingCell, HeadingType, TextCell, TimeRange};
-use fiberplane_api::apis::default_api::{get_notebook, notebook_create};
+use fiberplane_api::apis::default_api::{get_notebook, notebook_create, proxy_data_sources_list};
 use fiberplane_api::models::{NewNotebook, Notebook};
 use fiberplane_templates::{notebook_to_template, TemplateExpander};
 use lazy_static::lazy_static;
@@ -18,7 +18,7 @@ use tracing::debug;
 use url::Url;
 
 lazy_static! {
-    static ref NOTEBOOK_ID_REGEX: Regex = Regex::from_str("--([a-zA-Z0-9-]+)$").unwrap();
+    static ref NOTEBOOK_ID_REGEX: Regex = Regex::from_str("-([a-zA-Z0-9_-]{22})$").unwrap();
 }
 
 // TODO remove these once the relay schema matches the generated API client
@@ -216,7 +216,18 @@ async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
         .await
         .ok();
 
-    let expander = TemplateExpander::default();
+    let mut expander = TemplateExpander::default();
+
+    // Inject data sources into the template runtime
+    let data_sources = if let Some(config) = &config {
+        proxy_data_sources_list(config).await?
+    } else {
+        Vec::new()
+    };
+    expander.add_ext_var(
+        "PROXY_DATA_SOURCES".to_string(),
+        serde_json::to_value(&data_sources)?,
+    );
 
     if !args.create_notebook {
         let notebook = expander.expand_template_to_string(template, template_args, true)?;
@@ -224,7 +235,7 @@ async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
     } else {
         let notebook = expander.expand_template_to_string(template, template_args, false)?;
         debug!(%notebook, "Expanded template to notebook");
-        let config = config.ok_or(anyhow!("Must be logged in to create notebook"))?;
+        let config = config.ok_or_else(|| anyhow!("Must be logged in to create notebook"))?;
 
         let notebook: NewNotebook = serde_json::from_str(&notebook)
             .with_context(|| "Template did not produce a valid NewNotebook")?;
@@ -252,7 +263,7 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
         let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
         let id = &NOTEBOOK_ID_REGEX
             .captures(&args.notebook_url)
-            .ok_or(anyhow!("Notebook URL is invalid"))?[1];
+            .ok_or_else(|| anyhow!("Notebook URL is invalid"))?[1];
         let notebook = get_notebook(&config, id)
             .await
             .with_context(|| "Error fetching notebook")?;
