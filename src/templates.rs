@@ -235,7 +235,7 @@ async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
     } else {
         let notebook = expander.expand_template_to_string(template, template_args, false)?;
         debug!(%notebook, "Expanded template to notebook");
-        let config = config.ok_or(anyhow!("Must be logged in to create notebook"))?;
+        let config = config.ok_or_else(|| anyhow!("Must be logged in to create notebook"))?;
 
         let notebook: NewNotebook = serde_json::from_str(&notebook)
             .with_context(|| "Template did not produce a valid NewNotebook")?;
@@ -263,7 +263,7 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
         let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
         let id = &NOTEBOOK_ID_REGEX
             .captures(&args.notebook_url)
-            .ok_or(anyhow!("Notebook URL is invalid"))?[1];
+            .ok_or_else(|| anyhow!("Notebook URL is invalid"))?[1];
         let notebook = get_notebook(&config, id)
             .await
             .with_context(|| "Error fetching notebook")?;
