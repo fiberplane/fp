@@ -28,6 +28,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
         Create(args) => handle_trigger_create_command(args).await,
         Get(args) => handle_trigger_get_command(args).await,
         Delete(args) => handle_trigger_delete_command(args).await,
+        List(args) => handle_trigger_list_command(args).await,
     }
 }
 
@@ -39,6 +40,8 @@ pub enum SubCommand {
     Get(IndividualTriggerArguments),
     #[clap(name = "delete", alias = "remove", about = "Delete a trigger")]
     Delete(IndividualTriggerArguments),
+    #[clap(name = "list", about = "List all triggers")]
+    List(ListArguments),
 }
 
 #[derive(Parser)]
@@ -61,6 +64,18 @@ enum TemplateSource {
     Path(PathBuf),
 }
 
+impl FromStr for TemplateSource {
+    type Err = Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Ok(url) = Url::parse(s) {
+            if !url.cannot_be_a_base() {
+                return Ok(TemplateSource::Url(url));
+            }
+        }
+        Ok(TemplateSource::Path(PathBuf::from(s)))
+    }
+}
+
 #[derive(Parser)]
 pub struct IndividualTriggerArguments {
     #[clap(name = "trigger", about = "Trigger ID or URL")]
@@ -73,16 +88,13 @@ pub struct IndividualTriggerArguments {
     config: Option<String>,
 }
 
-impl FromStr for TemplateSource {
-    type Err = Error;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Ok(url) = Url::parse(s) {
-            if !url.cannot_be_a_base() {
-                return Ok(TemplateSource::Url(url));
-            }
-        }
-        Ok(TemplateSource::Path(PathBuf::from(s)))
-    }
+#[derive(Parser)]
+pub struct ListArguments {
+    #[clap(from_global)]
+    base_url: String,
+
+    #[clap(from_global)]
+    config: Option<String>,
 }
 
 async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {
@@ -153,5 +165,35 @@ async fn handle_trigger_delete_command(args: IndividualTriggerArguments) -> Resu
     trigger_delete(&config, trigger_id)
         .await
         .with_context(|| "Error deleting trigger")?;
+    Ok(())
+}
+
+async fn handle_trigger_list_command(args: ListArguments) -> Result<()> {
+    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+    let mut triggers = trigger_list(&config)
+        .await
+        .with_context(|| "Error getting triggers")?;
+
+    if triggers.is_empty() {
+        eprintln!("(No active triggers found)");
+    } else {
+        // Show the most recently updated first
+        triggers.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+
+        for trigger in triggers {
+            eprintln!(
+                "- Trigger ID: {id}
+  WebHook URL: {base_url}/api/triggers/{id}/webhook
+  Template URL: {template_url}",
+                id = trigger.id,
+                base_url = args.base_url,
+                template_url = trigger
+                    .template_url
+                    .as_deref()
+                    .unwrap_or("N/A (Query the individual trigger ID to display stored template)")
+            );
+        }
+    }
+
     Ok(())
 }
