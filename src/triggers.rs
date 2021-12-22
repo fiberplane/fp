@@ -5,10 +5,16 @@ use fiberplane_api::apis::default_api::{
     trigger_create, trigger_delete, trigger_get, trigger_list, trigger_webhook,
 };
 use fiberplane_api::models::NewTrigger;
+use lazy_static::lazy_static;
+use regex::Regex;
 use std::path::PathBuf;
 use std::str::FromStr;
 use tokio::fs;
 use url::Url;
+
+lazy_static! {
+    static ref TRIGGER_ID_REGEX: Regex = Regex::new(r"([a-zA-Z0-9_-]{22})(?:/webhook)?$").unwrap();
+}
 
 #[derive(Parser)]
 pub struct Arguments {
@@ -20,6 +26,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
     use SubCommand::*;
     match args.subcmd {
         Create(args) => handle_trigger_create_command(args).await,
+        Get(args) => handle_trigger_get_command(args).await,
     }
 }
 
@@ -27,6 +34,8 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 pub enum SubCommand {
     #[clap(name = "create", alias = "new", about = "Create a Trigger")]
     Create(CreateArguments),
+    #[clap(name = "get", alias = "info", about = "Print info about a trigger")]
+    Get(GetArguments),
 }
 
 #[derive(Parser)]
@@ -47,6 +56,18 @@ enum TemplateSource {
     Url(Url),
     #[clap(about = "Path to template file")]
     Path(PathBuf),
+}
+
+#[derive(Parser)]
+pub struct GetArguments {
+    #[clap(name = "trigger", about = "Trigger ID or URL")]
+    trigger: String,
+
+    #[clap(from_global)]
+    base_url: String,
+
+    #[clap(from_global)]
+    config: Option<String>,
 }
 
 impl FromStr for TemplateSource {
@@ -90,5 +111,33 @@ async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {
         "Trigger can be invoked with an HTTP POST to: {}/api/triggers/{}/webhook",
         args.base_url, trigger.id
     );
+    Ok(())
+}
+
+async fn handle_trigger_get_command(args: GetArguments) -> Result<()> {
+    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+    let trigger_id = &TRIGGER_ID_REGEX
+        .captures(&args.trigger)
+        .with_context(|| "Could not parse trigger. Expected a Trigger ID or URL")?[1];
+    let trigger = trigger_get(&config, trigger_id)
+        .await
+        .with_context(|| "Error getting trigger details")?;
+
+    eprintln!("Trigger ID: {}", trigger.id);
+    eprintln!(
+        "WebHook URL: {}/api/triggers/{}/webhook",
+        args.base_url, trigger.id
+    );
+    eprintln!(
+        "Template URL: {}",
+        trigger.template_url.as_deref().unwrap_or("N/A")
+    );
+
+    // TODO should we default to not printing the body and give an option to print it?
+    eprintln!("Template Body:");
+    for line in trigger.template_body.lines() {
+        eprintln!("  {}", line);
+    }
+
     Ok(())
 }
