@@ -27,6 +27,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
     match args.subcmd {
         Create(args) => handle_trigger_create_command(args).await,
         Get(args) => handle_trigger_get_command(args).await,
+        Delete(args) => handle_trigger_delete_command(args).await,
     }
 }
 
@@ -35,7 +36,9 @@ pub enum SubCommand {
     #[clap(name = "create", alias = "new", about = "Create a Trigger")]
     Create(CreateArguments),
     #[clap(name = "get", alias = "info", about = "Print info about a trigger")]
-    Get(GetArguments),
+    Get(IndividualTriggerArguments),
+    #[clap(name = "delete", alias = "remove", about = "Delete a trigger")]
+    Delete(IndividualTriggerArguments),
 }
 
 #[derive(Parser)]
@@ -59,7 +62,7 @@ enum TemplateSource {
 }
 
 #[derive(Parser)]
-pub struct GetArguments {
+pub struct IndividualTriggerArguments {
     #[clap(name = "trigger", about = "Trigger ID or URL")]
     trigger: String,
 
@@ -114,7 +117,7 @@ async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {
     Ok(())
 }
 
-async fn handle_trigger_get_command(args: GetArguments) -> Result<()> {
+async fn handle_trigger_get_command(args: IndividualTriggerArguments) -> Result<()> {
     let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
     let trigger_id = &TRIGGER_ID_REGEX
         .captures(&args.trigger)
@@ -139,5 +142,16 @@ async fn handle_trigger_get_command(args: GetArguments) -> Result<()> {
         eprintln!("  {}", line);
     }
 
+    Ok(())
+}
+
+async fn handle_trigger_delete_command(args: IndividualTriggerArguments) -> Result<()> {
+    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+    let trigger_id = &TRIGGER_ID_REGEX
+        .captures(&args.trigger)
+        .with_context(|| "Could not parse trigger. Expected a Trigger ID or URL")?[1];
+    trigger_delete(&config, trigger_id)
+        .await
+        .with_context(|| "Error deleting trigger")?;
     Ok(())
 }
