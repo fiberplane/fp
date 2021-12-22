@@ -15,10 +15,10 @@
 pub struct Trigger {
     #[serde(rename = "id")]
     pub id: String,
-    #[serde(rename = "url")]
-    pub url: String,
-    #[serde(rename = "triggerType")]
-    pub trigger_type: crate::models::TriggerType,
+    #[serde(rename = "templateBody")]
+    pub template_body: String,
+    #[serde(rename = "templateUrl", skip_serializing_if = "Option::is_none")]
+    pub template_url: Option<String>,
     #[serde(rename = "createdAt")]
     pub created_at: String,
     #[serde(rename = "updatedAt")]
@@ -26,11 +26,11 @@ pub struct Trigger {
 }
 
 impl Trigger {
-    pub fn new(id: String, url: String, trigger_type: crate::models::TriggerType, created_at: String, updated_at: String) -> Trigger {
+    pub fn new(id: String, template_body: String, created_at: String, updated_at: String) -> Trigger {
         Trigger {
             id,
-            url,
-            trigger_type,
+            template_body,
+            template_url: None,
             created_at,
             updated_at,
         }

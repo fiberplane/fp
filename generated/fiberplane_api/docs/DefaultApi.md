@@ -26,7 +26,11 @@ Method | HTTP request | Description
 [**proxy_get**](DefaultApi.md#proxy_get) | **GET** /api/proxies/{proxyId} | 
 [**proxy_list**](DefaultApi.md#proxy_list) | **GET** /api/proxies | 
 [**proxy_relay**](DefaultApi.md#proxy_relay) | **POST** /api/proxies/{proxyId}/relay | 
-[**triggers_list**](DefaultApi.md#triggers_list) | **GET** /api/triggers | 
+[**trigger_create**](DefaultApi.md#trigger_create) | **POST** /api/triggers | 
+[**trigger_delete**](DefaultApi.md#trigger_delete) | **DELETE** /api/triggers/{triggerId} | 
+[**trigger_get**](DefaultApi.md#trigger_get) | **GET** /api/triggers/{triggerId} | 
+[**trigger_list**](DefaultApi.md#trigger_list) | **GET** /api/triggers | 
+[**trigger_webhook**](DefaultApi.md#trigger_webhook) | **POST** /api/triggers/{triggerId}/webhook | 
 [**update_profile_picture**](DefaultApi.md#update_profile_picture) | **POST** /api/profile/picture | 
 
 
@@ -142,7 +146,7 @@ Name | Type | Description  | Required | Notes
 
 ### Authorization
 
-[userToken](../README.md#userToken)
+No authorization required
 
 ### HTTP request headers
 
@@ -670,9 +674,95 @@ Name | Type | Description  | Required | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 
-## triggers_list
+## trigger_create
 
-> Vec<crate::models::Trigger> triggers_list()
+> trigger_create(UNKNOWN_BASE_TYPE)
+
+
+Create a new trigger
+
+### Parameters
+
+
+Name | Type | Description  | Required | Notes
+------------- | ------------- | ------------- | ------------- | -------------
+**UNKNOWN_BASE_TYPE** | Option<[**UNKNOWN_BASE_TYPE**](UNKNOWN_BASE_TYPE.md)> | Template URL or body |  |
+
+### Return type
+
+ (empty response body)
+
+### Authorization
+
+[userToken](../README.md#userToken)
+
+### HTTP request headers
+
+- **Content-Type**: application/json
+- **Accept**: Not defined
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+
+## trigger_delete
+
+> trigger_delete(trigger_id)
+
+
+### Parameters
+
+
+Name | Type | Description  | Required | Notes
+------------- | ------------- | ------------- | ------------- | -------------
+**trigger_id** | **String** | ID of the trigger | [required] |
+
+### Return type
+
+ (empty response body)
+
+### Authorization
+
+[userToken](../README.md#userToken)
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: Not defined
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+
+## trigger_get
+
+> crate::models::Trigger trigger_get(trigger_id)
+
+
+### Parameters
+
+
+Name | Type | Description  | Required | Notes
+------------- | ------------- | ------------- | ------------- | -------------
+**trigger_id** | **String** | ID of the trigger | [required] |
+
+### Return type
+
+[**crate::models::Trigger**](trigger.md)
+
+### Authorization
+
+[userToken](../README.md#userToken)
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+
+## trigger_list
+
+> Vec<crate::models::Trigger> trigger_list()
 
 
 ### Parameters
@@ -690,6 +780,37 @@ This endpoint does not need any parameter.
 ### HTTP request headers
 
 - **Content-Type**: Not defined
+- **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+
+## trigger_webhook
+
+> crate::models::TriggerWebHookResponse trigger_webhook(trigger_id, body)
+
+
+Invoke a trigger to create a notebook from the associated template
+
+### Parameters
+
+
+Name | Type | Description  | Required | Notes
+------------- | ------------- | ------------- | ------------- | -------------
+**trigger_id** | **String** | ID of the trigger | [required] |
+**body** | Option<**serde_json::Value**> | Parameters to pass to the template |  |
+
+### Return type
+
+[**crate::models::TriggerWebHookResponse**](triggerWebHookResponse.md)
+
+### Authorization
+
+[userToken](../README.md#userToken)
+
+### HTTP request headers
+
+- **Content-Type**: application/json
 - **Accept**: application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
