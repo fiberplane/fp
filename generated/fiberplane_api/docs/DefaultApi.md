@@ -676,7 +676,7 @@ Name | Type | Description  | Required | Notes
 
 ## trigger_create
 
-> trigger_create(UNKNOWN_BASE_TYPE)
+> crate::models::Trigger trigger_create(new_trigger)
 
 
 Create a new trigger
@@ -686,11 +686,11 @@ Create a new trigger
 
 Name | Type | Description  | Required | Notes
 ------------- | ------------- | ------------- | ------------- | -------------
-**UNKNOWN_BASE_TYPE** | Option<[**UNKNOWN_BASE_TYPE**](UNKNOWN_BASE_TYPE.md)> | Template URL or body |  |
+**new_trigger** | Option<[**NewTrigger**](NewTrigger.md)> | Template URL or body |  |
 
 ### Return type
 
- (empty response body)
+[**crate::models::Trigger**](trigger.md)
 
 ### Authorization
 
@@ -699,7 +699,7 @@ Name | Type | Description  | Required | Notes
 ### HTTP request headers
 
 - **Content-Type**: application/json
-- **Accept**: Not defined
+- **Accept**: application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 

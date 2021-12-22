@@ -26,8 +26,7 @@ docs/NewNotebook.md
 docs/NewOrgDataSource.md
 docs/NewPinnedNotebook.md
 docs/NewProxy.md
-docs/NewTriggerWithTemplateBody.md
-docs/NewTriggerWithTemplateUrl.md
+docs/NewTrigger.md
 docs/Notebook.md
 docs/NotebookDataSource.md
 docs/NotebookPatch.md
@@ -81,8 +80,7 @@ src/models/new_notebook.rs
 src/models/new_org_data_source.rs
 src/models/new_pinned_notebook.rs
 src/models/new_proxy.rs
-src/models/new_trigger_with_template_body.rs
-src/models/new_trigger_with_template_url.rs
+src/models/new_trigger.rs
 src/models/notebook.rs
 src/models/notebook_data_source.rs
 src/models/notebook_patch.rs

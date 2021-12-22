@@ -879,7 +879,7 @@ pub async fn proxy_relay(configuration: &configuration::Configuration, proxy_id:
 }
 
 /// Create a new trigger
-pub async fn trigger_create(configuration: &configuration::Configuration, UNKNOWN_BASE_TYPE: Option<crate::models::UNKNOWN_BASE_TYPE>) -> Result<(), Error<TriggerCreateError>> {
+pub async fn trigger_create(configuration: &configuration::Configuration, new_trigger: Option<crate::models::NewTrigger>) -> Result<crate::models::Trigger, Error<TriggerCreateError>> {
 
     let local_var_client = &configuration.client;
 
@@ -892,7 +892,7 @@ pub async fn trigger_create(configuration: &configuration::Configuration, UNKNOW
     if let Some(ref local_var_token) = configuration.bearer_access_token {
         local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
     };
-    local_var_req_builder = local_var_req_builder.json(&UNKNOWN_BASE_TYPE);
+    local_var_req_builder = local_var_req_builder.json(&new_trigger);
 
     let local_var_req = local_var_req_builder.build()?;
     let local_var_resp = local_var_client.execute(local_var_req).await?;
@@ -901,7 +901,7 @@ pub async fn trigger_create(configuration: &configuration::Configuration, UNKNOW
     let local_var_content = local_var_resp.text().await?;
 
     if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        Ok(())
+        serde_json::from_str(&local_var_content).map_err(Error::from)
     } else {
         let local_var_entity: Option<TriggerCreateError> = serde_json::from_str(&local_var_content).ok();
         let local_var_error = ResponseContent { status: local_var_status, content: local_var_content, entity: local_var_entity };

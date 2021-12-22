@@ -682,21 +682,19 @@ components:
         updatedAt:
           type: string
           format: date-time
-    newTriggerWithTemplateUrl:
+    newTrigger:
       type: object
-      required:
-        - templateUrl
       properties:
         templateUrl:
           type: string
           format: uri
-    newTriggerWithTemplateBody:
-      type: object
-      required:
-        - templateBody
-      properties:
         templateBody:
           type: string
+      minProperties: 1
+      maxProperties: 1
+      oneOf:
+        - required: [templateUrl]
+        - required: [templateBody]
     triggerWebHookRequest:
       type: object
     triggerWebHookResponse:
@@ -1074,9 +1072,14 @@ paths:
         content:
           application/json:
             schema:
-              oneOf:
-                - $ref: "#/components/schemas/newTriggerWithTemplateUrl"
-                - $ref: "#/components/schemas/newTriggerWithTemplateBody"
+              $ref: "#/components/schemas/newTrigger"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/trigger"
   /api/triggers/{triggerId}:
     parameters:
       - name: triggerId
@@ -1116,6 +1119,7 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/triggerWebHookRequest"
+      
       responses:
         "200":
           description: OK
