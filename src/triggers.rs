@@ -1,8 +1,14 @@
-use anyhow::{anyhow, Result};
-use clap::Parser;
-use reqwest::Client;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use crate::config::api_client_configuration;
+use anyhow::{Context, Error, Result};
+use clap::{ArgEnum, Parser};
+use fiberplane_api::apis::default_api::{
+    trigger_create, trigger_delete, trigger_get, trigger_list, trigger_webhook,
+};
+use fiberplane_api::models::NewTrigger;
+use std::path::PathBuf;
+use std::str::FromStr;
+use tokio::fs;
+use url::Url;
 
 #[derive(Parser)]
 pub struct Arguments {
@@ -13,59 +19,76 @@ pub struct Arguments {
 pub async fn handle_command(args: Arguments) -> Result<()> {
     use SubCommand::*;
     match args.subcmd {
-        Trigger(args) => handle_trigger_command(args).await,
+        Create(args) => handle_trigger_create_command(args).await,
     }
 }
 
 #[derive(Parser)]
 pub enum SubCommand {
-    #[clap(name = "trigger", about = "Monitor a fiberplane realtime connection")]
-    Trigger(TriggerArguments),
+    #[clap(name = "create", alias = "new", about = "Create a Trigger")]
+    Create(CreateArguments),
 }
 
 #[derive(Parser)]
-pub struct TriggerArguments {
-    #[clap(name = "labels", long, short, about = "Sets the alert labels")]
-    pub labels: Vec<String>,
+pub struct CreateArguments {
+    #[clap(name = "template", about = "URL or path to template file")]
+    template_source: TemplateSource,
 
-    #[clap(name = "annotations", long, short, about = "Set the alert annotations")]
-    pub annotations: Vec<String>,
+    #[clap(from_global)]
+    base_url: String,
+
+    #[clap(from_global)]
+    config: Option<String>,
 }
 
-async fn handle_trigger_command(args: TriggerArguments) -> Result<()> {
-    let mut labels: HashMap<String, String> = HashMap::new();
+#[derive(ArgEnum)]
+enum TemplateSource {
+    #[clap(about = "Template URL")]
+    Url(Url),
+    #[clap(about = "Path to template file")]
+    Path(PathBuf),
+}
 
-    for l in args.labels {
-        let vec: Vec<&str> = l.split('=').collect();
-        labels.insert(vec[0].to_string(), vec[1].to_string());
+impl FromStr for TemplateSource {
+    type Err = Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Ok(url) = Url::parse(s) {
+            if !url.cannot_be_a_base() {
+                return Ok(TemplateSource::Url(url));
+            }
+        }
+        Ok(TemplateSource::Path(PathBuf::from(s)))
     }
+}
 
-    let wht = WebhookTrigger {
-        id: "amazing webhook id".to_string(),
-        labels,
+async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {
+    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+    let new_trigger = match args.template_source {
+        TemplateSource::Path(path) => {
+            let template_body = fs::read_to_string(&path)
+                .await
+                .with_context(|| format!("Error reading template from file: {}", path.display()))?;
+            NewTrigger {
+                template_body: Some(template_body),
+                template_url: None,
+            }
+        }
+        TemplateSource::Url(template_url) => NewTrigger {
+            template_body: None,
+            template_url: Some(template_url.to_string()),
+        },
     };
-
-    do_request(wht)
+    let trigger = trigger_create(&config, Some(new_trigger))
         .await
-        .map_err(|e| anyhow!("request failed: {:?}", e))?;
-    println!("trigger!");
-    Ok(())
-}
+        .with_context(|| "Error creating trigger")?;
 
-#[derive(Debug, Serialize, Deserialize)]
-struct WebhookTrigger {
-    id: String,
-    labels: HashMap<String, String>,
-}
-
-async fn do_request(wht: WebhookTrigger) -> Result<(), reqwest::Error> {
-    let _ = Client::new()
-        .post("https://dev.fiberplane.io")
-        .json(&wht)
-        .send()
-        .await?
-        .json()
-        .await?;
-
+    eprintln!(
+        "Created trigger: {}/api/triggers/{}",
+        args.base_url, trigger.id
+    );
+    eprintln!(
+        "Trigger can be invoked with an HTTP POST to: {}/api/triggers/{}/webhook",
+        args.base_url, trigger.id
+    );
     Ok(())
 }

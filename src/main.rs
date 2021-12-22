@@ -7,7 +7,7 @@ mod config;
 mod providers;
 mod proxies;
 mod templates;
-mod webhook;
+mod triggers;
 mod ws;
 
 #[derive(Parser)]
@@ -45,8 +45,8 @@ enum SubCommand {
     #[clap(name = "providers", about = "Interact with Fiberplane Providers")]
     Providers(providers::Arguments),
 
-    #[clap(name = "webhook", about = "Interact with Fiberplane Webhooks")]
-    Webhook(webhook::Arguments),
+    #[clap(name = "triggers", alias = "trigger", about = "Interact with Fiberplane Triggers")]
+    Triggers(triggers::Arguments),
 
     #[clap(
         name = "web-sockets",
@@ -79,7 +79,7 @@ async fn main() {
     use SubCommand::*;
     let result = match args.subcmd {
         Providers(args) => providers::handle_command(args).await,
-        Webhook(args) => webhook::handle_command(args).await,
+        Triggers(args) => triggers::handle_command(args).await,
         WebSockets(args) => ws::handle_command(args).await,
         Login => auth::handle_login_command(args).await,
         Logout => auth::handle_logout_command(args).await,
