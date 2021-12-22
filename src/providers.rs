@@ -50,7 +50,7 @@ async fn handle_invoke_command(args: InvokeArguments) -> Result<()> {
     let wasm_module = std::fs::read(args.provider_path)
         .map_err(|e| anyhow!("unable to read wasm module: {:?}", e))?;
 
-    let runtime = fp_provider_runtime::Runtime::new(wasm_module)
+    let runtime = fp_provider_runtime::spec::Runtime::new(wasm_module)
         .map_err(|e| anyhow!("unable to create runtime: {:?}", e))?;
 
     let result = runtime.invoke(request, config).await;
