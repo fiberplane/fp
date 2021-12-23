@@ -49,8 +49,8 @@ Class | Method | HTTP request | Description
 *DefaultApi* | [**trigger_create**](docs/DefaultApi.md#trigger_create) | **POST** /api/triggers | 
 *DefaultApi* | [**trigger_delete**](docs/DefaultApi.md#trigger_delete) | **DELETE** /api/triggers/{triggerId} | 
 *DefaultApi* | [**trigger_get**](docs/DefaultApi.md#trigger_get) | **GET** /api/triggers/{triggerId} | 
+*DefaultApi* | [**trigger_invoke**](docs/DefaultApi.md#trigger_invoke) | **POST** /api/triggers/{triggerId}/webhook | 
 *DefaultApi* | [**trigger_list**](docs/DefaultApi.md#trigger_list) | **GET** /api/triggers | 
-*DefaultApi* | [**trigger_webhook**](docs/DefaultApi.md#trigger_webhook) | **POST** /api/triggers/{triggerId}/webhook | 
 *DefaultApi* | [**update_profile_picture**](docs/DefaultApi.md#update_profile_picture) | **POST** /api/profile/picture | 
 
 

@@ -1111,7 +1111,7 @@ paths:
         schema:
           type: string
     post:
-      operationId: trigger_webhook
+      operationId: trigger_invoke
       description: "Invoke a trigger to create a notebook from the associated template"
       requestBody:
         description: Parameters to pass to the template
