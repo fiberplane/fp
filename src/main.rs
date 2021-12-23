@@ -45,7 +45,11 @@ enum SubCommand {
     #[clap(name = "providers", about = "Interact with Fiberplane Providers")]
     Providers(providers::Arguments),
 
-    #[clap(name = "triggers", alias = "trigger", about = "Interact with Fiberplane Triggers")]
+    #[clap(
+        name = "triggers",
+        alias = "trigger",
+        about = "Interact with Fiberplane Triggers"
+    )]
     Triggers(triggers::Arguments),
 
     #[clap(
