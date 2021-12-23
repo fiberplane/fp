@@ -1,14 +1,16 @@
 use crate::config::api_client_configuration;
+use crate::templates::TemplateArg;
 use anyhow::{Context, Error, Result};
 use clap::{ArgEnum, Parser};
+use fiberplane_api::apis::configuration::Configuration;
 use fiberplane_api::apis::default_api::{
-    trigger_create, trigger_delete, trigger_get, trigger_list, trigger_webhook,
+    trigger_create, trigger_delete, trigger_get, trigger_invoke, trigger_list,
 };
 use fiberplane_api::models::NewTrigger;
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::path::PathBuf;
-use std::str::FromStr;
+use serde_json::Value;
+use std::{collections::HashMap, path::PathBuf, str::FromStr};
 use tokio::fs;
 use url::Url;
 
@@ -29,11 +31,12 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
         Get(args) => handle_trigger_get_command(args).await,
         Delete(args) => handle_trigger_delete_command(args).await,
         List(args) => handle_trigger_list_command(args).await,
+        Invoke(args) => handle_trigger_invoke_command(args).await,
     }
 }
 
 #[derive(Parser)]
-pub enum SubCommand {
+enum SubCommand {
     #[clap(name = "create", alias = "new", about = "Create a Trigger")]
     Create(CreateArguments),
     #[clap(name = "get", alias = "info", about = "Print info about a trigger")]
@@ -42,10 +45,15 @@ pub enum SubCommand {
     Delete(IndividualTriggerArguments),
     #[clap(name = "list", about = "List all triggers")]
     List(ListArguments),
+    #[clap(
+        name = "invoke",
+        about = "Invoke a trigger webhook to create a notebook from the template"
+    )]
+    Invoke(InvokeArguments),
 }
 
 #[derive(Parser)]
-pub struct CreateArguments {
+struct CreateArguments {
     #[clap(name = "template", about = "URL or path to template file")]
     template_source: TemplateSource,
 
@@ -77,7 +85,7 @@ impl FromStr for TemplateSource {
 }
 
 #[derive(Parser)]
-pub struct IndividualTriggerArguments {
+struct IndividualTriggerArguments {
     #[clap(name = "trigger", about = "Trigger ID or URL")]
     trigger: String,
 
@@ -89,12 +97,29 @@ pub struct IndividualTriggerArguments {
 }
 
 #[derive(Parser)]
-pub struct ListArguments {
+struct ListArguments {
     #[clap(from_global)]
     base_url: String,
 
     #[clap(from_global)]
     config: Option<String>,
+}
+
+#[derive(Parser)]
+struct InvokeArguments {
+    #[clap(name = "trigger", about = "Trigger ID or URL")]
+    trigger: String,
+
+    #[clap(
+        name = "arg",
+        short,
+        long,
+        about = "Values to inject into the template. Must be in the form name=value. JSON values are supported."
+    )]
+    args: Vec<TemplateArg>,
+
+    #[clap(from_global)]
+    base_url: String,
 }
 
 async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {
@@ -194,6 +219,27 @@ async fn handle_trigger_list_command(args: ListArguments) -> Result<()> {
             );
         }
     }
+
+    Ok(())
+}
+
+async fn handle_trigger_invoke_command(args: InvokeArguments) -> Result<()> {
+    let trigger_id = &TRIGGER_ID_REGEX
+        .captures(&args.trigger)
+        .with_context(|| "Could not parse trigger. Expected a Trigger ID or URL")?[1];
+    dbg!(&trigger_id);
+
+    let body: HashMap<String, Value> = args.args.into_iter().map(|a| (a.name, a.value)).collect();
+    let body = serde_json::to_value(&body)?;
+
+    let config = Configuration {
+        base_path: args.base_url.to_string(),
+        ..Configuration::default()
+    };
+    let result = trigger_invoke(&config, trigger_id, Some(body))
+        .await
+        .with_context(|| "Error invoking trigger")?;
+    eprintln!("Created notebook: {}", result.notebook_url);
 
     Ok(())
 }

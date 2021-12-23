@@ -127,7 +127,7 @@ struct ConvertArguments {
     notebook_url: String,
 }
 
-struct TemplateArg {
+pub struct TemplateArg {
     pub name: String,
     pub value: Value,
 }
