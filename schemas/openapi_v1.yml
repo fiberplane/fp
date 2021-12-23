@@ -92,7 +92,8 @@ components:
         content:
           type: string
         level:
-          type: number
+          type: integer
+          format: int32
         readOnly:
           type: boolean
     codeCell:
@@ -207,11 +208,13 @@ components:
         content:
           type: string
         level:
-          type: number
+          type: integer
+          format: int32
         readOnly:
           type: boolean
         startNumber:
-          type: number
+          type: integer
+          format: int32
     prometheusCell:
       type: object
       required:

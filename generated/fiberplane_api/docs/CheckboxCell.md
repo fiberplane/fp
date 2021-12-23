@@ -8,7 +8,7 @@ Name | Type | Description | Notes
 **id** | **String** |  | 
 **checked** | **bool** |  | 
 **content** | **String** |  | 
-**level** | Option<**f32**> |  | [optional]
+**level** | Option<**i32**> |  | [optional]
 **read_only** | Option<**bool**> |  | [optional]
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)

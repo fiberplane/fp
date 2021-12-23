@@ -22,11 +22,11 @@ pub struct ListItemCell {
     #[serde(rename = "content")]
     pub content: String,
     #[serde(rename = "level", skip_serializing_if = "Option::is_none")]
-    pub level: Option<f32>,
+    pub level: Option<i32>,
     #[serde(rename = "readOnly", skip_serializing_if = "Option::is_none")]
     pub read_only: Option<bool>,
     #[serde(rename = "startNumber", skip_serializing_if = "Option::is_none")]
-    pub start_number: Option<f32>,
+    pub start_number: Option<i32>,
 }
 
 impl ListItemCell {

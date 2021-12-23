@@ -22,7 +22,7 @@ pub enum Cell {
         #[serde(rename = "content")]
         content: String,
         #[serde(rename = "level", skip_serializing_if = "Option::is_none")]
-        level: Option<f32>,
+        level: Option<i32>,
         #[serde(rename = "readOnly", skip_serializing_if = "Option::is_none")]
         read_only: Option<bool>,
     },
@@ -100,11 +100,11 @@ pub enum Cell {
         #[serde(rename = "content")]
         content: String,
         #[serde(rename = "level", skip_serializing_if = "Option::is_none")]
-        level: Option<f32>,
+        level: Option<i32>,
         #[serde(rename = "readOnly", skip_serializing_if = "Option::is_none")]
         read_only: Option<bool>,
         #[serde(rename = "startNumber", skip_serializing_if = "Option::is_none")]
-        start_number: Option<f32>,
+        start_number: Option<i32>,
     },
     #[serde(rename="prometheus")]
     PrometheusCell {
