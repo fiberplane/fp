@@ -46,7 +46,11 @@ Class | Method | HTTP request | Description
 *DefaultApi* | [**proxy_get**](docs/DefaultApi.md#proxy_get) | **GET** /api/proxies/{proxyId} | 
 *DefaultApi* | [**proxy_list**](docs/DefaultApi.md#proxy_list) | **GET** /api/proxies | 
 *DefaultApi* | [**proxy_relay**](docs/DefaultApi.md#proxy_relay) | **POST** /api/proxies/{proxyId}/relay | 
-*DefaultApi* | [**triggers_list**](docs/DefaultApi.md#triggers_list) | **GET** /api/triggers | 
+*DefaultApi* | [**trigger_create**](docs/DefaultApi.md#trigger_create) | **POST** /api/triggers | 
+*DefaultApi* | [**trigger_delete**](docs/DefaultApi.md#trigger_delete) | **DELETE** /api/triggers/{triggerId} | 
+*DefaultApi* | [**trigger_get**](docs/DefaultApi.md#trigger_get) | **GET** /api/triggers/{triggerId} | 
+*DefaultApi* | [**trigger_invoke**](docs/DefaultApi.md#trigger_invoke) | **POST** /api/triggers/{triggerId}/webhook | 
+*DefaultApi* | [**trigger_list**](docs/DefaultApi.md#trigger_list) | **GET** /api/triggers | 
 *DefaultApi* | [**update_profile_picture**](docs/DefaultApi.md#update_profile_picture) | **POST** /api/profile/picture | 
 
 
@@ -75,6 +79,7 @@ Class | Method | HTTP request | Description
  - [NewOrgDataSource](docs/NewOrgDataSource.md)
  - [NewPinnedNotebook](docs/NewPinnedNotebook.md)
  - [NewProxy](docs/NewProxy.md)
+ - [NewTrigger](docs/NewTrigger.md)
  - [Notebook](docs/Notebook.md)
  - [NotebookDataSource](docs/NotebookDataSource.md)
  - [NotebookPatch](docs/NotebookPatch.md)
@@ -96,7 +101,7 @@ Class | Method | HTTP request | Description
  - [TextCell](docs/TextCell.md)
  - [TimeRange](docs/TimeRange.md)
  - [Trigger](docs/Trigger.md)
- - [TriggerType](docs/TriggerType.md)
+ - [TriggerWebHookResponse](docs/TriggerWebHookResponse.md)
  - [User](docs/User.md)
  - [UserType](docs/UserType.md)
 

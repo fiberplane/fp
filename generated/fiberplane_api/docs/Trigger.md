@@ -5,8 +5,8 @@
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **id** | **String** |  | 
-**url** | **String** |  | 
-**trigger_type** | [**crate::models::TriggerType**](triggerType.md) |  | 
+**template_body** | **String** |  | 
+**template_url** | Option<**String**> |  | [optional]
 **created_at** | **String** |  | 
 **updated_at** | **String** |  | 
 

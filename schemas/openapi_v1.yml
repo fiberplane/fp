@@ -92,7 +92,8 @@ components:
         content:
           type: string
         level:
-          type: number
+          type: integer
+          format: int32
         readOnly:
           type: boolean
     codeCell:
@@ -207,11 +208,13 @@ components:
         content:
           type: string
         level:
-          type: number
+          type: integer
+          format: int32
         readOnly:
           type: boolean
         startNumber:
-          type: number
+          type: integer
+          format: int32
     prometheusCell:
       type: object
       required:
@@ -666,27 +669,45 @@ components:
       type: object
       required:
         - id
-        - url
-        - triggerType
+        - templateBody
         - createdAt
         - updatedAt
       properties:
         id:
           type: string
-        url:
+        templateBody:
           type: string
-        triggerType:
-          $ref: "#/components/schemas/triggerType"
+        templateUrl:
+          type: string
         createdAt:
           type: string
           format: date-time
         updatedAt:
           type: string
           format: date-time
-    triggerType:
-      type: string
-      enum:
-        - Prometheus
+    newTrigger:
+      type: object
+      properties:
+        templateUrl:
+          type: string
+          format: uri
+        templateBody:
+          type: string
+      minProperties: 1
+      maxProperties: 1
+      oneOf:
+        - required: [templateUrl]
+        - required: [templateBody]
+    triggerWebHookRequest:
+      type: object
+    triggerWebHookResponse:
+      type: object
+      required:
+        - notebookUrl
+      properties:
+        notebookUrl:
+          type: string
+          format: uri
     createdBy:
       type: object
       required:
@@ -837,6 +858,8 @@ paths:
     get:
       operationId: get_file
       description: "Get a file"
+      # images are accessible to anonymous users for public notebooks
+      security: []
       responses:
         "200":
           description: OK
@@ -1034,7 +1057,7 @@ paths:
           description: OK
   /api/triggers:
     get:
-      operationId: triggers_list
+      operationId: trigger_list
       responses:
         "200":
           description: OK
@@ -1044,3 +1067,66 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/trigger"
+    post:
+      operationId: trigger_create
+      description: "Create a new trigger"
+      requestBody:
+        description: Template URL or body
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/newTrigger"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/trigger"
+  /api/triggers/{triggerId}:
+    parameters:
+      - name: triggerId
+        in: path
+        description: ID of the trigger
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: trigger_get
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/trigger"
+    delete:
+      operationId: trigger_delete
+      responses:
+        "200":
+          description: OK
+  /api/triggers/{triggerId}/webhook:
+    parameters:
+      - name: triggerId
+        in: path
+        description: ID of the trigger
+        required: true
+        schema:
+          type: string
+    post:
+      operationId: trigger_invoke
+      description: "Invoke a trigger to create a notebook from the associated template"
+      requestBody:
+        description: Parameters to pass to the template
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/triggerWebHookRequest"
+      
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/triggerWebHookResponse"

@@ -18,7 +18,7 @@ use tracing::debug;
 use url::Url;
 
 lazy_static! {
-    static ref NOTEBOOK_ID_REGEX: Regex = Regex::from_str("-([a-zA-Z0-9_-]{22})$").unwrap();
+    static ref NOTEBOOK_ID_REGEX: Regex = Regex::from_str("([a-zA-Z0-9_-]{22})$").unwrap();
 }
 
 // TODO remove these once the relay schema matches the generated API client
@@ -127,7 +127,7 @@ struct ConvertArguments {
     notebook_url: String,
 }
 
-struct TemplateArg {
+pub struct TemplateArg {
     pub name: String,
     pub value: Value,
 }
@@ -273,8 +273,12 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
 
     // TODO remove the extra (de)serialization when we unify the generated API client
     // types with those in fiberplane-rs
-    let notebook: core::NewNotebook = serde_json::from_str(&notebook)
-        .with_context(|| "Error deserializing response as core::NewNotebook")?;
+    let notebook: core::NewNotebook = serde_json::from_str(&notebook).with_context(|| {
+        format!(
+            "Error deserializing response as core::NewNotebook: {}",
+            notebook
+        )
+    })?;
     let template = notebook_to_template(notebook);
     let template = format!(
         "

@@ -169,10 +169,38 @@ pub enum ProxyRelayError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method `triggers_list`
+/// struct for typed errors of method `trigger_create`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum TriggersListError {
+pub enum TriggerCreateError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method `trigger_delete`
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum TriggerDeleteError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method `trigger_get`
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum TriggerGetError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method `trigger_invoke`
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum TriggerInvokeError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method `trigger_list`
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum TriggerListError {
     UnknownValue(serde_json::Value),
 }
 
@@ -287,9 +315,6 @@ pub async fn get_file(configuration: &configuration::Configuration, notebook_id:
     if let Some(ref local_var_user_agent) = configuration.user_agent {
         local_var_req_builder = local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
     }
-    if let Some(ref local_var_token) = configuration.bearer_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-    };
 
     let local_var_req = local_var_req_builder.build()?;
     let local_var_resp = local_var_client.execute(local_var_req).await?;
@@ -853,7 +878,127 @@ pub async fn proxy_relay(configuration: &configuration::Configuration, proxy_id:
     }
 }
 
-pub async fn triggers_list(configuration: &configuration::Configuration, ) -> Result<Vec<crate::models::Trigger>, Error<TriggersListError>> {
+/// Create a new trigger
+pub async fn trigger_create(configuration: &configuration::Configuration, new_trigger: Option<crate::models::NewTrigger>) -> Result<crate::models::Trigger, Error<TriggerCreateError>> {
+
+    let local_var_client = &configuration.client;
+
+    let local_var_uri_str = format!("{}/api/triggers", configuration.base_path);
+    let mut local_var_req_builder = local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+    if let Some(ref local_var_user_agent) = configuration.user_agent {
+        local_var_req_builder = local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    }
+    if let Some(ref local_var_token) = configuration.bearer_access_token {
+        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    };
+    local_var_req_builder = local_var_req_builder.json(&new_trigger);
+
+    let local_var_req = local_var_req_builder.build()?;
+    let local_var_resp = local_var_client.execute(local_var_req).await?;
+
+    let local_var_status = local_var_resp.status();
+    let local_var_content = local_var_resp.text().await?;
+
+    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+        serde_json::from_str(&local_var_content).map_err(Error::from)
+    } else {
+        let local_var_entity: Option<TriggerCreateError> = serde_json::from_str(&local_var_content).ok();
+        let local_var_error = ResponseContent { status: local_var_status, content: local_var_content, entity: local_var_entity };
+        Err(Error::ResponseError(local_var_error))
+    }
+}
+
+pub async fn trigger_delete(configuration: &configuration::Configuration, trigger_id: &str) -> Result<(), Error<TriggerDeleteError>> {
+
+    let local_var_client = &configuration.client;
+
+    let local_var_uri_str = format!("{}/api/triggers/{triggerId}", configuration.base_path, triggerId=crate::apis::urlencode(trigger_id));
+    let mut local_var_req_builder = local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
+
+    if let Some(ref local_var_user_agent) = configuration.user_agent {
+        local_var_req_builder = local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    }
+    if let Some(ref local_var_token) = configuration.bearer_access_token {
+        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    };
+
+    let local_var_req = local_var_req_builder.build()?;
+    let local_var_resp = local_var_client.execute(local_var_req).await?;
+
+    let local_var_status = local_var_resp.status();
+    let local_var_content = local_var_resp.text().await?;
+
+    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+        Ok(())
+    } else {
+        let local_var_entity: Option<TriggerDeleteError> = serde_json::from_str(&local_var_content).ok();
+        let local_var_error = ResponseContent { status: local_var_status, content: local_var_content, entity: local_var_entity };
+        Err(Error::ResponseError(local_var_error))
+    }
+}
+
+pub async fn trigger_get(configuration: &configuration::Configuration, trigger_id: &str) -> Result<crate::models::Trigger, Error<TriggerGetError>> {
+
+    let local_var_client = &configuration.client;
+
+    let local_var_uri_str = format!("{}/api/triggers/{triggerId}", configuration.base_path, triggerId=crate::apis::urlencode(trigger_id));
+    let mut local_var_req_builder = local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+
+    if let Some(ref local_var_user_agent) = configuration.user_agent {
+        local_var_req_builder = local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    }
+    if let Some(ref local_var_token) = configuration.bearer_access_token {
+        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    };
+
+    let local_var_req = local_var_req_builder.build()?;
+    let local_var_resp = local_var_client.execute(local_var_req).await?;
+
+    let local_var_status = local_var_resp.status();
+    let local_var_content = local_var_resp.text().await?;
+
+    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+        serde_json::from_str(&local_var_content).map_err(Error::from)
+    } else {
+        let local_var_entity: Option<TriggerGetError> = serde_json::from_str(&local_var_content).ok();
+        let local_var_error = ResponseContent { status: local_var_status, content: local_var_content, entity: local_var_entity };
+        Err(Error::ResponseError(local_var_error))
+    }
+}
+
+/// Invoke a trigger to create a notebook from the associated template
+pub async fn trigger_invoke(configuration: &configuration::Configuration, trigger_id: &str, body: Option<serde_json::Value>) -> Result<crate::models::TriggerWebHookResponse, Error<TriggerInvokeError>> {
+
+    let local_var_client = &configuration.client;
+
+    let local_var_uri_str = format!("{}/api/triggers/{triggerId}/webhook", configuration.base_path, triggerId=crate::apis::urlencode(trigger_id));
+    let mut local_var_req_builder = local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+    if let Some(ref local_var_user_agent) = configuration.user_agent {
+        local_var_req_builder = local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    }
+    if let Some(ref local_var_token) = configuration.bearer_access_token {
+        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    };
+    local_var_req_builder = local_var_req_builder.json(&body);
+
+    let local_var_req = local_var_req_builder.build()?;
+    let local_var_resp = local_var_client.execute(local_var_req).await?;
+
+    let local_var_status = local_var_resp.status();
+    let local_var_content = local_var_resp.text().await?;
+
+    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+        serde_json::from_str(&local_var_content).map_err(Error::from)
+    } else {
+        let local_var_entity: Option<TriggerInvokeError> = serde_json::from_str(&local_var_content).ok();
+        let local_var_error = ResponseContent { status: local_var_status, content: local_var_content, entity: local_var_entity };
+        Err(Error::ResponseError(local_var_error))
+    }
+}
+
+pub async fn trigger_list(configuration: &configuration::Configuration, ) -> Result<Vec<crate::models::Trigger>, Error<TriggerListError>> {
 
     let local_var_client = &configuration.client;
 
@@ -876,7 +1021,7 @@ pub async fn triggers_list(configuration: &configuration::Configuration, ) -> Re
     if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
         serde_json::from_str(&local_var_content).map_err(Error::from)
     } else {
-        let local_var_entity: Option<TriggersListError> = serde_json::from_str(&local_var_content).ok();
+        let local_var_entity: Option<TriggerListError> = serde_json::from_str(&local_var_content).ok();
         let local_var_error = ResponseContent { status: local_var_status, content: local_var_content, entity: local_var_entity };
         Err(Error::ResponseError(local_var_error))
     }
