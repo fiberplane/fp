@@ -2,9 +2,9 @@ use crate::config::api_client_configuration;
 use anyhow::{anyhow, Context, Error, Result};
 use clap::{Parser, ValueHint};
 use fiberplane::protocols::core::{self, Cell, HeadingCell, HeadingType, TextCell, TimeRange};
-use fiberplane_api::apis::default_api::{get_notebook, notebook_create, proxy_data_sources_list};
-use fiberplane_api::models::{NewNotebook, Notebook};
 use fiberplane_templates::{notebook_to_template, TemplateExpander};
+use fp_api_client::apis::default_api::{get_notebook, notebook_create, proxy_data_sources_list};
+use fp_api_client::models::{NewNotebook, Notebook};
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde_json::Value;
@@ -160,6 +160,7 @@ async fn handle_init_command() -> Result<()> {
                 read_only: None,
             }),
         ],
+        labels: Vec::new(),
     };
     let template = notebook_to_template(notebook);
 

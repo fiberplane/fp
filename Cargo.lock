@@ -486,7 +486,7 @@ checksum = "4443176a9f2c162692bd3d352d745ef9413eec5782a80d8fd6f8a1ac692a07f7"
 [[package]]
 name = "fiberplane"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#7abacd89bf187dc900dbd4327fb7b39ff8cf9e89"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#b04a1f66413468f8ea69d9cdde1d35ae1f803a85"
 dependencies = [
  "fp-bindgen",
  "serde",
@@ -504,17 +504,6 @@ dependencies = [
  "jrsonnet-evaluator",
  "serde_json",
  "thiserror",
-]
-
-[[package]]
-name = "fiberplane_api"
-version = "1.0.0"
-dependencies = [
- "reqwest",
- "serde",
- "serde_derive",
- "serde_json",
- "url",
 ]
 
 [[package]]
@@ -542,7 +531,7 @@ dependencies = [
  "directories",
  "fiberplane",
  "fiberplane-templates",
- "fiberplane_api",
+ "fp-api-client",
  "fp-provider-runtime",
  "futures-util",
  "hyper",
@@ -562,6 +551,18 @@ dependencies = [
  "tracing-subscriber",
  "url",
  "webbrowser",
+]
+
+[[package]]
+name = "fp-api-client"
+version = "1.0.0"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#b04a1f66413468f8ea69d9cdde1d35ae1f803a85"
+dependencies = [
+ "reqwest",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "url",
 ]
 
 [[package]]
@@ -2025,7 +2026,7 @@ dependencies = [
 [[package]]
 name = "time_util"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#7abacd89bf187dc900dbd4327fb7b39ff8cf9e89"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#b04a1f66413468f8ea69d9cdde1d35ae1f803a85"
 dependencies = [
  "serde",
  "time",

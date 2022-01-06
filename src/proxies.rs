@@ -1,10 +1,10 @@
 use crate::config::api_client_configuration;
 use anyhow::{anyhow, Result};
 use clap::Parser;
-use fiberplane_api::apis::default_api::{
+use fp_api_client::apis::default_api::{
     proxy_create, proxy_data_sources_list, proxy_delete, proxy_get, proxy_list,
 };
-use fiberplane_api::models::{NewProxy, ProxyConnectionStatus};
+use fp_api_client::models::{NewProxy, ProxyConnectionStatus};
 use petname::petname;
 use std::cmp::Ordering;
 

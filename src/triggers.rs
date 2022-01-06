@@ -2,11 +2,11 @@ use crate::config::api_client_configuration;
 use crate::templates::TemplateArg;
 use anyhow::{Context, Error, Result};
 use clap::{ArgEnum, Parser};
-use fiberplane_api::apis::configuration::Configuration;
-use fiberplane_api::apis::default_api::{
+use fp_api_client::apis::configuration::Configuration;
+use fp_api_client::apis::default_api::{
     trigger_create, trigger_delete, trigger_get, trigger_invoke, trigger_list,
 };
-use fiberplane_api::models::NewTrigger;
+use fp_api_client::models::NewTrigger;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde_json::Value;
