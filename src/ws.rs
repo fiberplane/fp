@@ -33,16 +33,12 @@ pub struct MonitorArguments {
     )]
     endpoint: String,
 
-    #[clap(long, short, number_of_values = 1, about = "bearer token")]
+    /// Bearer token
+    #[clap(long, short, number_of_values = 1)]
     token: String,
 
-    #[clap(
-        name = "notebook",
-        long,
-        short,
-        number_of_values = 1,
-        about = "subscribe to these notebooks"
-    )]
+    /// Subscribe to these notebooks
+    #[clap(alias = "notebook", long, short, number_of_values = 1)]
     notebooks: Vec<String>,
 }
 

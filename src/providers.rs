@@ -23,21 +23,16 @@ pub enum SubCommand {
 
 #[derive(Parser, Debug)]
 pub struct InvokeArguments {
-    #[clap(long, short, about = "path to the provider")]
+    /// Path to the provider WASM file
+    #[clap(long, short)]
     pub provider_path: String,
 
-    #[clap(
-        long,
-        short,
-        about = "JSON encoded request that will be sent to the provider"
-    )]
+    /// JSON encoded request that will be sent to the provider
+    #[clap(long, short)]
     pub request: String,
 
-    #[clap(
-        long,
-        short,
-        about = "JSON encoded config that will be sent to the provider"
-    )]
+    /// JSON encoded config that will be sent to the provider
+    #[clap(long, short)]
     pub config: String,
 }
 

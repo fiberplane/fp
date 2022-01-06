@@ -80,22 +80,16 @@ enum SubCommand {
 
 #[derive(Parser)]
 struct ExpandArguments {
-    #[clap(
-        name = "arg",
-        short,
-        long,
-        about = "Values to inject into the template. Must be in the form name=value. JSON values are supported."
-    )]
+    /// Values to inject into the template. Must be in the form name=value. JSON values are supported.
+    #[clap(name = "arg", short, long)]
     args: Vec<TemplateArg>,
 
-    #[clap(name = "template", long, short, about = "Path or URL of template file to expand", value_hint = ValueHint::AnyPath)]
+    /// Path or URL of template file to expand
+    #[clap(long, short, value_hint = ValueHint::AnyPath)]
     template: String,
 
-    #[clap(
-        name = "create-notebook",
-        long,
-        about = "Create the notebook on Fiberplane.com and return the URL"
-    )]
+    /// Create the notebook on Fiberplane.com and return the URL
+    #[clap(long)]
     create_notebook: bool,
 
     #[clap(from_global)]
@@ -113,17 +107,12 @@ struct ConvertArguments {
     #[clap(from_global)]
     config: Option<String>,
 
-    #[clap(
-        name = "out",
-        about = "If specified, save the template to the given file. If not, write the template to stdout",
-        long,
-        short
-    )]
+    /// If specified, save the template to the given file. If not, write the template to stdout
+    #[clap(long, short)]
     out: Option<PathBuf>,
 
-    #[clap(
-        about = "Notebook URL to convert. Pass \"-\" to read the Notebook JSON representation from stdin"
-    )]
+    /// Notebook URL to convert. Pass \"-\" to read the Notebook JSON representation from stdin
+    #[clap()]
     notebook_url: String,
 }
 

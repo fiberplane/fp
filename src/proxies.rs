@@ -16,41 +16,32 @@ pub struct Arguments {
 
 #[derive(Parser)]
 pub enum SubCommand {
-    #[clap(
-        name = "add",
-        about = "Add a new proxy for your organization. This returns the token the Proxy will use to authenticate with Fiberplane"
-    )]
+    /// Add a new proxy for your organization.
+    /// This returns the token the Proxy will use to authenticate with Fiberplane
+    #[clap(name = "add")]
     Add(AddArgs),
 
-    #[clap(
-        name = "list",
-        about = "List all proxies configured for your organization"
-    )]
+    /// List all proxies configured for your organization
+    #[clap(name = "list")]
     List(GlobalArgs),
 
-    #[clap(
-        name = "data-sources",
-        about = "List all data sources configured for your organization"
-    )]
+    /// List all data sources configured for your organization
+    #[clap(name = "data-sources")]
     DataSources(GlobalArgs),
 
-    #[clap(
-        name = "inspect",
-        alias = "info",
-        about = "Get the details of a given Proxy"
-    )]
+    /// Get the details of a given Proxy
+    #[clap(name = "inspect", alias = "info")]
     Inspect(SingleProxyArgs),
 
-    #[clap(name = "remove", about = "Remove a proxy from your organization")]
+    /// Remove a proxy from your organization
+    #[clap(name = "remove")]
     Remove(SingleProxyArgs),
 }
 
 #[derive(Parser)]
 pub struct AddArgs {
-    #[clap(
-        name = "name",
-        about = "Proxy name (for example, you might name after different environments like production, staging, etc)"
-    )]
+    /// Proxy name (for example, you might name after different environments like production, staging, etc)
+    #[clap()]
     name: Option<String>,
 
     #[clap(from_global)]
@@ -71,7 +62,8 @@ pub struct GlobalArgs {
 
 #[derive(Parser)]
 pub struct SingleProxyArgs {
-    #[clap(name = "proxy_id", about = "ID of the proxy to inspect")]
+    /// ID of the proxy to inspect
+    #[clap()]
     proxy_id: String,
 
     #[clap(from_global)]
