@@ -118,7 +118,7 @@ struct InvokeArguments {
     trigger: String,
 
     /// Values to inject into the template. Must be in the form name=value. JSON values are supported.
-    #[clap(short, long)]
+    #[clap(name = "arg", short, long)]
     args: Vec<TemplateArg>,
 
     #[clap(from_global)]
