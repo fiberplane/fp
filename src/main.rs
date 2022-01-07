@@ -1,6 +1,5 @@
-use std::process;
-
 use clap::{AppSettings, Parser};
+use std::process;
 
 mod auth;
 mod config;
@@ -16,9 +15,9 @@ pub struct Arguments {
     #[clap(subcommand)]
     subcmd: SubCommand,
 
+    /// Base URL for requests to Fiberplane
     #[clap(
         long,
-        about = "Base URL for requests to Fiberplane",
         default_value = "https://fiberplane.com",
         env = "API_BASE",
         global = true
@@ -26,51 +25,40 @@ pub struct Arguments {
     // TODO parse as a URL
     base_url: String,
 
-    #[clap(long, about = "Path to Fiberplane config.toml file", global = true)]
+    /// Path to Fiberplane config.toml file
+    #[clap(long, global = true)]
     // TODO parse this as a PathBuf
     config: Option<String>,
 }
 
 #[derive(Parser)]
 enum SubCommand {
-    #[clap(
-        name = "login",
-        about = "Login to Fiberplane and authorize the CLI to access your account"
-    )]
+    /// Login to Fiberplane and authorize the CLI to access your account
+    #[clap()]
     Login,
 
-    #[clap(name = "logout", about = "Logout from Fiberplane")]
+    /// Logout from Fiberplane
+    #[clap()]
     Logout,
 
-    #[clap(name = "providers", about = "Interact with Fiberplane Providers")]
+    /// Interact with Fiberplane Providers
+    #[clap()]
     Providers(providers::Arguments),
 
-    #[clap(
-        name = "triggers",
-        alias = "trigger",
-        about = "Interact with Fiberplane Triggers"
-    )]
+    /// Interact with Fiberplane Triggers
+    #[clap(alias = "trigger")]
     Triggers(triggers::Arguments),
 
-    #[clap(
-        name = "web-sockets",
-        aliases = &["web-sockets", "ws"],
-        about = "Interact with the Fiberplane realtime API"
-    )]
+    /// Interact with the Fiberplane realtime API
+    #[clap(alias = "ws")]
     WebSockets(ws::Arguments),
 
-    #[clap(
-        name = "proxies",
-        alias = "proxy",
-        about = "Commands related to Fiberplane Proxies"
-    )]
+    /// Commands related to Fiberplane Proxies
+    #[clap(alias = "proxy")]
     Proxies(proxies::Arguments),
 
-    #[clap(
-        name = "templates",
-        alias = "template",
-        about = "Commands related to Fiberplane Templates"
-    )]
+    /// Commands related to Fiberplane Templates
+    #[clap(alias = "template")]
     Templates(templates::Arguments),
 }
 

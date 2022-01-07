@@ -2,11 +2,11 @@ use crate::config::api_client_configuration;
 use crate::templates::TemplateArg;
 use anyhow::{Context, Error, Result};
 use clap::{ArgEnum, Parser};
-use fiberplane_api::apis::configuration::Configuration;
-use fiberplane_api::apis::default_api::{
+use fp_api_client::apis::configuration::Configuration;
+use fp_api_client::apis::default_api::{
     trigger_create, trigger_delete, trigger_get, trigger_invoke, trigger_list,
 };
-use fiberplane_api::models::NewTrigger;
+use fp_api_client::models::NewTrigger;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde_json::Value;
@@ -37,24 +37,27 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 
 #[derive(Parser)]
 enum SubCommand {
-    #[clap(name = "create", alias = "new", about = "Create a Trigger")]
+    /// Create a Trigger
+    #[clap(alias = "new")]
     Create(CreateArguments),
-    #[clap(name = "get", alias = "info", about = "Print info about a trigger")]
+    /// Print info about a trigger
+    #[clap(alias = "info")]
     Get(IndividualTriggerArguments),
-    #[clap(name = "delete", alias = "remove", about = "Delete a trigger")]
+    /// Delete a trigger
+    #[clap(alias = "remove")]
     Delete(IndividualTriggerArguments),
-    #[clap(name = "list", about = "List all triggers")]
+    /// List all triggers
+    #[clap()]
     List(ListArguments),
-    #[clap(
-        name = "invoke",
-        about = "Invoke a trigger webhook to create a notebook from the template"
-    )]
+    /// Invoke a trigger webhook to create a notebook from the template
+    #[clap()]
     Invoke(InvokeArguments),
 }
 
 #[derive(Parser)]
 struct CreateArguments {
-    #[clap(name = "template", about = "URL or path to template file")]
+    /// URL or path to template file
+    #[clap(name = "template")]
     template_source: TemplateSource,
 
     #[clap(from_global)]
@@ -66,9 +69,11 @@ struct CreateArguments {
 
 #[derive(ArgEnum)]
 enum TemplateSource {
-    #[clap(about = "Template URL")]
+    /// Template URL
+    #[clap()]
     Url(Url),
-    #[clap(about = "Path to template file")]
+    /// Path to template file
+    #[clap()]
     Path(PathBuf),
 }
 
@@ -86,7 +91,8 @@ impl FromStr for TemplateSource {
 
 #[derive(Parser)]
 struct IndividualTriggerArguments {
-    #[clap(name = "trigger", about = "Trigger ID or URL")]
+    /// Trigger ID or URL
+    #[clap(name = "trigger")]
     trigger: String,
 
     #[clap(from_global)]
@@ -107,15 +113,12 @@ struct ListArguments {
 
 #[derive(Parser)]
 struct InvokeArguments {
-    #[clap(name = "trigger", about = "Trigger ID or URL")]
+    /// Trigger ID or URL
+    #[clap()]
     trigger: String,
 
-    #[clap(
-        name = "arg",
-        short,
-        long,
-        about = "Values to inject into the template. Must be in the form name=value. JSON values are supported."
-    )]
+    /// Values to inject into the template. Must be in the form name=value. JSON values are supported.
+    #[clap(short, long)]
     args: Vec<TemplateArg>,
 
     #[clap(from_global)]
