@@ -3,6 +3,7 @@ use std::process;
 
 mod auth;
 mod config;
+mod notebooks;
 mod providers;
 mod proxies;
 mod templates;
@@ -60,6 +61,13 @@ enum SubCommand {
     /// Commands related to Fiberplane Templates
     #[clap(alias = "template")]
     Templates(templates::Arguments),
+
+    #[clap(
+        name = "notebooks",
+        aliases = &["notebook", "n"],
+        about = "Commands related to Fiberplane Notebooks"
+    )]
+    Notebooks(notebooks::Arguments),
 }
 
 #[tokio::main]
@@ -70,13 +78,14 @@ async fn main() {
 
     use SubCommand::*;
     let result = match args.subcmd {
-        Providers(args) => providers::handle_command(args).await,
-        Triggers(args) => triggers::handle_command(args).await,
-        WebSockets(args) => ws::handle_command(args).await,
         Login => auth::handle_login_command(args).await,
         Logout => auth::handle_logout_command(args).await,
+        Notebooks(args) => notebooks::handle_command(args).await,
+        Providers(args) => providers::handle_command(args).await,
         Proxies(args) => proxies::handle_command(args).await,
         Templates(args) => templates::handle_command(args).await,
+        Triggers(args) => triggers::handle_command(args).await,
+        WebSockets(args) => ws::handle_command(args).await,
     };
 
     if let Err(e) = result {
