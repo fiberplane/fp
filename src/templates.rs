@@ -85,7 +85,7 @@ struct ExpandArguments {
     args: Vec<TemplateArg>,
 
     /// Path or URL of template file to expand
-    #[clap(long, short, value_hint = ValueHint::AnyPath)]
+    #[clap(value_hint = ValueHint::AnyPath)]
     template: String,
 
     /// Create the notebook on Fiberplane.com and return the URL
