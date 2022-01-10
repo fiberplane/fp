@@ -45,7 +45,7 @@ The CLI offers other commands to help view and manage your organization's proxie
 Generate a template from an existing notebook with the `convert` command:
 
 ```shell
-fp templates convert https://fiberplane.com/notebook/My-Notebook-0000000000000000000000 --out template.jsonnet
+fp templates convert https://fiberplane.com/notebook/My-Notebook-<NOTEBOOK_ID_HERE> --out template.jsonnet
 ```
 
 Alternatively, you can create a blank template with the `init` command:
@@ -94,7 +94,7 @@ Normally, Triggers are invoked with HTTP POST requests to `https://fiberplane.co
 
 The CLI can be used to test out a trigger:
 ```shell
-fp triggers invoke --arg name=value https://fiberplane.com/api/triggers/0000000000000000000000
+fp triggers invoke --arg name=value https://fiberplane.com/api/triggers/<TRIGGER_ID_HERE>
 ```
 
 #### Managing Triggers
