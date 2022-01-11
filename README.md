@@ -103,3 +103,28 @@ The CLI also supports the following operations for your (organization's) trigger
 - `fp triggers list`
 - `fp triggers get <id>`
 - `fp triggers delete <id>`
+
+### Notebooks
+
+The CLI allows for management for management of your notebooks. Currently the
+following commands are supported:
+
+- `fp notebooks add`
+- `fp notebooks get <id>`
+
+#### Creating a new notebook
+
+The `fp` cli is able to create a notebook. You can specify a couple of
+parameters through arguments and then the cli will create a notebook for you.
+
+```shell
+fp notebooks add --title "test" --label key=value
+```
+
+#### Retrieving a notebook
+
+It is also possible to retrieve the notebook and display it as JSON.
+
+```shell
+fp notebooks get <notebook_id>
+```
