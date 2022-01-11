@@ -244,7 +244,7 @@ async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
 }
 
 async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
-    let (notebook, url) = if args.notebook_url == "-" {
+    let (notebook, notebook_id, url) = if args.notebook_url == "-" {
         let mut notebook_json = String::new();
         io::stdin()
             .read_to_string(&mut notebook_json)
@@ -253,7 +253,7 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
         let notebook: Notebook =
             serde_json::from_str(&notebook_json).with_context(|| "Notebook is invalid")?;
         let url = format!("{}/notebook/{}", args.base_url, &notebook.id);
-        (notebook_json, url)
+        (notebook_json, notebook.id, url)
     } else {
         let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
         let id = &NOTEBOOK_ID_REGEX
@@ -263,17 +263,33 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
             .await
             .with_context(|| "Error fetching notebook")?;
         let notebook = serde_json::to_string(&notebook)?;
-        (notebook, args.notebook_url)
+        (notebook, id.to_string(), args.notebook_url)
     };
 
     // TODO remove the extra (de)serialization when we unify the generated API client
     // types with those in fiberplane-rs
-    let notebook: core::NewNotebook = serde_json::from_str(&notebook).with_context(|| {
+    let mut notebook: core::NewNotebook = serde_json::from_str(&notebook).with_context(|| {
         format!(
             "Error deserializing response as core::NewNotebook: {}",
             notebook
         )
     })?;
+
+    // Add image URLs to ImageCells that were uploaded to the Studio.
+    //
+    // Images will be loaded from the API when the notebook is created so
+    // that the images are stored as files associated with the new notebook.
+    for cell in &mut notebook.cells {
+        if let Cell::Image(cell) = cell {
+            if let (None, Some(file_id)) = (&cell.url, &cell.file_id) {
+                cell.url = Some(format!(
+                    "{}/api/files/{}/{}",
+                    args.base_url, notebook_id, file_id
+                ))
+            }
+        }
+    }
+
     let template = notebook_to_template(notebook);
     let template = format!(
         "
