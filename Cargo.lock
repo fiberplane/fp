@@ -474,7 +474,7 @@ checksum = "4443176a9f2c162692bd3d352d745ef9413eec5782a80d8fd6f8a1ac692a07f7"
 [[package]]
 name = "fiberplane"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#b04a1f66413468f8ea69d9cdde1d35ae1f803a85"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#63702240386e9a11ea6babea9c13c05e3f862272"
 dependencies = [
  "fp-bindgen",
  "serde",
@@ -531,6 +531,8 @@ dependencies = [
  "rmp-serde 0.15.5",
  "serde",
  "serde_json",
+ "time",
+ "time_util",
  "tokio",
  "tokio-tungstenite",
  "toml",
@@ -543,7 +545,7 @@ dependencies = [
 [[package]]
 name = "fp-api-client"
 version = "1.0.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#b04a1f66413468f8ea69d9cdde1d35ae1f803a85"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#63702240386e9a11ea6babea9c13c05e3f862272"
 dependencies = [
  "reqwest",
  "serde",
@@ -1969,8 +1971,9 @@ dependencies = [
 [[package]]
 name = "time_util"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#b04a1f66413468f8ea69d9cdde1d35ae1f803a85"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#63702240386e9a11ea6babea9c13c05e3f862272"
 dependencies = [
+ "anyhow",
  "serde",
  "time",
 ]
