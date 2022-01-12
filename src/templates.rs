@@ -285,7 +285,8 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
                 cell.url = Some(format!(
                     "{}/api/files/{}/{}",
                     args.base_url, notebook_id, file_id
-                ))
+                ));
+                cell.file_id = None;
             }
         }
     }
