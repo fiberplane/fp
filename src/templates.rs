@@ -210,7 +210,9 @@ async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
 
     // Inject data sources into the template runtime
     let data_sources = if let Some(config) = &config {
-        proxy_data_sources_list(config).await?
+        proxy_data_sources_list(config)
+            .await
+            .with_context(|| "loading proxy data sources")?
     } else {
         Vec::new()
     };
@@ -219,12 +221,15 @@ async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
         serde_json::to_value(&data_sources)?,
     );
 
+    let notebook = expander
+        .expand_template_to_string(template, template_args, !args.create_notebook)
+        .with_context(|| "expanding template")?;
+
     if !args.create_notebook {
-        let notebook = expander.expand_template_to_string(template, template_args, true)?;
         io::stdout().write_all(notebook.as_bytes()).await?;
     } else {
-        let notebook = expander.expand_template_to_string(template, template_args, false)?;
         debug!(%notebook, "Expanded template to notebook");
+
         let config = config.ok_or_else(|| anyhow!("Must be logged in to create notebook"))?;
 
         let notebook: NewNotebook = serde_json::from_str(&notebook)
@@ -239,7 +244,7 @@ async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
 }
 
 async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
-    let (notebook, url) = if args.notebook_url == "-" {
+    let (notebook, notebook_id, url) = if args.notebook_url == "-" {
         let mut notebook_json = String::new();
         io::stdin()
             .read_to_string(&mut notebook_json)
@@ -248,7 +253,7 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
         let notebook: Notebook =
             serde_json::from_str(&notebook_json).with_context(|| "Notebook is invalid")?;
         let url = format!("{}/notebook/{}", args.base_url, &notebook.id);
-        (notebook_json, url)
+        (notebook_json, notebook.id, url)
     } else {
         let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
         let id = &NOTEBOOK_ID_REGEX
@@ -258,17 +263,34 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
             .await
             .with_context(|| "Error fetching notebook")?;
         let notebook = serde_json::to_string(&notebook)?;
-        (notebook, args.notebook_url)
+        (notebook, id.to_string(), args.notebook_url)
     };
 
     // TODO remove the extra (de)serialization when we unify the generated API client
     // types with those in fiberplane-rs
-    let notebook: core::NewNotebook = serde_json::from_str(&notebook).with_context(|| {
+    let mut notebook: core::NewNotebook = serde_json::from_str(&notebook).with_context(|| {
         format!(
             "Error deserializing response as core::NewNotebook: {}",
             notebook
         )
     })?;
+
+    // Add image URLs to ImageCells that were uploaded to the Studio.
+    //
+    // Images will be loaded from the API when the notebook is created so
+    // that the images are stored as files associated with the new notebook.
+    for cell in &mut notebook.cells {
+        if let Cell::Image(cell) = cell {
+            if let (None, Some(file_id)) = (&cell.url, &cell.file_id) {
+                cell.url = Some(format!(
+                    "{}/api/files/{}/{}",
+                    args.base_url, notebook_id, file_id
+                ));
+                cell.file_id = None;
+            }
+        }
+    }
+
     let template = notebook_to_template(notebook);
     let template = format!(
         "
