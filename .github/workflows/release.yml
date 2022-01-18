@@ -139,7 +139,7 @@ jobs:
           ARCHS=("linux_x86_64" "macos_x86_64" "macos_aarch64")
 
           for ARCH in "${ARCHS[@]}"; do
-            aws s3api put-objects \
+            aws s3api put-object \
               --bucket "builds.fiberplane.io" \
               --key "fp/latest/${ARCH}/fp" \
               --acl public-read \
