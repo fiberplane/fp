@@ -601,7 +601,7 @@ dependencies = [
 [[package]]
 name = "fp-provider-runtime"
 version = "1.0.0-alpha.1"
-source = "git+ssh://git@github.com/fiberplane/providers.git?branch=main#8c409e210ec475f76ba07172202ad6151288cf52"
+source = "git+ssh://git@github.com/fiberplane/providers.git?branch=main#561158ea8ec22732fc5c65fc11068ce24c216df5"
 dependencies = [
  "fp-bindgen-support",
  "rand",
