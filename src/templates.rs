@@ -9,13 +9,10 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
-use std::env::current_dir;
-use std::path::PathBuf;
-use std::str::FromStr;
+use std::{env::current_dir, ffi::OsStr, path::PathBuf, str::FromStr};
 use tokio::fs;
 use tokio::io::{self, AsyncReadExt, AsyncWriteExt};
-use tracing::debug;
-use url::Url;
+use tracing::{debug, warn};
 
 lazy_static! {
     static ref NOTEBOOK_ID_REGEX: Regex = Regex::from_str("([a-zA-Z0-9_-]{22})$").unwrap();
@@ -173,26 +170,29 @@ async fn handle_init_command() -> Result<()> {
     Ok(())
 }
 
+/// Load the template file, either from a server if the
+/// template_path is an HTTPS URL, or from a local file
 async fn load_template(template_path: &str) -> Result<String> {
-    let path = PathBuf::from(template_path);
-    match path.extension().and_then(|s| s.to_str()) {
-        Some(ext) if ext == "jsonnet" => {}
-        _ => return Err(anyhow!("Template must be a .jsonnet file")),
-    }
-
-    match fs::read_to_string(path).await {
-        Ok(template) => Ok(template),
-        Err(err) => {
-            if let Ok(url) = Url::parse(template_path) {
-                reqwest::get(url.as_ref())
-                    .await
-                    .with_context(|| format!("Error loading template from URL: {}", url))?
-                    .text()
-                    .await
-                    .with_context(|| format!("Error reading remote file as text: {}", url))
-            } else {
-                return Err(anyhow!("Unable to load template: {:?}", err));
-            }
+    if template_path.starts_with("https://") || template_path.starts_with("http://") {
+        if template_path.starts_with("http://") {
+            warn!("Templates can be manually expanded from HTTP URLs but triggers must use HTTPS URLs");
+        }
+        reqwest::get(template_path)
+            .await
+            .with_context(|| format!("loading template from URL: {}", template_path))?
+            .error_for_status()
+            .with_context(|| format!("loading template from URL: {}", template_path))?
+            .text()
+            .await
+            .with_context(|| format!("reading remote file as text: {}", template_path))
+    } else {
+        let path = PathBuf::from(template_path);
+        if path.extension() == Some(OsStr::new("jsonnet")) {
+            fs::read_to_string(path)
+                .await
+                .with_context(|| "reading jsonnet file")
+        } else {
+            Err(anyhow!("Template must be a .jsonnet file"))
         }
     }
 }
