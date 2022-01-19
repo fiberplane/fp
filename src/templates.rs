@@ -180,6 +180,8 @@ async fn load_template(template_path: &str) -> Result<String> {
         reqwest::get(template_path)
             .await
             .with_context(|| format!("loading template from URL: {}", template_path))?
+            .error_for_status()
+            .with_context(|| format!("loading template from URL: {}", template_path))?
             .text()
             .await
             .with_context(|| format!("reading remote file as text: {}", template_path))
