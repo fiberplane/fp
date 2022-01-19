@@ -12,7 +12,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::{env::current_dir, ffi::OsStr, path::PathBuf, str::FromStr};
 use tokio::fs;
 use tokio::io::{self, AsyncReadExt, AsyncWriteExt};
-use tracing::debug;
+use tracing::{debug, warn};
 
 lazy_static! {
     static ref NOTEBOOK_ID_REGEX: Regex = Regex::from_str("([a-zA-Z0-9_-]{22})$").unwrap();
@@ -173,15 +173,16 @@ async fn handle_init_command() -> Result<()> {
 /// Load the template file, either from a server if the
 /// template_path is an HTTPS URL, or from a local file
 async fn load_template(template_path: &str) -> Result<String> {
-    if template_path.starts_with("https://") {
+    if template_path.starts_with("https://") || template_path.starts_with("http://") {
+        if template_path.starts_with("http://") {
+            warn!("Templates can be manually expanded from HTTP URLs but triggers must use HTTPS URLs");
+        }
         reqwest::get(template_path)
             .await
             .with_context(|| format!("loading template from URL: {}", template_path))?
             .text()
             .await
             .with_context(|| format!("reading remote file as text: {}", template_path))
-    } else if template_path.starts_with("http://") {
-        Err(anyhow!("Templates must be loaded with HTTPS"))
     } else {
         let path = PathBuf::from(template_path);
         if path.extension() == Some(OsStr::new("jsonnet")) {

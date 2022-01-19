@@ -1,6 +1,6 @@
 use crate::config::api_client_configuration;
 use crate::templates::TemplateArg;
-use anyhow::{Context, Error, Result};
+use anyhow::{anyhow, Context, Error, Result};
 use clap::{ArgEnum, Parser};
 use fp_api_client::apis::configuration::Configuration;
 use fp_api_client::apis::default_api::{
@@ -137,10 +137,15 @@ async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {
                 template_url: None,
             }
         }
-        TemplateSource::Url(template_url) => NewTrigger {
-            template_body: None,
-            template_url: Some(template_url.to_string()),
-        },
+        TemplateSource::Url(template_url) => {
+            if template_url.scheme() != "https" {
+                return Err(anyhow!("Template URLs must use HTTPS"));
+            }
+            NewTrigger {
+                template_body: None,
+                template_url: Some(template_url.to_string()),
+            }
+        }
     };
     let trigger = trigger_create(&config, Some(new_trigger))
         .await
