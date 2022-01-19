@@ -138,6 +138,7 @@ jobs:
         run: |
           aws s3 sync \
             --acl public-read \
+            --delete \
             s3://builds.fiberplane.io/fp/${{ github.event.release.tag_name }} \
             s3://builds.fiberplane.io/fp/latest
 
