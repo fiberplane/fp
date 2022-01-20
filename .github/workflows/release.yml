@@ -133,15 +133,18 @@ jobs:
           aws-secret-access-key: ${{ secrets.DEPLOY_AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-central-1
 
-      - name: Upload binary to S3
+      - name: Sync ${{ github.event.release.tag_name }} to latest
         if: github.event_name == 'release'
         run: |
-          ARCHS=("linux_x86_64" "macos_x86_64" "macos_aarch64")
+          aws s3 sync \
+            --acl public-read \
+            --delete \
+            s3://builds.fiberplane.io/fp/${{ github.event.release.tag_name }} \
+            s3://builds.fiberplane.io/fp/latest
 
-          for ARCH in "${ARCHS[@]}"; do
-            aws s3api put-object \
-              --bucket "builds.fiberplane.io" \
-              --key "fp/latest/${ARCH}/fp" \
-              --acl public-read \
-              --website-redirect-location "/fp/${{ github.event.release.tag_name }}/${ARCH}/fp"
-          done
+      - name: Invalidate latest path on CloudFront
+        if: github.event_name == 'release'
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ secrets.CF_BUILDS_ID }}" \
+            --paths '/fp/latest*'
