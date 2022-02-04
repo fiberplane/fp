@@ -117,7 +117,7 @@ jobs:
           aws s3 cp \
             --acl public-read \
             target/${{ matrix.target }}/release/fp \
-            s3://builds.fiberplane.io/fp/${{ github.event.release.tag_name }}/${{ matrix.build }}/fp
+            s3://fp.dev/fp/${{ github.event.release.tag_name }}/${{ matrix.build }}/fp
 
   update-latest-s3:
     name: update-latest-s3
@@ -139,8 +139,8 @@ jobs:
           aws s3 sync \
             --acl public-read \
             --delete \
-            s3://builds.fiberplane.io/fp/${{ github.event.release.tag_name }} \
-            s3://builds.fiberplane.io/fp/latest
+            s3://fp.dev/fp/${{ github.event.release.tag_name }} \
+            s3://fp.dev/fp/latest
 
       - name: Invalidate latest path on CloudFront
         if: github.event_name == 'release'
