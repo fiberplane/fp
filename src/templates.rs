@@ -42,12 +42,12 @@ pub struct ProxySummary {
 #[derive(Parser)]
 pub struct Arguments {
     #[clap(subcommand)]
-    subcmd: SubCommand,
+    sub_command: SubCommand,
 }
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
     use SubCommand::*;
-    match args.subcmd {
+    match args.sub_command {
         Init => handle_init_command().await,
         Expand(args) => handle_expand_command(args).await,
         Convert(args) => handle_convert_command(args).await,
