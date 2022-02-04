@@ -53,10 +53,21 @@ jobs:
       - name: Build binary
         run: cargo build --release
 
+      - name: Generate manifest
+        run: target/release/fp version -o json --disable-version-check > manifest.json
+
       - name: Upload build artifact
         uses: actions/upload-artifact@v2
         with:
           name: fp
           path: target/release/fp
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: manifest.json
+          path: manifest.json
           if-no-files-found: error
           retention-days: 1

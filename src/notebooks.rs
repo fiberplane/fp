@@ -13,7 +13,7 @@ use tracing::trace;
 #[derive(Parser)]
 pub struct Arguments {
     #[clap(subcommand)]
-    subcmd: SubCommand,
+    sub_command: SubCommand,
 }
 
 #[derive(Parser)]
@@ -27,7 +27,7 @@ pub enum SubCommand {
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
     use SubCommand::*;
-    match args.subcmd {
+    match args.sub_command {
         Add(args) => handle_add_command(args).await,
         Get(args) => handle_get_command(args).await,
     }

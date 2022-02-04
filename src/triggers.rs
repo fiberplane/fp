@@ -21,12 +21,12 @@ lazy_static! {
 #[derive(Parser)]
 pub struct Arguments {
     #[clap(subcommand)]
-    subcmd: SubCommand,
+    sub_command: SubCommand,
 }
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
     use SubCommand::*;
-    match args.subcmd {
+    match args.sub_command {
         Create(args) => handle_trigger_create_command(args).await,
         Get(args) => handle_trigger_get_command(args).await,
         Delete(args) => handle_trigger_delete_command(args).await,
