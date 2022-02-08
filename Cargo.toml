@@ -3,7 +3,6 @@ name = "fp"
 version = "0.1.0"
 authors = ["Team Fiberplane"]
 edition = "2018"
-about = "A cli to interact with the Fiberplane service"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -15,7 +14,6 @@ fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch
 fiberplane-templates = { git = "ssh://git@github.com/fiberplane/templates.git", branch = "main" }
 fp-api-client = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main" }
 fp-provider-runtime = { git = "ssh://git@github.com/fiberplane/providers.git", branch = "main" }
-futures-util = "0.3"
 hyper = { version = "0.14.13", features = [
     "http1",
     "server",
@@ -36,7 +34,6 @@ serde_json = "1.0"
 time = "0.3.5"
 time_util = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main" }
 tokio = { version = "1", features = ["full"] }
-tokio-tungstenite = { version = "0.16.1", features = ["rustls-tls-webpki-roots"] }
 toml = "0.5.8"
 tracing = "0.1"
 tracing-subscriber = "0.3.5"
@@ -48,9 +45,7 @@ webbrowser = "0.5.5"
 
 # [patch."ssh://git@github.com/fiberplane/fiberplane-rs.git"]
 # fiberplane = { path = "../fiberplane-rs/fiberplane" }
+# time_util = { path = "../fiberplane-rs/time_util" }
 
 # [patch."ssh://git@github.com/fiberplane/templates.git"]
 # fiberplane-templates = { path = "../templates" }
-
-# [patch."ssh://git@github.com/fiberplane/fiberplane-rs.git"]
-# time_util = { path = "../fiberplane-rs/time_util" }

@@ -8,7 +8,6 @@ mod providers;
 mod proxies;
 mod templates;
 mod triggers;
-mod ws;
 
 #[derive(Parser)]
 #[clap(author, about, version, setting = AppSettings::PropagateVersion)]
@@ -50,10 +49,6 @@ enum SubCommand {
     #[clap(alias = "trigger")]
     Triggers(triggers::Arguments),
 
-    /// Interact with the Fiberplane realtime API
-    #[clap(alias = "ws")]
-    WebSockets(ws::Arguments),
-
     /// Commands related to Fiberplane Proxies
     #[clap(alias = "proxy")]
     Proxies(proxies::Arguments),
@@ -85,7 +80,6 @@ async fn main() {
         Proxies(args) => proxies::handle_command(args).await,
         Templates(args) => templates::handle_command(args).await,
         Triggers(args) => triggers::handle_command(args).await,
-        WebSockets(args) => ws::handle_command(args).await,
     };
 
     if let Err(e) = result {
