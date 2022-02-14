@@ -92,6 +92,15 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+      - name: Upload install script
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v2
+        with:
+          name: fp-${{ matrix.build }}
+          path: scripts/install.sh
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Upload release archive
         if: github.event_name == 'release'
         uses: actions/upload-release-asset@v1
@@ -118,6 +127,14 @@ jobs:
             --acl public-read \
             target/${{ matrix.target }}/release/fp \
             s3://fp.dev/fp/${{ github.event.release.tag_name }}/${{ matrix.build }}/fp
+
+      - name: Upload install script to S3
+        if: github.event_name == 'release'
+        run: |
+          aws s3 cp \
+            --acl public-read \
+            scripts/install.sh \
+            s3://fp.dev/fp/install.sh
 
   update-latest-s3:
     name: update-latest-s3
