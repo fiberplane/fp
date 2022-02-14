@@ -1,5 +1,7 @@
-use clap::{AppSettings, Parser};
-use std::process;
+use anyhow::Result;
+use clap::{App, AppSettings, IntoApp, Parser};
+use clap_complete::{generate, Generator, Shell};
+use std::{io, process};
 
 mod auth;
 mod config;
@@ -63,6 +65,15 @@ enum SubCommand {
         about = "Commands related to Fiberplane Notebooks"
     )]
     Notebooks(notebooks::Arguments),
+
+    #[clap(setting = AppSettings::Hidden)]
+    Completions(CompletionsArguments),
+}
+
+#[derive(Parser)]
+struct CompletionsArguments {
+    #[clap()]
+    shell: Shell,
 }
 
 #[tokio::main]
@@ -80,10 +91,18 @@ async fn main() {
         Proxies(args) => proxies::handle_command(args).await,
         Templates(args) => templates::handle_command(args).await,
         Triggers(args) => triggers::handle_command(args).await,
+        Completions(CompletionsArguments { shell }) => {
+            print_completions(shell, &mut Arguments::into_app())
+        }
     };
 
     if let Err(e) = result {
         eprintln!("Error: {:?}", e);
         process::exit(1);
     }
+}
+
+fn print_completions<G: Generator>(gen: G, app: &mut App) -> Result<()> {
+    generate(gen, app, app.get_name().to_string(), &mut io::stdout());
+    Ok(())
 }
