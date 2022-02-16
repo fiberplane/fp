@@ -125,7 +125,7 @@ jobs:
           aws s3 cp \
             --acl public-read \
             scripts/install.sh \
-            s3://fp.dev/fp/install.sh
+            s3://fp.dev/install.sh
 
   update-latest-s3:
     name: update-latest-s3
@@ -162,4 +162,4 @@ jobs:
         run: |
           aws cloudfront create-invalidation \
             --distribution-id "${{ secrets.CF_BUILDS_ID }}" \
-            --paths '/fp/install.sh
+            --paths '/install.sh
