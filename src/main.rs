@@ -1,6 +1,5 @@
-use anyhow::Result;
-use clap::{App, AppSettings, IntoApp, Parser};
-use clap_complete::{generate, Generator, Shell};
+use clap::{AppSettings, IntoApp, Parser};
+use clap_complete::{generate, Shell};
 use std::{io, process};
 
 mod auth;
@@ -66,14 +65,11 @@ enum SubCommand {
     )]
     Notebooks(notebooks::Arguments),
 
-    #[clap(setting = AppSettings::Hidden)]
-    Completions(CompletionsArguments),
-}
-
-#[derive(Parser)]
-struct CompletionsArguments {
-    #[clap()]
-    shell: Shell,
+    /// Generate fp shell completions for your shell and print to stdout
+    Completions {
+        #[clap(arg_enum)]
+        shell: Shell,
+    },
 }
 
 #[tokio::main]
@@ -91,8 +87,11 @@ async fn main() {
         Proxies(args) => proxies::handle_command(args).await,
         Templates(args) => templates::handle_command(args).await,
         Triggers(args) => triggers::handle_command(args).await,
-        Completions(CompletionsArguments { shell }) => {
-            print_completions(shell, &mut Arguments::into_app())
+        Completions { shell } => {
+            let mut app = Arguments::into_app();
+            let app_name = app.get_name().to_string();
+            generate(shell, &mut app, app_name, &mut io::stdout().lock());
+            Ok(())
         }
     };
 
@@ -100,9 +99,4 @@ async fn main() {
         eprintln!("Error: {:?}", e);
         process::exit(1);
     }
-}
-
-fn print_completions<G: Generator>(gen: G, app: &mut App) -> Result<()> {
-    generate(gen, app, app.get_name().to_string(), &mut io::stdout());
-    Ok(())
 }
