@@ -92,15 +92,6 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-      - name: Upload install script
-        if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v2
-        with:
-          name: fp-${{ matrix.build }}
-          path: scripts/install.sh
-          if-no-files-found: error
-          retention-days: 1
-
       - name: Upload release archive
         if: github.event_name == 'release'
         uses: actions/upload-release-asset@v1

@@ -60,3 +60,11 @@ jobs:
           path: target/release/fp
           if-no-files-found: error
           retention-days: 1
+
+      - name: Upload install script
+        uses: actions/upload-artifact@v2
+        with:
+          name: fp-install-sh
+          path: scripts/install.sh
+          if-no-files-found: error
+          retention-days: 1
