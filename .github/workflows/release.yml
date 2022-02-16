@@ -156,3 +156,10 @@ jobs:
           aws cloudfront create-invalidation \
             --distribution-id "${{ secrets.CF_BUILDS_ID }}" \
             --paths '/fp/latest*'
+
+      - name: Invalidate install script on CloudFront
+        if: github.event_name == 'release'
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ secrets.CF_BUILDS_ID }}" \
+            --paths '/fp/install.sh
