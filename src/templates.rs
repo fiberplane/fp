@@ -108,7 +108,7 @@ struct ConvertArguments {
     #[clap(long, short)]
     out: Option<PathBuf>,
 
-    /// Notebook URL to convert. Pass \"-\" to read the Notebook JSON representation from stdin
+    /// Notebook URL to convert. Pass - to read the Notebook JSON representation from stdin
     #[clap()]
     notebook_url: String,
 }
