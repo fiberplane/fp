@@ -3,7 +3,6 @@ name = "fp"
 version = "0.0.5"
 authors = ["Team Fiberplane"]
 edition = "2018"
-about = "A cli to interact with the Fiberplane service"
 build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

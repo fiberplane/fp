@@ -1,16 +1,15 @@
+use std::io::Write;
+
 use crate::manifest::retrieve_manifest;
 use crate::MANIFEST;
-use anyhow::{Context, Result};
+use anyhow::Result;
 use clap::{ArgEnum, Parser};
-use directories::ProjectDirs;
-use std::fs::OpenOptions;
-use std::time::SystemTime;
-use tracing::{error, trace};
+use tracing::error;
 
 #[derive(Parser)]
 pub struct Arguments {
     /// output type to use
-    #[clap(long, short, default_value = "display", arg_enum)]
+    #[clap(long, short, default_value = "version", arg_enum)]
     pub output: OutputType,
 
     #[clap(from_global)]
@@ -19,16 +18,20 @@ pub struct Arguments {
 
 #[derive(ArgEnum, Clone)]
 pub enum OutputType {
-    /// Display as a human readable list
-    Display,
+    /// Only display the version
+    Version,
 
-    /// Display as a JSON encoded object
+    /// Show all the build information
+    Verbose,
+
+    /// Show all the build information encoded as JSON
     Json,
 }
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
     let result = match args.output {
-        OutputType::Display => output_display(&args).await,
+        OutputType::Version => output_version(&args).await,
+        OutputType::Verbose => output_verbose(&args).await,
         OutputType::Json => output_json(&args).await,
     };
 
@@ -50,7 +53,13 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
     result
 }
 
-async fn output_display(_args: &Arguments) -> Result<()> {
+async fn output_version(_args: &Arguments) -> Result<()> {
+    eprintln!("{}", MANIFEST.build_version);
+
+    Ok(())
+}
+
+async fn output_verbose(_args: &Arguments) -> Result<()> {
     eprintln!("Build Timestamp: {}", MANIFEST.build_timestamp);
     eprintln!("Build Version: {}", MANIFEST.build_version);
     eprintln!("Commit Date: {}", MANIFEST.commit_date);
@@ -68,5 +77,6 @@ async fn output_display(_args: &Arguments) -> Result<()> {
 
 async fn output_json(_args: &Arguments) -> Result<()> {
     serde_json::to_writer(std::io::stdout(), &*MANIFEST)?;
+    write!(std::io::stdout(), "\n")?;
     Ok(())
 }

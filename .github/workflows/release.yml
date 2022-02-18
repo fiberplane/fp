@@ -95,8 +95,8 @@ jobs:
 
       - name: Release version information
         run: |
-          target/${{ matrix.target }}/release/fp version
-          target/${{ matrix.target }}/release/fp version -o json > version.json
+          target/${{ matrix.target }}/release/fp version -o verbose --disable-version-check
+          target/${{ matrix.target }}/release/fp version -o json --disable-version-check > manifest.json
 
       # - name: Strip release binary (arm)
       #   if: matrix.build == 'macos_aarch64'

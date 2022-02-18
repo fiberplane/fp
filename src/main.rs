@@ -6,6 +6,8 @@ use once_cell::sync::Lazy;
 use std::fs::OpenOptions;
 use std::io;
 use std::process;
+use std::time::Duration;
+use std::time::SystemTime;
 use tracing::{trace, warn};
 
 mod auth;
@@ -20,6 +22,9 @@ mod version;
 
 /// The current build manifest associated with this binary
 pub static MANIFEST: Lazy<Manifest> = Lazy::new(|| Manifest::from_env());
+
+/// The time before the fp command will try to do a version check again
+const VERSION_CHECK_DURATION: u64 = 60 * 60 * 24;
 
 #[derive(Parser)]
 #[clap(author, about, version, setting = AppSettings::PropagateVersion)]
@@ -160,9 +165,10 @@ pub async fn background_version_check() -> Result<Option<String>> {
             let date = metadata
                 .modified()
                 .context("failed to check the modified date on the version check file")?;
-            date < SystemTime::now()
+            date < (SystemTime::now() - Duration::from_secs(VERSION_CHECK_DURATION))
         }
         Err(err) => {
+            // This will most likely be caused by the file not existing, so we will just
             trace!(%err, "checking the update file check resulted in a error");
             true
         }
