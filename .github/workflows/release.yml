@@ -94,6 +94,7 @@ jobs:
         run: strip "target/${{ matrix.target }}/release/fp"
 
       - name: Release version information
+        if: matrix.build != 'macos_aarch64'
         run: |
           target/${{ matrix.target }}/release/fp version -o verbose --disable-version-check
           target/${{ matrix.target }}/release/fp version -o json --disable-version-check > manifest.json
@@ -117,7 +118,7 @@ jobs:
           retention-days: 1
 
       - name: Upload manifest to build artifact
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' && matrix.build != 'macos_aarch64'
         uses: actions/upload-artifact@v2
         with:
           name: fp-${{ matrix.target }}-manifest.json
@@ -137,7 +138,7 @@ jobs:
           asset_content_type: application/octet-stream
 
       - name: Upload manifest to release
-        if: github.event_name == 'release'
+        if: github.event_name == 'release' && matrix.build != 'macos_aarch64'
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -164,7 +165,7 @@ jobs:
             s3://fp.dev/fp/${{ github.event.release.tag_name }}/${{ matrix.target }}/fp
 
       - name: Upload manifest to S3
-        if: github.event_name == 'release'
+        if: github.event_name == 'release' && matrix.build != 'macos_aarch64'
         run: |
           aws s3 cp \
             --acl public-read \
