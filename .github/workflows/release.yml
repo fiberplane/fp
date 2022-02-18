@@ -107,7 +107,7 @@ jobs:
       #       arm-linux-gnueabihf-strip \
       #       /target/arm-unknown-linux-gnueabihf/release/rg
 
-      - name: Upload build artifact
+      - name: Upload fp to build artifact
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v2
         with:
@@ -116,7 +116,16 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-      - name: Upload release archive
+      - name: Upload manifest to build artifact
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v2
+        with:
+          name: fp-${{ matrix.target }}-manifest.json
+          path: manifest.json
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload fp to release
         if: github.event_name == 'release'
         uses: actions/upload-release-asset@v1
         env:
@@ -127,6 +136,17 @@ jobs:
           asset_name: fp-${{ matrix.target }}
           asset_content_type: application/octet-stream
 
+      - name: Upload manifest to release
+        if: github.event_name == 'release'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: manifest.json
+          asset_name: fp-${{ matrix.target }}-manifest.json
+          asset_content_type: application/json
+
       - name: Configure AWS Credentials
         if: github.event_name == 'release'
         uses: aws-actions/configure-aws-credentials@v1
@@ -135,13 +155,21 @@ jobs:
           aws-secret-access-key: ${{ secrets.DEPLOY_AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-central-1
 
-      - name: Upload binary to S3
+      - name: Upload fp to S3
         if: github.event_name == 'release'
         run: |
           aws s3 cp \
             --acl public-read \
             target/${{ matrix.target }}/release/fp \
             s3://fp.dev/fp/${{ github.event.release.tag_name }}/${{ matrix.target }}/fp
+
+      - name: Upload manifest to S3
+        if: github.event_name == 'release'
+        run: |
+          aws s3 cp \
+            --acl public-read \
+            manifest.json \
+            s3://fp.dev/fp/${{ github.event.release.tag_name }}/${{ matrix.target }}/manifest.json
 
   update-latest-s3:
     name: update-latest-s3
