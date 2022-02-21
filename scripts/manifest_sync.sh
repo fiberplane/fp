@@ -33,14 +33,14 @@ chmod u+x "${binary_location}"
 >&2 echo "--> Manifest dump successful (${manifest_location})"
 
 # Upload manifest to GitHub release
-# gh release upload "${version}" "${manifest_location}" --repo fiberplane/fp
+gh release upload "${version}" "${manifest_location}" --repo fiberplane/fp
 >&2 echo "--> GitHub release updated with manifest ()"
 
 # Upload manifest to S3 bucket (versionend)
-# aws s3 cp \
-#     --acl public-read \
-#     "${manifest_location}" \
-#     "s3://${versioned_manifest_url}"
+aws s3 cp \
+    --acl public-read \
+    "${manifest_location}" \
+    "s3://${versioned_manifest_url}"
 >&2 echo "--> Upload to S3 bucket (versioned) completed (${versioned_manifest_url})"
 
 >&2 echo -n "Update latest manifest on S3? [Y/n]: "
@@ -49,16 +49,16 @@ if [ "${update_latest}" == "n" ]; then
     >&2 echo "--> Skipping update for latest"
 else
     # Upload manifest to S3 bucket (latest)
-    # aws s3 cp \
-    #     --acl public-read \
-    #     "${manifest_location}" \
-    #     "s3://${latest_manifest_url}"
+    aws s3 cp \
+        --acl public-read \
+        "${manifest_location}" \
+        "s3://${latest_manifest_url}"
     >&2 echo "--> Upload to S3 bucket (latest) completed (${latest_manifest_url})"
 
     # Invalidate cloudfront
-    # aws cloudfront create-invalidation \
-    #     --distribution-id "${cloud_front_distribution_id}" \
-    #     --paths "${latest_manifest_url}"
+    aws cloudfront create-invalidation \
+        --distribution-id "${cloud_front_distribution_id}" \
+        --paths "${latest_manifest_url}"
     >&2 echo "--> CloudFront invalidation completed (${cloud_front_distribution_id})"
 fi
 
