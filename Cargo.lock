@@ -491,7 +491,7 @@ dependencies = [
 [[package]]
 name = "fiberplane"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#9bce99e179bcce1675a6ebe947d5672b3f367586"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#01dd3ed0cd0dde88f44ad6240e1081f041835abb"
 dependencies = [
  "fp-bindgen",
  "once_cell",
@@ -505,7 +505,7 @@ dependencies = [
 [[package]]
 name = "fiberplane-templates"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/templates.git?branch=main#c9346dc7a3053a26e0809926d6037f603ee3e1ee"
+source = "git+ssh://git@github.com/fiberplane/templates.git?branch=main#f6ae3cccf50fa6acd56b7275bfd6fd5f66334efd"
 dependencies = [
  "fiberplane",
  "jrsonnet-evaluator",
@@ -575,7 +575,7 @@ dependencies = [
 [[package]]
 name = "fp-bindgen"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fp-bindgen.git?branch=main#f86238e73bf9c022a8a08a2ba2cb1ba813a325ea"
+source = "git+ssh://git@github.com/fiberplane/fp-bindgen.git?branch=main#f0a4eeef26356d8c8b2848b91001efb280c6ba45"
 dependencies = [
  "Inflector",
  "fp-bindgen-macros",
@@ -591,7 +591,7 @@ dependencies = [
 [[package]]
 name = "fp-bindgen-macros"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fp-bindgen.git?branch=main#f86238e73bf9c022a8a08a2ba2cb1ba813a325ea"
+source = "git+ssh://git@github.com/fiberplane/fp-bindgen.git?branch=main#f0a4eeef26356d8c8b2848b91001efb280c6ba45"
 dependencies = [
  "proc-macro-error",
  "proc-macro2",
@@ -602,7 +602,7 @@ dependencies = [
 [[package]]
 name = "fp-bindgen-support"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fp-bindgen.git?branch=main#f86238e73bf9c022a8a08a2ba2cb1ba813a325ea"
+source = "git+ssh://git@github.com/fiberplane/fp-bindgen.git?branch=main#f0a4eeef26356d8c8b2848b91001efb280c6ba45"
 dependencies = [
  "fp-bindgen-macros",
  "once_cell",
@@ -616,7 +616,7 @@ dependencies = [
 [[package]]
 name = "fp-provider-runtime"
 version = "1.0.0-alpha.1"
-source = "git+ssh://git@github.com/fiberplane/providers.git?branch=main#2235fa327f2a3fe37fd48f05156d0c3e707acc0b"
+source = "git+ssh://git@github.com/fiberplane/providers.git?branch=main#d6eb6aca90713c752352da5310412ea149d13f0c"
 dependencies = [
  "fp-bindgen-support",
  "rand",
@@ -724,6 +724,12 @@ name = "hashbrown"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ab5ef0d4909ef3724cc8cce6ccc8572c5c817592e9285f5464f8e86f8bd3726e"
+
+[[package]]
+name = "hashbrown"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8c21d40587b92fa6a6c6e3c1bdbf87d75511db5672f9c93175574b3a00df1758"
 dependencies = [
  "ahash",
 ]
@@ -847,7 +853,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "282a6247722caba404c065016bbfa522806e51714c34f5dfc3e4a3a46fcb4223"
 dependencies = [
  "autocfg",
- "hashbrown",
+ "hashbrown 0.11.2",
  "serde",
 ]
 
@@ -1575,12 +1581,12 @@ dependencies = [
 
 [[package]]
 name = "rkyv"
-version = "0.7.31"
+version = "0.7.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "439655b8d657bcb28264da8e5380d55549e34ffc4149bea9e3521890a122a7bd"
+checksum = "8e3791595bf1ee951356964271bea7dafd1e1730e8be812f44a31afc38fa7bba"
 dependencies = [
  "bytecheck",
- "hashbrown",
+ "hashbrown 0.12.0",
  "ptr_meta",
  "rend",
  "rkyv_derive",
@@ -1589,9 +1595,9 @@ dependencies = [
 
 [[package]]
 name = "rkyv_derive"
-version = "0.7.31"
+version = "0.7.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cded413ad606a80291ca84bedba137093807cf4f5b36be8c60f57a7e790d48f6"
+checksum = "ca655472e721430bfb5c995a5602278e089c329cde96a0a53e1f711e3ba39c55"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1944,7 +1950,7 @@ dependencies = [
 [[package]]
 name = "time_util"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#9bce99e179bcce1675a6ebe947d5672b3f367586"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#01dd3ed0cd0dde88f44ad6240e1081f041835abb"
 dependencies = [
  "anyhow",
  "serde",
