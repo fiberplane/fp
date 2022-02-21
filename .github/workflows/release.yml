@@ -119,6 +119,14 @@ jobs:
             target/${{ matrix.target }}/release/fp \
             s3://fp.dev/fp/${{ github.event.release.tag_name }}/${{ matrix.build }}/fp
 
+      - name: Upload install script to S3
+        if: github.event_name == 'release'
+        run: |
+          aws s3 cp \
+            --acl public-read \
+            scripts/install.sh \
+            s3://fp.dev/install.sh
+
   update-latest-s3:
     name: update-latest-s3
     runs-on: ubuntu-latest
@@ -148,3 +156,10 @@ jobs:
           aws cloudfront create-invalidation \
             --distribution-id "${{ secrets.CF_BUILDS_ID }}" \
             --paths '/fp/latest*'
+
+      - name: Invalidate install script on CloudFront
+        if: github.event_name == 'release'
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ secrets.CF_BUILDS_ID }}" \
+            --paths '/install.sh
