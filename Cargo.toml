@@ -10,6 +10,7 @@ build = "build.rs"
 [dependencies]
 anyhow = "1.0"
 clap = { version = "3.0.5", features = ["derive", "env", "wrap_help"] }
+clap_complete = "3.0.6"
 directories = "4.0.1"
 fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main" }
 fiberplane-templates = { git = "ssh://git@github.com/fiberplane/templates.git", branch = "main" }
