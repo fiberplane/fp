@@ -22,6 +22,7 @@ jobs:
       - name: validate version
         if: github.event_name == 'release'
         run: |
+          # Extract the version from the Cargo.toml
           FP_VERSION=$(cat "Cargo.toml" | grep '^version' | awk '{ split($0,version,"=") ; gsub(/[\ \"]/, "", version[2]) ; print version[2] }')
           if [ "v${FP_VERSION}" != "${{ github.event.release.tag_name }}" ]; then
             echo "::error file=Cargo.toml::Version set in Cargo.toml (v${FP_VERSION}) does not match release version (${{ github.event.release.tag_name }})"
