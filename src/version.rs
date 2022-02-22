@@ -75,6 +75,6 @@ async fn output_verbose(_args: &Arguments) -> Result<()> {
 
 async fn output_json(_args: &Arguments) -> Result<()> {
     serde_json::to_writer(std::io::stdout(), &*MANIFEST)?;
-    write!(std::io::stdout(), "\n")?;
+    writeln!(std::io::stdout())?;
     Ok(())
 }

@@ -20,7 +20,7 @@ mod triggers;
 mod version;
 
 /// The current build manifest associated with this binary
-pub static MANIFEST: Lazy<Manifest> = Lazy::new(|| Manifest::from_env());
+pub static MANIFEST: Lazy<Manifest> = Lazy::new(Manifest::from_env);
 
 /// The time before the fp command will try to do a version check again, in
 /// seconds.
@@ -95,11 +95,8 @@ async fn main() {
 
     // Start the background version check, but skip it when running the `Update`
     // or `Version` command, or if the disable_version_check is set to true.
-    let disable_version_check = args.disable_version_check
-        || match args.sub_command {
-            Version(_) => true,
-            _ => false,
-        };
+    let disable_version_check =
+        args.disable_version_check || matches!(args.sub_command, Version(_));
 
     let version_check_result = if disable_version_check {
         tokio::spawn(async { None })
@@ -213,7 +210,7 @@ pub async fn background_version_check() -> Result<Option<String>> {
 
 /// Retrieve the latest version available.
 pub async fn retrieve_latest_version() -> Result<String> {
-    let version_url = format!("https://fp.dev/fp/latest/version");
+    let version_url = "https://fp.dev/fp/latest/version";
     let latest_version = reqwest::get(version_url)
         .await?
         .error_for_status()?
