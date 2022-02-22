@@ -7,7 +7,6 @@ use fp_api_client::apis::default_api::{
 use fp_api_client::models::{NewProxy, ProxyConnectionStatus};
 use petname::petname;
 use std::cmp::Ordering;
-use std::time::Duration;
 
 #[derive(Parser)]
 pub struct Arguments {

@@ -186,6 +186,15 @@ jobs:
           aws-secret-access-key: ${{ secrets.DEPLOY_AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-central-1
 
+      - name: Upload version file for ${{ github.event.release.tag_name }}
+        if: github.event_name == 'release'
+        run: |
+          echo "${{ github.event.release.tag_name }}" | cut -c2- > version
+          aws s3 cp \
+            --acl public-read \
+            version \
+            s3://fp.dev/fp/${{ github.event.release.tag_name }}/version
+
       - name: Sync ${{ github.event.release.tag_name }} to latest
         if: github.event_name == 'release'
         run: |

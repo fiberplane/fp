@@ -1,5 +1,4 @@
-use crate::manifest::retrieve_manifest;
-use crate::MANIFEST;
+use crate::{retrieve_latest_version, MANIFEST};
 use anyhow::Result;
 use clap::{ArgEnum, Parser};
 use std::io::Write;
@@ -37,12 +36,12 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
     // Force a version check every time this command gets run, unless
     // the --disable-version-check flag is set.
     if !args.disable_version_check {
-        match retrieve_manifest(&MANIFEST.rustc_host_triple).await {
-            Ok(remote_manifest) => {
-                if remote_manifest.build_version == *MANIFEST.build_version {
+        match retrieve_latest_version().await {
+            Ok(remote_version) => {
+                if remote_version == *MANIFEST.build_version {
                     eprintln!("You are running the latest version of fp");
                 } else {
-                    eprintln!("A new version of fp is available (version: {}). Use `fp update` to update your current fp binary", remote_manifest.build_version);
+                    eprintln!("A new version of fp is available (version: {}). Use `fp update` to update your current fp binary", remote_version);
                 }
             }
             Err(err) => error!(%err, "unable to retrieve manifest"),

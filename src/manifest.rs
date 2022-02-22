@@ -1,5 +1,3 @@
-use anyhow::{Context, Result};
-use reqwest;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -33,19 +31,4 @@ impl Manifest {
             cargo_profile: env!("VERGEN_CARGO_PROFILE").to_owned(),
         }
     }
-}
-
-/// Retrieve the latest manifest of a fp binary for the specified host triple
-pub async fn retrieve_manifest(host_triple: &str) -> Result<Manifest> {
-    let manifest_url = format!("https://fp.dev/fp/latest/{host_triple}/manifest.json");
-    let manifest = reqwest::get(manifest_url)
-        .await?
-        .error_for_status()?
-        .bytes()
-        .await?;
-
-    let manifest =
-        serde_json::from_slice(&manifest).context("failed to serialize the version manifest")?;
-
-    Ok(manifest)
 }

@@ -183,7 +183,7 @@ pub async fn background_version_check() -> Result<Option<String>> {
         return Ok(None);
     }
 
-    let remote_manifest = manifest::retrieve_manifest(&MANIFEST.rustc_host_triple)
+    let remote_version = retrieve_latest_version()
         .await
         .context("failed to check for remote version")?;
 
@@ -204,9 +204,21 @@ pub async fn background_version_check() -> Result<Option<String>> {
         };
     };
 
-    if remote_manifest.build_version != MANIFEST.build_version {
-        Ok(Some(remote_manifest.build_version.to_owned()))
+    if remote_version != MANIFEST.build_version {
+        Ok(Some(remote_version))
     } else {
         Ok(None)
     }
+}
+
+/// Retrieve the latest version available.
+pub async fn retrieve_latest_version() -> Result<String> {
+    let version_url = format!("https://fp.dev/fp/latest/version");
+    let latest_version = reqwest::get(version_url)
+        .await?
+        .error_for_status()?
+        .text()
+        .await?;
+
+    Ok(latest_version)
 }
