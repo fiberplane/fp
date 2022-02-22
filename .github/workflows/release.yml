@@ -97,6 +97,8 @@ jobs:
         if: matrix.build == 'linux_x86_64' || matrix.build == 'macos_x86_64'
         run: strip "target/${{ matrix.target }}/release/fp"
 
+      # We are not able to run the ARM based MacOS binary, since this is running
+      # on a x86_64 MacOS machine.
       - name: Release version information
         if: matrix.build != 'macos_aarch64'
         run: |
