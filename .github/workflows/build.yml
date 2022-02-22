@@ -57,7 +57,7 @@ jobs:
       - name: Generate manifest
         run: target/release/fp version -o json > manifest.json
 
-      - name: Upload build artifact
+      - name: Upload fp
         uses: actions/upload-artifact@v2
         with:
           name: fp
@@ -65,7 +65,7 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-      - name: Upload build artifact
+      - name: Upload manifest
         uses: actions/upload-artifact@v2
         with:
           name: manifest.json
