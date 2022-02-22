@@ -150,9 +150,8 @@ fn initialize_logger() {
         .expect("unable to initialize logging");
 }
 
-/// Fetches the remote manifest for fp for the current architecture and
-/// determines whether a new version is available. It will only check once per
-/// 24 hours.
+/// Fetches the latest remote version for fp and determines whether a new
+/// version is available. It will only check once per 24 hours.
 pub async fn background_version_check() -> Result<Option<String>> {
     let config_dir = ProjectDirs::from("com", "Fiberplane", "fiberplane-cli")
         .unwrap()
@@ -168,7 +167,8 @@ pub async fn background_version_check() -> Result<Option<String>> {
             date < (SystemTime::now() - Duration::from_secs(VERSION_CHECK_DURATION))
         }
         Err(err) => {
-            // This will most likely be caused by the file not existing, so we will just
+            // This will most likely be caused by the file not existing, so we
+            // will just trace it and go ahead with the version check.
             trace!(%err, "checking the update file check resulted in a error");
             true
         }
