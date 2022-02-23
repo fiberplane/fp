@@ -230,4 +230,4 @@ jobs:
         run: |
           aws cloudfront create-invalidation \
             --distribution-id "${{ secrets.CF_BUILDS_ID }}" \
-            --paths '/install.sh
+            --paths '/install.sh'
