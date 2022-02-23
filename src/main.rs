@@ -98,9 +98,26 @@ enum SubCommand {
 
 #[tokio::main]
 async fn main() {
-    let args = Arguments::parse();
-
     initialize_logger();
+
+    // We would like to override the builtin version display behavior, so we
+    // will try to parse the arguments. If it failed, we will check if it was
+    // the DisplayVersion error and show our version, otherwise just fallback to
+    // clap's handling.
+    let args = {
+        match Arguments::try_parse() {
+            Ok(arguments) => arguments,
+            Err(err) => match err.kind {
+                clap::ErrorKind::DisplayVersion => {
+                    version::output_version().await;
+                    process::exit(0);
+                }
+                _ => {
+                    err.exit();
+                }
+            },
+        }
+    };
 
     // Start the background version check, but skip it when running the `Update`
     // or `Version` command, or if the disable_version_check is set to true.

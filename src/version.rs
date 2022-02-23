@@ -28,9 +28,9 @@ pub enum OutputType {
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
     let result = match args.output {
-        OutputType::Version => output_version(&args).await,
-        OutputType::Verbose => output_verbose(&args).await,
-        OutputType::Json => output_json(&args).await,
+        OutputType::Version => Ok(output_version().await),
+        OutputType::Verbose => Ok(output_verbose().await),
+        OutputType::Json => output_json().await,
     };
 
     // Force a version check every time this command gets run, unless
@@ -51,13 +51,11 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
     result
 }
 
-async fn output_version(_args: &Arguments) -> Result<()> {
+pub async fn output_version() {
     println!("{}", MANIFEST.build_version);
-
-    Ok(())
 }
 
-async fn output_verbose(_args: &Arguments) -> Result<()> {
+async fn output_verbose() {
     println!("Build Timestamp: {}", MANIFEST.build_timestamp);
     println!("Build Version: {}", MANIFEST.build_version);
     println!("Commit Date: {}", MANIFEST.commit_date);
@@ -69,11 +67,9 @@ async fn output_verbose(_args: &Arguments) -> Result<()> {
     println!("rustc Commit SHA {}", MANIFEST.rustc_commit_sha);
     println!("cargo Target Triple {}", MANIFEST.cargo_target_triple);
     println!("cargo Profile: {}", MANIFEST.cargo_profile);
-
-    Ok(())
 }
 
-async fn output_json(_args: &Arguments) -> Result<()> {
+async fn output_json() -> Result<()> {
     serde_json::to_writer(std::io::stdout(), &*MANIFEST)?;
     writeln!(std::io::stdout())?;
     Ok(())
