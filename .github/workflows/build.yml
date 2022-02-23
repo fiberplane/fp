@@ -42,14 +42,14 @@ jobs:
       - name: Check format
         run: cargo fmt -- --check
 
+      - name: Build binary and tests
+        run: cargo build --bins --tests --release
+
       - name: Lint code
         uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --all-features --release
-
-      - name: Build binary and tests
-        run: cargo build --bins --tests --release
 
       - name: Run tests
         run: cargo test --release
