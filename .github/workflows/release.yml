@@ -6,9 +6,32 @@ on:
 
 name: Publish binaries
 
+env:
+  DISABLE_VERSION_CHECK: true
+
 jobs:
+  validate-release:
+    name: Validate release (${{ github.event.release.tag_name }})
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+
+      - name: validate version
+        if: github.event_name == 'release'
+        run: |
+          # Extract the version from the Cargo.toml
+          FP_VERSION=$(cat "Cargo.toml" | grep '^version' | awk '{ split($0,version,"=") ; gsub(/[\ \"]/, "", version[2]) ; print version[2] }')
+          if [ "v${FP_VERSION}" != "${{ github.event.release.tag_name }}" ]; then
+            echo "::error file=Cargo.toml::Version set in Cargo.toml (v${FP_VERSION}) does not match release version (${{ github.event.release.tag_name }})"
+            exit 1
+          fi
+
   build-upload-assets:
-    name: build-upload-assets
+    name: Build assets for ${{ matrix.build }} (${{ github.event.release.tag_name }})
+    needs: validate-release
     runs-on: ${{ matrix.os }}
     env:
       CARGO: cargo
@@ -74,6 +97,14 @@ jobs:
         if: matrix.build == 'linux_x86_64' || matrix.build == 'macos_x86_64'
         run: strip "target/${{ matrix.target }}/release/fp"
 
+      # We are not able to run the ARM based MacOS binary, since this is running
+      # on a x86_64 MacOS machine.
+      - name: Release version information
+        if: matrix.build != 'macos_aarch64'
+        run: |
+          target/${{ matrix.target }}/release/fp version -o verbose
+          target/${{ matrix.target }}/release/fp version -o json > manifest.json
+
       # - name: Strip release binary (arm)
       #   if: matrix.build == 'macos_aarch64'
       #   run: |
@@ -83,16 +114,25 @@ jobs:
       #       arm-linux-gnueabihf-strip \
       #       /target/arm-unknown-linux-gnueabihf/release/rg
 
-      - name: Upload build artifact
+      - name: Upload fp to build artifact
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v2
         with:
-          name: fp-${{ matrix.build }}
+          name: fp-${{ matrix.target }}
           path: target/${{ matrix.target }}/release/fp
           if-no-files-found: error
           retention-days: 1
 
-      - name: Upload release archive
+      - name: Upload manifest to build artifact
+        if: github.event_name == 'workflow_dispatch' && matrix.build != 'macos_aarch64'
+        uses: actions/upload-artifact@v2
+        with:
+          name: fp-${{ matrix.target }}-manifest.json
+          path: manifest.json
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload fp to release
         if: github.event_name == 'release'
         uses: actions/upload-release-asset@v1
         env:
@@ -100,8 +140,19 @@ jobs:
         with:
           upload_url: ${{ github.event.release.upload_url }}
           asset_path: target/${{ matrix.target }}/release/fp
-          asset_name: fp-${{ matrix.build }}
+          asset_name: fp-${{ matrix.target }}
           asset_content_type: application/octet-stream
+
+      - name: Upload manifest to release
+        if: github.event_name == 'release' && matrix.build != 'macos_aarch64'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: manifest.json
+          asset_name: fp-${{ matrix.target }}-manifest.json
+          asset_content_type: application/json
 
       - name: Configure AWS Credentials
         if: github.event_name == 'release'
@@ -111,13 +162,21 @@ jobs:
           aws-secret-access-key: ${{ secrets.DEPLOY_AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-central-1
 
-      - name: Upload binary to S3
+      - name: Upload fp to S3
         if: github.event_name == 'release'
         run: |
           aws s3 cp \
             --acl public-read \
             target/${{ matrix.target }}/release/fp \
-            s3://fp.dev/fp/${{ github.event.release.tag_name }}/${{ matrix.build }}/fp
+            s3://fp.dev/fp/${{ github.event.release.tag_name }}/${{ matrix.target }}/fp
+
+      - name: Upload manifest to S3
+        if: github.event_name == 'release' && matrix.build != 'macos_aarch64'
+        run: |
+          aws s3 cp \
+            --acl public-read \
+            manifest.json \
+            s3://fp.dev/fp/${{ github.event.release.tag_name }}/${{ matrix.target }}/manifest.json
 
       - name: Upload install script to S3
         if: github.event_name == 'release'
@@ -128,7 +187,7 @@ jobs:
             s3://fp.dev/install.sh
 
   update-latest-s3:
-    name: update-latest-s3
+    name: Update latest on S3 (${{ github.event.release.tag_name }})
     runs-on: ubuntu-latest
     needs: build-upload-assets
     if: github.event_name == 'release'
@@ -140,6 +199,15 @@ jobs:
           aws-access-key-id: ${{ secrets.DEPLOY_AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.DEPLOY_AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-central-1
+
+      - name: Upload version file for ${{ github.event.release.tag_name }}
+        if: github.event_name == 'release'
+        run: |
+          echo "${{ github.event.release.tag_name }}" | cut -c2- > version
+          aws s3 cp \
+            --acl public-read \
+            version \
+            s3://fp.dev/fp/${{ github.event.release.tag_name }}/version
 
       - name: Sync ${{ github.event.release.tag_name }} to latest
         if: github.event_name == 'release'

@@ -5,12 +5,12 @@ use fp_provider_runtime::spec::types::{Config, ProviderRequest, ProviderResponse
 #[derive(Parser)]
 pub struct Arguments {
     #[clap(subcommand)]
-    subcmd: SubCommand,
+    sub_command: SubCommand,
 }
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
     use SubCommand::*;
-    match args.subcmd {
+    match args.sub_command {
         Invoke(args) => handle_invoke_command(args).await,
     }
 }
