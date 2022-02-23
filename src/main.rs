@@ -50,9 +50,9 @@ pub struct Arguments {
     // TODO parse this as a PathBuf
     config: Option<String>,
 
-    /// disable the version check
+    /// Disables the version check
     #[clap(long, global = true, env)]
-    pub disable_version_check: bool,
+    disable_version_check: bool,
 }
 
 #[derive(Parser)]
@@ -91,7 +91,7 @@ enum SubCommand {
     #[clap(alias = "trigger")]
     Triggers(triggers::Arguments),
 
-    /// Display version information
+    /// Display extra version information
     #[clap(aliases = &["v"])]
     Version(version::Arguments),
 }
