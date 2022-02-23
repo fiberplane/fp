@@ -28,8 +28,14 @@ pub enum OutputType {
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
     let result = match args.output {
-        OutputType::Version => Ok(output_version().await),
-        OutputType::Verbose => Ok(output_verbose().await),
+        OutputType::Version => {
+            output_version().await;
+            Ok(())
+        }
+        OutputType::Verbose => {
+            output_verbose().await;
+            Ok(())
+        }
         OutputType::Json => output_json().await,
     };
 
