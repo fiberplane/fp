@@ -49,7 +49,7 @@ jobs:
           args: --all-features --release
 
       - name: Build binary and tests
-        run: cargo build --tests --release
+        run: cargo build --bins --tests --release
 
       - name: Run tests
         run: cargo test --release
