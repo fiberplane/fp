@@ -109,7 +109,12 @@ async fn main() {
             Ok(arguments) => arguments,
             Err(err) => match err.kind {
                 clap::ErrorKind::DisplayVersion => {
+                    use std::io::Write;
                     version::output_version().await;
+
+                    let _ = std::io::stdout().lock().flush();
+                    let _ = std::io::stderr().lock().flush();
+
                     process::exit(0);
                 }
                 _ => {
