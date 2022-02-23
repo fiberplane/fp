@@ -177,6 +177,11 @@ async fn main() {
     }
 
     if result.is_err() {
+        use std::io::Write;
+
+        let _ = std::io::stdout().lock().flush();
+        let _ = std::io::stderr().lock().flush();
+
         process::exit(1);
     }
 }
