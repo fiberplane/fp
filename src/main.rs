@@ -161,9 +161,8 @@ async fn main() {
         }
     };
 
-    if let Err(e) = result {
-        eprintln!("Error: {:?}", e);
-        process::exit(1);
+    if let Err(ref err) = result {
+        eprintln!("Command dit not finish successfully: {:?}", err);
     }
 
     // Wait for an extra second for the background check to finish
@@ -175,6 +174,10 @@ async fn main() {
             Ok(None) => trace!("background version check skipped or no new version available"),
             Err(err) => warn!(%err, "background version check failed"),
         }
+    }
+
+    if result.is_err() {
+        process::exit(1);
     }
 }
 
