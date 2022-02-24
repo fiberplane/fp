@@ -284,5 +284,5 @@ pub async fn retrieve_latest_version() -> Result<String> {
         .text()
         .await?;
 
-    Ok(latest_version)
+    Ok(latest_version.trim().to_owned())
 }
