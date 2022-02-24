@@ -127,7 +127,7 @@ async fn main() {
     // Start the background version check, but skip it when running the `Update`
     // or `Version` command, or if the disable_version_check is set to true.
     let disable_version_check =
-        args.disable_version_check || matches!(args.sub_command, Version(_));
+        args.disable_version_check || matches!(args.sub_command, Version(_) | Completions { .. });
 
     let version_check_result = if disable_version_check {
         tokio::spawn(async { None })
@@ -284,5 +284,5 @@ pub async fn retrieve_latest_version() -> Result<String> {
         .text()
         .await?;
 
-    Ok(latest_version)
+    Ok(latest_version.trim().to_owned())
 }
