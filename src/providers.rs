@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
-use fp_provider_runtime::spec::types::{Config, ProviderRequest, ProviderResponse};
+use fp_provider_runtime::spec::types::{ProviderRequest, ProviderResponse};
 
 #[derive(Parser)]
 pub struct Arguments {
@@ -39,8 +39,7 @@ pub struct InvokeArguments {
 async fn handle_invoke_command(args: InvokeArguments) -> Result<()> {
     let request: ProviderRequest =
         serde_json::from_str(&args.request).context("unable to deserialize request")?;
-    let config: Config =
-        serde_json::from_str(&args.config).context("unable to deserialize config")?;
+    let config = json_to_messagepack(&args.config).context("unable to deserialize config")?;
 
     let wasm_module = std::fs::read(args.provider_path)
         .map_err(|e| anyhow!("unable to read wasm module: {:?}", e))?;
@@ -61,4 +60,10 @@ async fn handle_invoke_command(args: InvokeArguments) -> Result<()> {
         },
         Err(e) => Err(anyhow!("unable to invoke provider: {:?}", e)),
     }
+}
+
+/// Transcode JSON to messagepack using serde-transcode
+fn json_to_messagepack(json: &str) -> Result<rmpv::Value> {
+    let value: serde_json::Value = serde_json::from_str(json)?;
+    rmpv::ext::to_value(value).map_err(|e| e.into())
 }

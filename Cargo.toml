@@ -12,10 +12,10 @@ anyhow = "1.0"
 clap = { version = "3.0.5", features = ["derive", "env", "wrap_help"] }
 clap_complete = "3.0.6"
 directories = "4.0.1"
-fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main" }
-fiberplane-templates = { git = "ssh://git@github.com/fiberplane/templates.git", branch = "main" }
-fp-api-client = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main" }
-fp-provider-runtime = { git = "ssh://git@github.com/fiberplane/providers.git", branch = "main" }
+fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "tolerant-logs" }
+fiberplane-templates = { git = "ssh://git@github.com/fiberplane/templates.git", branch = "tolerant-logs" }
+fp-api-client = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "tolerant-logs" }
+fp-provider-runtime = { git = "ssh://git@github.com/fiberplane/providers.git", branch = "tolerant-logs" }
 hyper = { version = "0.14.13", features = [
     "http1",
     "server",
@@ -32,10 +32,11 @@ reqwest = { version = "0.11.4", default-features = false, features = [
     "json",
 ] }
 rmp-serde = "1.0.0"
+rmpv = "1.0.0"
 serde = { version = "1.0.123", features = ["derive"] }
 serde_json = "1.0"
 time = "0.3.5"
-time_util = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main" }
+time_util = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "tolerant-logs" }
 tokio = { version = "1", features = ["full"] }
 toml = "0.5.8"
 tracing = "0.1"
