@@ -4,8 +4,8 @@ set -e
 
 # Get the target OS and architecture
 case $(uname -s) in
-Darwin) target_os="macos" ;;
-*) target_os="linux" ;;
+Darwin) target_os="apple-darwin" ;;
+*) target_os="unknown-linux-gnu" ;;
 esac
 
 case $(uname -m) in
@@ -18,7 +18,7 @@ if [ ! -d "$fiberplane_dir" ]; then
   mkdir -p "$fiberplane_dir"
 fi
 
-binary_url="https://fp.dev/fp/latest/${target_os}_${target_arch}/fp"
+binary_url="https://fp.dev/fp/latest/${target_arch}-${target_os}/fp"
 curl --fail --show-error --location --progress-bar --output "${fiberplane_dir}/fp" "${binary_url}"
 
 chmod +x "${fiberplane_dir}/fp"
@@ -37,7 +37,7 @@ if [ -n "$shell_completions" ]; then
 fi
 
 # Add to PATH if it wasn't installed before
-if $(fp --version > /dev/null); then
+if fp --version > /dev/null; then
   echo "Successfully updated Fiberplane CLI"
   echo ""
   echo "Run fp --help to get started"
