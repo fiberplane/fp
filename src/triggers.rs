@@ -4,7 +4,8 @@ use anyhow::{anyhow, Context, Error, Result};
 use clap::{ArgEnum, Parser};
 use fp_api_client::apis::configuration::Configuration;
 use fp_api_client::apis::default_api::{
-    trigger_create, trigger_delete, trigger_get, trigger_invoke, trigger_list,
+    template_trigger_create, template_trigger_delete, template_trigger_get,
+    template_trigger_invoke, template_trigger_list,
 };
 use fp_api_client::models::NewTrigger;
 use lazy_static::lazy_static;
@@ -126,39 +127,39 @@ struct InvokeArguments {
 }
 
 async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {
-    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
-    let new_trigger = match args.template_source {
-        TemplateSource::Path(path) => {
-            let template_body = fs::read_to_string(&path)
-                .await
-                .with_context(|| format!("Error reading template from file: {}", path.display()))?;
-            NewTrigger {
-                template_body: Some(template_body),
-                template_url: None,
-            }
-        }
-        TemplateSource::Url(template_url) => {
-            if template_url.scheme() != "https" {
-                return Err(anyhow!("Template URLs must use HTTPS"));
-            }
-            NewTrigger {
-                template_body: None,
-                template_url: Some(template_url.to_string()),
-            }
-        }
-    };
-    let trigger = trigger_create(&config, Some(new_trigger))
-        .await
-        .with_context(|| "Error creating trigger")?;
+    // let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+    // let new_trigger = match args.template_source {
+    // TemplateSource::Path(path) => {
+    // let template_body = fs::read_to_string(&path)
+    // .await
+    // .with_context(|| format!("Error reading template from file: {}", path.display()))?;
+    // NewTrigger {
+    // template_body: Some(template_body),
+    // template_url: None,
+    // }
+    // }
+    // TemplateSource::Url(template_url) => {
+    // if template_url.scheme() != "https" {
+    // return Err(anyhow!("Template URLs must use HTTPS"));
+    // }
+    // NewTrigger {
+    // template_body: None,
+    // template_url: Some(template_url.to_string()),
+    // }
+    // }
+    // };
+    // let trigger = trigger_create(&config, Some(new_trigger))
+    // .await
+    // .with_context(|| "Error creating trigger")?;
 
-    eprintln!(
-        "Created trigger: {}/api/triggers/{}",
-        args.base_url, trigger.id
-    );
-    eprintln!(
-        "Trigger can be invoked with an HTTP POST to: {}/api/triggers/{}/webhook",
-        args.base_url, trigger.id
-    );
+    // eprintln!(
+    // "Created trigger: {}/api/triggers/{}",
+    // args.base_url, trigger.id
+    // );
+    // eprintln!(
+    // "Trigger can be invoked with an HTTP POST to: {}/api/triggers/{}/webhook",
+    // args.base_url, trigger.id
+    // );
     Ok(())
 }
 
@@ -167,7 +168,7 @@ async fn handle_trigger_get_command(args: IndividualTriggerArguments) -> Result<
     let trigger_id = &TRIGGER_ID_REGEX
         .captures(&args.trigger)
         .with_context(|| "Could not parse trigger. Expected a Trigger ID or URL")?[1];
-    let trigger = trigger_get(&config, trigger_id)
+    let trigger = template_trigger_get(&config, trigger_id)
         .await
         .with_context(|| "Error getting trigger details")?;
 

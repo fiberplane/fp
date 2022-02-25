@@ -3,12 +3,14 @@ use anyhow::{anyhow, Context, Error, Result};
 use clap::{Parser, ValueHint};
 use fiberplane::protocols::core::{self, Cell, HeadingCell, HeadingType, TextCell, TimeRange};
 use fiberplane_templates::{notebook_to_template, TemplateExpander};
-use fp_api_client::apis::default_api::{get_notebook, notebook_create, proxy_data_sources_list};
-use fp_api_client::models::{NewNotebook, Notebook};
+use fp_api_client::apis::default_api::{
+    get_notebook, notebook_create, proxy_data_sources_list, template_create,
+};
+use fp_api_client::models::{NewNotebook, NewTemplate, Notebook};
 use lazy_static::lazy_static;
 use regex::Regex;
-use serde_json::Value;
-use std::collections::{BTreeMap, HashMap};
+use serde_json::{Map, Value};
+use std::collections::BTreeMap;
 use std::{env::current_dir, ffi::OsStr, path::PathBuf, str::FromStr};
 use tokio::fs;
 use tokio::io::{self, AsyncReadExt, AsyncWriteExt};
@@ -51,6 +53,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
         Init => handle_init_command().await,
         Expand(args) => handle_expand_command(args).await,
         Convert(args) => handle_convert_command(args).await,
+        Upload(args) => handle_upload_command(args).await,
     }
 }
 
@@ -73,6 +76,10 @@ enum SubCommand {
         about = "Create a template from an existing Fiberplane notebook"
     )]
     Convert(ConvertArguments),
+
+    /// Upload the template
+    #[clap()]
+    Upload(UploadArguments),
 }
 
 #[derive(Parser)]
@@ -111,6 +118,31 @@ struct ConvertArguments {
     /// Notebook URL to convert. Pass - to read the Notebook JSON representation from stdin
     #[clap()]
     notebook_url: String,
+}
+
+#[derive(Parser)]
+struct UploadArguments {
+    #[clap(from_global)]
+    base_url: String,
+
+    #[clap(from_global)]
+    config: Option<String>,
+
+    /// Title of the template
+    #[clap(long)]
+    title: String,
+
+    /// Description of the template
+    #[clap(long)]
+    description: Option<String>,
+
+    /// Path or URL of template file to expand
+    #[clap(value_hint = ValueHint::AnyPath)]
+    template: String,
+
+    /// Make the template public
+    #[clap(long)]
+    public: bool,
 }
 
 pub struct TemplateArg {
@@ -201,7 +233,7 @@ async fn load_template(template_path: &str) -> Result<String> {
 
 async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
     let template = load_template(&args.template).await?;
-    let template_args: HashMap<String, Value> =
+    let template_args: Map<String, Value> =
         args.args.into_iter().map(|a| (a.name, a.value)).collect();
 
     let config = api_client_configuration(args.config.as_deref(), &args.base_url)
@@ -311,6 +343,27 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
     } else {
         io::stdout().write_all(template.as_bytes()).await?;
     }
+
+    Ok(())
+}
+
+async fn handle_upload_command(args: UploadArguments) -> Result<()> {
+    let body = load_template(&args.template).await?;
+
+    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+    let template = NewTemplate {
+        title: args.title,
+        body,
+        description: args.description.unwrap_or_default(),
+        public: args.public,
+    };
+
+    let template = template_create(&config, Some(template))
+        .await
+        .with_context(|| "Error uploading template")?;
+
+    eprintln!("Uploaded template. Template can be expanded into a Notebook by POSTing the template arguments to:");
+    println!("{}/templates/{}", config.base_path, template.id);
 
     Ok(())
 }

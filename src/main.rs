@@ -19,7 +19,7 @@ mod notebooks;
 mod providers;
 mod proxies;
 mod templates;
-mod triggers;
+// mod triggers;
 mod version;
 
 /// The current build manifest associated with this binary
@@ -88,8 +88,8 @@ enum SubCommand {
     Templates(templates::Arguments),
 
     /// Interact with Fiberplane Triggers
-    #[clap(alias = "trigger")]
-    Triggers(triggers::Arguments),
+    // #[clap(alias = "trigger")]
+    // Triggers(triggers::Arguments),
 
     /// Display extra version information
     #[clap(aliases = &["v"])]
@@ -151,7 +151,7 @@ async fn main() {
         Providers(args) => providers::handle_command(args).await,
         Proxies(args) => proxies::handle_command(args).await,
         Templates(args) => templates::handle_command(args).await,
-        Triggers(args) => triggers::handle_command(args).await,
+        // Triggers(args) => triggers::handle_command(args).await,
         Version(args) => version::handle_command(args).await,
         Completions { shell } => {
             let mut app = Arguments::into_app();
