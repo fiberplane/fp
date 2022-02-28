@@ -145,6 +145,7 @@ jobs:
           done
 
       - name: Create version file
+        if: github.event_name == 'release'
         run: echo "${{ github.event.release.tag_name }}" | cut -c2- > artifacts/version
 
       - name: Upload to GitHub artifacts
