@@ -11,6 +11,7 @@ use std::process;
 use std::time::{Duration, SystemTime};
 use tokio::time::timeout;
 use tracing::{trace, warn};
+use update::retrieve_latest_version;
 
 mod auth;
 mod config;
@@ -282,16 +283,4 @@ pub async fn background_version_check() -> Result<Option<String>> {
     } else {
         Ok(None)
     }
-}
-
-/// Retrieve the latest version available.
-pub async fn retrieve_latest_version() -> Result<String> {
-    let version_url = "https://fp.dev/fp/latest/version";
-    let latest_version = reqwest::get(version_url)
-        .await?
-        .error_for_status()?
-        .text()
-        .await?;
-
-    Ok(latest_version.trim().to_owned())
 }
