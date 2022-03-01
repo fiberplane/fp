@@ -1,11 +1,10 @@
+use crate::{retrieve_latest_version, MANIFEST};
 use anyhow::Result;
 use clap::Parser;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::io::{BufWriter, Write};
 use std::os::unix::prelude::OpenOptionsExt;
 use tracing::info;
-
-use crate::{retrieve_latest_version, MANIFEST};
 
 #[derive(Parser)]
 pub struct Arguments {}
@@ -45,19 +44,19 @@ pub async fn handle_command(_args: Arguments) -> Result<()> {
     while let Some(chunk) = res.chunk().await? {
         temp_file.write_all(&chunk)?;
 
-        downloaded = downloaded + chunk.len();
+        downloaded += chunk.len();
         pb.set_position(downloaded as u64);
     }
 
-    // Make sure that everything is written to disk
+    // Make sure that everything is written to disk and that we closed the file.
     temp_file.flush()?;
     drop(temp_file);
 
     pb.finish_with_message("downloaded");
 
-    // Override the current executable
-    let out = std::env::current_exe()?;
-    std::fs::rename(temp_file_path, out)?;
+    // Override the current executable.
+    let current_exe = std::env::current_exe()?;
+    std::fs::rename(temp_file_path, current_exe)?;
 
     info!("Updated to version {}", latest_version);
 
