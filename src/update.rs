@@ -1,10 +1,11 @@
-use crate::{retrieve_latest_version, MANIFEST};
-use anyhow::Result;
+use crate::MANIFEST;
+use anyhow::{anyhow, Result};
 use clap::Parser;
 use indicatif::{ProgressBar, ProgressStyle};
+use sha2::{Digest, Sha256};
 use std::io::{BufWriter, Write};
 use std::os::unix::prelude::OpenOptionsExt;
-use tracing::info;
+use tracing::{debug, info};
 
 #[derive(Parser)]
 pub struct Arguments {}
@@ -31,7 +32,10 @@ pub async fn handle_command(_args: Arguments) -> Result<()> {
 
     // Fetch latest binary for current host-triple to the temporary file.
     let arch = &*crate::MANIFEST.cargo_target_triple;
-    let mut res = reqwest::get(format!("https://fp.dev/fp/latest/{arch}/fp")).await?;
+
+    let mut res = reqwest::get(format!("https://fp.dev/fp/v{latest_version}/{arch}/fp"))
+        .await?
+        .error_for_status()?;
     let total_size = res.content_length().unwrap();
 
     let pb = ProgressBar::new(total_size);
@@ -39,13 +43,30 @@ pub async fn handle_command(_args: Arguments) -> Result<()> {
         .template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})")
         .progress_chars("#>-"));
 
+    let mut sha256_hasher = Sha256::new();
+
     // Write the chunks to the buffered writer, while updating the progress-bar.
     let mut downloaded = 0;
     while let Some(chunk) = res.chunk().await? {
         temp_file.write_all(&chunk)?;
+        sha256_hasher.write_all(&chunk)?;
 
         downloaded += chunk.len();
         pb.set_position(downloaded as u64);
+    }
+
+    // Calculate the final sha256 hash and compare it to the remote sha256 hash
+    let remote_sha256_hash = retrieve_sha256_hash(&latest_version, arch).await?;
+    let computed_sha256_hash = hex::encode(&sha256_hasher.finalize());
+
+    if remote_sha256_hash != computed_sha256_hash {
+        debug!(
+            %remote_sha256_hash,
+            %computed_sha256_hash, "Calculated sha256 hash does not match the remote sha256 hash"
+        );
+        return Err(anyhow!(
+            "Calculated sha256 hash does not match the remote sha256 hash"
+        ));
     }
 
     // Make sure that everything is written to disk and that we closed the file.
@@ -61,4 +82,39 @@ pub async fn handle_command(_args: Arguments) -> Result<()> {
     info!("Updated to version {}", latest_version);
 
     Ok(())
+}
+
+/// Retrieve the latest version available.
+pub async fn retrieve_latest_version() -> Result<String> {
+    let version_url = "https://fp.dev/fp/latest/version";
+    let latest_version = reqwest::get(version_url)
+        .await?
+        .error_for_status()?
+        .text()
+        .await?;
+
+    Ok(latest_version.trim().to_owned())
+}
+
+/// Retrieve the sha256 hash for the fp binary for the specified version and
+/// architecture. If `fp` is not found within the checksums.sha256 file it will
+/// return an error.
+pub async fn retrieve_sha256_hash(version: &str, arch: &str) -> Result<String> {
+    let response = reqwest::get(format!(
+        "https://fp.dev/fp/v{version}/{arch}/checksum.sha256"
+    ))
+    .await?
+    .error_for_status()?
+    .text()
+    .await?;
+
+    // Search through the lines for a file name `fp`, if not found a error will
+    // be returned.
+    response
+        .lines()
+        .find_map(|line| match line.split_once("  ") {
+            Some((sha256_hash, file)) if file == "fp" => Some(sha256_hash.to_owned()),
+            _ => None,
+        })
+        .map_or_else(|| Err(anyhow!("version not found in checksum.sha256")), Ok)
 }

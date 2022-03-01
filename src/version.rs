@@ -1,4 +1,5 @@
-use crate::{retrieve_latest_version, MANIFEST};
+use crate::update::retrieve_latest_version;
+use crate::MANIFEST;
 use anyhow::Result;
 use clap::{ArgEnum, Parser};
 use std::io::Write;
