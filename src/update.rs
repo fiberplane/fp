@@ -55,17 +55,17 @@ pub async fn handle_command(_args: Arguments) -> Result<()> {
         pb.set_position(downloaded as u64);
     }
 
-    // Calculate the final sha256 sum and compare it to the remote sha256 sum
-    let remote_sha256_sum = retrieve_sha256_sum(&latest_version, arch).await?;
-    let computed_sha256_sum = base16ct::lower::encode_string(&sha256_hasher.finalize());
+    // Calculate the final sha256 hash and compare it to the remote sha256 hash
+    let remote_sha256_hash = retrieve_sha256_hash(&latest_version, arch).await?;
+    let computed_sha256_hash = base16ct::lower::encode_string(&sha256_hasher.finalize());
 
-    if remote_sha256_sum != computed_sha256_sum {
+    if remote_sha256_hash != computed_sha256_hash {
         debug!(
-            %remote_sha256_sum,
-            %computed_sha256_sum, "Remote sha256 sum does not match the calculated sha256 sum"
+            %remote_sha256_hash,
+            %computed_sha256_hash, "Remote sha256 hash does not match the calculated sha256 hash"
         );
         return Err(anyhow!(
-            "Remote sha256 sum does not match the calculated sha256 sum"
+            "Remote sha256 hash does not match the calculated sha256 hash"
         ));
     }
 
@@ -96,10 +96,10 @@ pub async fn retrieve_latest_version() -> Result<String> {
     Ok(latest_version.trim().to_owned())
 }
 
-/// Retrieve the sha256 digest for the fp binary for the specified version and
+/// Retrieve the sha256 hash for the fp binary for the specified version and
 /// architecture. If `fp` is not found within the checksums.sha256 file it will
 /// return an error.
-pub async fn retrieve_sha256_sum(version: &str, arch: &str) -> Result<String> {
+pub async fn retrieve_sha256_hash(version: &str, arch: &str) -> Result<String> {
     let response = reqwest::get(format!(
         "https://fp.dev/fp/v{version}/{arch}/checksum.sha256"
     ))
@@ -113,11 +113,11 @@ pub async fn retrieve_sha256_sum(version: &str, arch: &str) -> Result<String> {
     response
         .lines()
         .find_map(|line| match line.split_once("  ") {
-            Some((sha256_sum, file)) if file == "fp" => Some(sha256_sum.to_owned()),
+            Some((sha256_hash, file)) if file == "fp" => Some(sha256_hash.to_owned()),
             _ => None,
         })
         .map_or_else(
             || Err(anyhow!("version not found in checksum.sha256")),
-            |sha256_sum| Ok(sha256_sum),
+            |sha256_hash| Ok(sha256_hash),
         )
 }
