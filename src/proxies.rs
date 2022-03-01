@@ -149,7 +149,7 @@ Data Sources: {}",
         }
     );
     for data_source in proxy.data_sources {
-        println!("  - {} (Type: {})", data_source.name, data_source._type);
+        println!("  - {} (Type: {:?})", data_source.name, data_source._type);
     }
     Ok(())
 }
@@ -161,7 +161,7 @@ async fn handle_data_sources_command(args: GlobalArgs) -> Result<()> {
     // TODO should we print something if there are no data sources?
     for data_source in data_sources {
         println!(
-            "- {} (Type: {}, Proxy: {}, Proxy ID: {}, Proxy Status: {:?})",
+            "- {} (Type: {:?}, Proxy: {}, Proxy ID: {}, Proxy Status: {:?})",
             data_source.name,
             data_source._type,
             data_source.proxy.name,

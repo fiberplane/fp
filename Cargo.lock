@@ -590,7 +590,7 @@ dependencies = [
 [[package]]
 name = "fiberplane"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#01dd3ed0cd0dde88f44ad6240e1081f041835abb"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#ba9d4673e7fe532c770e2536417ac77f0a371030"
 dependencies = [
  "fp-bindgen",
  "once_cell",
@@ -604,7 +604,7 @@ dependencies = [
 [[package]]
 name = "fiberplane-templates"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/templates.git?branch=main#f6ae3cccf50fa6acd56b7275bfd6fd5f66334efd"
+source = "git+ssh://git@github.com/fiberplane/templates.git?branch=main#75c5b4dc11e2818d64402a71751557ff725ad5fc"
 dependencies = [
  "fiberplane",
  "jrsonnet-evaluator",
@@ -650,6 +650,7 @@ dependencies = [
  "regex",
  "reqwest",
  "rmp-serde",
+ "rmpv",
  "serde",
  "serde_json",
  "sha2",
@@ -667,7 +668,7 @@ dependencies = [
 [[package]]
 name = "fp-api-client"
 version = "1.0.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#9bce99e179bcce1675a6ebe947d5672b3f367586"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#ba9d4673e7fe532c770e2536417ac77f0a371030"
 dependencies = [
  "reqwest",
  "serde",
@@ -679,7 +680,7 @@ dependencies = [
 [[package]]
 name = "fp-bindgen"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fp-bindgen.git?branch=main#f0a4eeef26356d8c8b2848b91001efb280c6ba45"
+source = "git+ssh://git@github.com/fiberplane/fp-bindgen.git?branch=main#59d067a6efbf349ab3e9df9e03b10c0804f6f059"
 dependencies = [
  "Inflector",
  "fp-bindgen-macros",
@@ -687,6 +688,7 @@ dependencies = [
  "pretty_assertions",
  "proc-macro2",
  "quote",
+ "rmpv",
  "serde_bytes",
  "syn",
  "time 0.3.7",
@@ -695,7 +697,7 @@ dependencies = [
 [[package]]
 name = "fp-bindgen-macros"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fp-bindgen.git?branch=main#f0a4eeef26356d8c8b2848b91001efb280c6ba45"
+source = "git+ssh://git@github.com/fiberplane/fp-bindgen.git?branch=main#59d067a6efbf349ab3e9df9e03b10c0804f6f059"
 dependencies = [
  "proc-macro-error",
  "proc-macro2",
@@ -720,12 +722,13 @@ dependencies = [
 [[package]]
 name = "fp-provider-runtime"
 version = "1.0.0-alpha.1"
-source = "git+ssh://git@github.com/fiberplane/providers.git?branch=main#d6eb6aca90713c752352da5310412ea149d13f0c"
+source = "git+ssh://git@github.com/fiberplane/providers.git?branch=main#24e654e2c26d90f19f267a988c64661ad6789a64"
 dependencies = [
  "fp-bindgen-support",
  "rand",
  "reqwest",
  "rmp-serde",
+ "rmpv",
  "serde",
  "serde_bytes",
  "thiserror",
@@ -1856,6 +1859,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "rmpv"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "de8813b3a2f95c5138fe5925bfb8784175d88d6bff059ba8ce090aa891319754"
+dependencies = [
+ "num-traits",
+ "rmp",
+ "serde",
+ "serde_bytes",
+]
+
+[[package]]
 name = "rustc-demangle"
 version = "0.1.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2230,7 +2245,7 @@ dependencies = [
 [[package]]
 name = "time_util"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#01dd3ed0cd0dde88f44ad6240e1081f041835abb"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#ba9d4673e7fe532c770e2536417ac77f0a371030"
 dependencies = [
  "anyhow",
  "serde",
