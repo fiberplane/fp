@@ -57,7 +57,7 @@ pub async fn handle_command(_args: Arguments) -> Result<()> {
 
     // Calculate the final sha256 hash and compare it to the remote sha256 hash
     let remote_sha256_hash = retrieve_sha256_hash(&latest_version, arch).await?;
-    let computed_sha256_hash = base16ct::lower::encode_string(&sha256_hasher.finalize());
+    let computed_sha256_hash = hex::encode(&sha256_hasher.finalize());
 
     if remote_sha256_hash != computed_sha256_hash {
         debug!(
