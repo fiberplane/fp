@@ -194,7 +194,7 @@ async fn main() {
     };
 
     if let Err(ref err) = result {
-        eprintln!("Command dit not finish successfully: {:?}", err);
+        eprintln!("Command did not finish successfully: {:?}", err);
     }
 
     // Wait for an extra second for the background check to finish
