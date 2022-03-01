@@ -167,13 +167,13 @@ jobs:
       - name: Sync fp ${{ github.event.release.tag_name }} to S3
         if: github.event_name == 'release'
         run: |
-          aws s3 cp \
+          aws s3 sync \
             --acl public-read \
             --delete \
             artifact/ \
             s3://fp.dev/fp/${{ github.event.release.tag_name }}/
 
-          aws s3 cp \
+          aws s3 sync \
             --acl public-read \
             --delete \
             artifact/ \
