@@ -170,13 +170,13 @@ jobs:
           aws s3 sync \
             --acl public-read \
             --delete \
-            artifact/ \
+            artifacts/ \
             s3://fp.dev/fp/${{ github.event.release.tag_name }}/
 
           aws s3 sync \
             --acl public-read \
             --delete \
-            artifact/ \
+            artifacts/ \
             s3://fp.dev/fp/latest
 
       - name: Invalidate latest path on CloudFront
