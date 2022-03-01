@@ -62,10 +62,10 @@ pub async fn handle_command(_args: Arguments) -> Result<()> {
     if remote_sha256_hash != computed_sha256_hash {
         debug!(
             %remote_sha256_hash,
-            %computed_sha256_hash, "Remote sha256 hash does not match the calculated sha256 hash"
+            %computed_sha256_hash, "Calculated sha256 hash does not match the remote sha256 hash"
         );
         return Err(anyhow!(
-            "Remote sha256 hash does not match the calculated sha256 hash"
+            "Calculated sha256 hash does not match the remote sha256 hash"
         ));
     }
 
