@@ -11,6 +11,7 @@ use std::process;
 use std::time::{Duration, SystemTime};
 use tokio::time::timeout;
 use tracing::{trace, warn};
+use update::retrieve_latest_version;
 
 mod auth;
 mod config;
@@ -20,6 +21,7 @@ mod providers;
 mod proxies;
 mod templates;
 mod triggers;
+mod update;
 mod version;
 
 /// The current build manifest associated with this binary
@@ -91,6 +93,10 @@ enum SubCommand {
     #[clap(alias = "trigger")]
     Triggers(triggers::Arguments),
 
+    /// Update the current binary
+    #[clap()]
+    Update(update::Arguments),
+
     /// Display extra version information
     #[clap(aliases = &["v"])]
     Version(version::Arguments),
@@ -126,8 +132,11 @@ async fn main() {
 
     // Start the background version check, but skip it when running the `Update`
     // or `Version` command, or if the disable_version_check is set to true.
-    let disable_version_check =
-        args.disable_version_check || matches!(args.sub_command, Version(_) | Completions { .. });
+    let disable_version_check = args.disable_version_check
+        || matches!(
+            args.sub_command,
+            Update(_) | Version(_) | Completions { .. }
+        );
 
     let version_check_result = if disable_version_check {
         tokio::spawn(async { None })
@@ -152,6 +161,7 @@ async fn main() {
         Proxies(args) => proxies::handle_command(args).await,
         Templates(args) => templates::handle_command(args).await,
         Triggers(args) => triggers::handle_command(args).await,
+        Update(args) => update::handle_command(args).await,
         Version(args) => version::handle_command(args).await,
         Completions { shell } => {
             let mut app = Arguments::into_app();
@@ -184,7 +194,7 @@ async fn main() {
     };
 
     if let Err(ref err) = result {
-        eprintln!("Command dit not finish successfully: {:?}", err);
+        eprintln!("Command did not finish successfully: {:?}", err);
     }
 
     // Wait for an extra second for the background check to finish
@@ -273,16 +283,4 @@ pub async fn background_version_check() -> Result<Option<String>> {
     } else {
         Ok(None)
     }
-}
-
-/// Retrieve the latest version available.
-pub async fn retrieve_latest_version() -> Result<String> {
-    let version_url = "https://fp.dev/fp/latest/version";
-    let latest_version = reqwest::get(version_url)
-        .await?
-        .error_for_status()?
-        .text()
-        .await?;
-
-    Ok(latest_version.trim().to_owned())
 }

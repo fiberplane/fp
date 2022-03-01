@@ -126,6 +126,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
+name = "block-buffer"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0bf7fe51849ea569fd452f37822f606a5cabb684dc918707a0193fd4664ff324"
+dependencies = [
+ "generic-array",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -244,10 +253,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "console"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a28b32d32ca44b70c3e4acd7db1babf555fa026e385fb95f18028f88848b3c31"
+dependencies = [
+ "encode_unicode",
+ "libc",
+ "once_cell",
+ "terminal_size",
+ "winapi",
+]
+
+[[package]]
 name = "core-foundation-sys"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5827cebf4670468b8772dd191856768aedcb1b0278a04f989f7766351917b9dc"
+
+[[package]]
+name = "cpufeatures"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "95059428f66df56b63431fdb4e1947ed2190586af5c5a8a8b71122bdf5a7f469"
+dependencies = [
+ "libc",
+]
 
 [[package]]
 name = "cranelift-bforest"
@@ -363,6 +394,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "crypto-common"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57952ca27b5e3606ff4dd79b0020231aaf9d6aa76dc05fd30137538c50bd3ce8"
+dependencies = [
+ "generic-array",
+ "typenum",
+]
+
+[[package]]
 name = "ctor"
 version = "0.1.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -412,6 +453,16 @@ name = "diff"
 version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e25ea47919b1560c4e3b7fe0aaab9becf5b84a10325ddf7db0f0ba5e1026499"
+
+[[package]]
+name = "digest"
+version = "0.10.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f2fb860ca6fafa5552fb6d0e816a69c8e49f0908bf524e30a90d97c85892d506"
+dependencies = [
+ "block-buffer",
+ "crypto-common",
+]
 
 [[package]]
 name = "directories"
@@ -464,6 +515,12 @@ name = "either"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
+
+[[package]]
+name = "encode_unicode"
+version = "0.3.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a357d28ed41a50f9c765dbfe56cbc04a64e53e5fc58ba79fbc34c10ef3df831f"
 
 [[package]]
 name = "encoding_rs"
@@ -533,7 +590,7 @@ dependencies = [
 [[package]]
 name = "fiberplane"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=tolerant-logs#1335867e3d23e8b5f641ce8c17566d570938a3f3"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#ba9d4673e7fe532c770e2536417ac77f0a371030"
 dependencies = [
  "fp-bindgen",
  "once_cell",
@@ -547,7 +604,7 @@ dependencies = [
 [[package]]
 name = "fiberplane-templates"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/templates.git?branch=tolerant-logs#854c9634a3f713e378dc0835c21c20e2b662ad6b"
+source = "git+ssh://git@github.com/fiberplane/templates.git?branch=main#75c5b4dc11e2818d64402a71751557ff725ad5fc"
 dependencies = [
  "fiberplane",
  "jrsonnet-evaluator",
@@ -573,7 +630,7 @@ dependencies = [
 
 [[package]]
 name = "fp"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "anyhow",
  "clap 3.0.14",
@@ -583,7 +640,9 @@ dependencies = [
  "fiberplane-templates",
  "fp-api-client",
  "fp-provider-runtime",
+ "hex",
  "hyper",
+ "indicatif",
  "lazy_static",
  "once_cell",
  "petname",
@@ -594,6 +653,7 @@ dependencies = [
  "rmpv",
  "serde",
  "serde_json",
+ "sha2",
  "time 0.3.7",
  "time_util",
  "tokio",
@@ -608,7 +668,7 @@ dependencies = [
 [[package]]
 name = "fp-api-client"
 version = "1.0.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=tolerant-logs#1335867e3d23e8b5f641ce8c17566d570938a3f3"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#ba9d4673e7fe532c770e2536417ac77f0a371030"
 dependencies = [
  "reqwest",
  "serde",
@@ -620,7 +680,7 @@ dependencies = [
 [[package]]
 name = "fp-bindgen"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fp-bindgen.git?branch=main#f0a4eeef26356d8c8b2848b91001efb280c6ba45"
+source = "git+ssh://git@github.com/fiberplane/fp-bindgen.git?branch=main#59d067a6efbf349ab3e9df9e03b10c0804f6f059"
 dependencies = [
  "Inflector",
  "fp-bindgen-macros",
@@ -628,6 +688,7 @@ dependencies = [
  "pretty_assertions",
  "proc-macro2",
  "quote",
+ "rmpv",
  "serde_bytes",
  "syn",
  "time 0.3.7",
@@ -636,7 +697,7 @@ dependencies = [
 [[package]]
 name = "fp-bindgen-macros"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fp-bindgen.git?branch=main#f0a4eeef26356d8c8b2848b91001efb280c6ba45"
+source = "git+ssh://git@github.com/fiberplane/fp-bindgen.git?branch=main#59d067a6efbf349ab3e9df9e03b10c0804f6f059"
 dependencies = [
  "proc-macro-error",
  "proc-macro2",
@@ -661,7 +722,7 @@ dependencies = [
 [[package]]
 name = "fp-provider-runtime"
 version = "1.0.0-alpha.1"
-source = "git+ssh://git@github.com/fiberplane/providers.git?branch=tolerant-logs#67a605af4eb52364f02f929553f9245389794c10"
+source = "git+ssh://git@github.com/fiberplane/providers.git?branch=main#24e654e2c26d90f19f267a988c64661ad6789a64"
 dependencies = [
  "fp-bindgen-support",
  "rand",
@@ -716,6 +777,16 @@ dependencies = [
  "futures-task",
  "pin-project-lite",
  "pin-utils",
+]
+
+[[package]]
+name = "generic-array"
+version = "0.14.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fd48d33ec7f05fbfa152300fdad764757cbded343c1aa1cff2fbaf4134851803"
+dependencies = [
+ "typenum",
+ "version_check",
 ]
 
 [[package]]
@@ -830,6 +901,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "hex"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
+
+[[package]]
 name = "http"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -926,6 +1003,18 @@ dependencies = [
  "autocfg",
  "hashbrown 0.11.2",
  "serde",
+]
+
+[[package]]
+name = "indicatif"
+version = "0.16.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d207dc617c7a380ab07ff572a6e52fa202a2a8f355860ac9c38e23f8196be1b"
+dependencies = [
+ "console",
+ "lazy_static",
+ "number_prefix",
+ "regex",
 ]
 
 [[package]]
@@ -1304,6 +1393,12 @@ checksum = "97ba99ba6393e2c3734791401b66902d981cb03bf190af674ca69949b6d5fb15"
 dependencies = [
  "libc",
 ]
+
+[[package]]
+name = "number_prefix"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
 
 [[package]]
 name = "object"
@@ -1910,6 +2005,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sha2"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "55deaec60f81eefe3cce0dc50bda92d6d8e88f2a27df7c5033b42afeb1ed2676"
+dependencies = [
+ "cfg-if",
+ "cpufeatures",
+ "digest",
+]
+
+[[package]]
 name = "sharded-slab"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2139,7 +2245,7 @@ dependencies = [
 [[package]]
 name = "time_util"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=tolerant-logs#1335867e3d23e8b5f641ce8c17566d570938a3f3"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#ba9d4673e7fe532c770e2536417ac77f0a371030"
 dependencies = [
  "anyhow",
  "serde",
@@ -2299,6 +2405,12 @@ name = "try-lock"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "59547bce71d9c38b83d9c0e92b6066c4253371f15005def0c30d9657f50c7642"
+
+[[package]]
+name = "typenum"
+version = "1.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dcf81ac59edc17cc8697ff311e8f5ef2d99fcbd9817b34cec66f90b6c3dfd987"
 
 [[package]]
 name = "unescape"
