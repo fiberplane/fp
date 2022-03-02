@@ -8,6 +8,7 @@ use std::fs::OpenOptions;
 use std::io;
 use std::io::{stdout, Write};
 use std::process;
+use std::sync::Mutex;
 use std::time::{Duration, SystemTime};
 use tokio::time::timeout;
 use tracing::{trace, warn};
@@ -219,6 +220,7 @@ fn initialize_logger() {
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .with_writer(io::stderr)
+        .with_writer(Mutex::new(std::fs::File::create("trace.log").unwrap()))
         .try_init()
         .expect("unable to initialize logging");
 }

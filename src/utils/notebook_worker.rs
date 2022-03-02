@@ -13,7 +13,7 @@ use futures_util::{
     SinkExt, StreamExt,
 };
 use rand::prelude::*;
-use std::{collections::BTreeMap, convert::TryInto, time::Duration};
+use std::{collections::BTreeMap, convert::TryInto, ops::Range, time::Duration};
 use std::{
     collections::HashMap,
     sync::{Arc, RwLock},
@@ -420,6 +420,50 @@ impl Worker {
         Ok(())
     }
 
+    pub async fn replace_cell_content(
+        &self,
+        cell_id: &str,
+        new_content: &str,
+        section: Range<usize>,
+    ) -> Result<()> {
+        let cell = self
+            .get_cell(cell_id)
+            .ok_or_else(|| anyhow!("cell not found"))?;
+        let content = cell
+            .content()
+            .ok_or_else(|| anyhow!("cell without content"))?;
+
+        let clamped =
+            std::cmp::min(section.start, content.len())..std::cmp::min(section.end, content.len());
+        let old_text = content
+            .get(clamped.clone())
+            .ok_or_else(|| {
+                anyhow!(
+                    "section [{:?}] outside content len {}",
+                    clamped,
+                    content.len()
+                )
+            })?
+            .to_string();
+
+        self.send_operation(ApplyOperationMessage {
+            notebook_id: self.notebook_id.clone(),
+            operation: Operation::ReplaceText(ReplaceTextOperation {
+                cell_id: cell_id.to_string(),
+                offset: section.start as u32,
+                new_text: new_content.to_string(),
+                new_formatting: None,
+                old_text,
+                old_formatting: None,
+            }),
+            revision: self.get_next_revision(),
+            op_id: Some(Uuid::new_v4().to_string()),
+        })
+        .await?;
+
+        Ok(())
+    }
+
     pub async fn append_cell_content(&self, cell_id: &str, content: &str) -> Result<()> {
         let cell = self
             .get_cell(cell_id)
@@ -430,24 +474,76 @@ impl Worker {
             .ok_or_else(|| anyhow!("cell without content"))?;
         let offset = char_len as u32;
 
-        self.send_message(ClientRealtimeMessage::ApplyOperation(Box::new(
-            ApplyOperationMessage {
-                notebook_id: self.notebook_id.clone(),
-                operation: Operation::ReplaceText(ReplaceTextOperation {
-                    cell_id: cell_id.to_string(),
-                    offset,
-                    new_text: content.to_string(),
-                    new_formatting: None,
-                    old_text: String::default(),
-                    old_formatting: None,
-                }),
-                revision: self.get_next_revision(),
-                op_id: Some(Uuid::new_v4().to_string()),
-            },
-        )))
+        self.send_operation(ApplyOperationMessage {
+            notebook_id: self.notebook_id.clone(),
+            operation: Operation::ReplaceText(ReplaceTextOperation {
+                cell_id: cell_id.to_string(),
+                offset,
+                new_text: content.to_string(),
+                new_formatting: None,
+                old_text: String::default(),
+                old_formatting: None,
+            }),
+            revision: self.get_next_revision(),
+            op_id: Some(Uuid::new_v4().to_string()),
+        })
         .await?;
 
         Ok(())
+    }
+
+    pub async fn remove_cell_content(&self, cell_id: &str, section: Range<usize>) -> Result<()> {
+        let cell = self
+            .get_cell(cell_id)
+            .ok_or_else(|| anyhow!("cell not found"))?;
+        let content = cell
+            .content()
+            .ok_or_else(|| anyhow!("cell without content"))?;
+
+        let old_text = content
+            .get(section.clone())
+            .ok_or_else(|| anyhow!("section outside content range"))?
+            .to_string();
+
+        self.send_operation(ApplyOperationMessage {
+            notebook_id: self.notebook_id.clone(),
+            operation: Operation::ReplaceText(ReplaceTextOperation {
+                cell_id: cell_id.to_string(),
+                offset: section.start as u32,
+                new_text: String::default(),
+                new_formatting: None,
+                old_text,
+                old_formatting: None,
+            }),
+            revision: self.get_next_revision(),
+            op_id: Some(Uuid::new_v4().to_string()),
+        })
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn send_operation(
+        &self,
+        mut message: ApplyOperationMessage,
+    ) -> Result<ServerRealtimeMessage> {
+        for _ in 1..=3 {
+            match self
+                .send_message(ClientRealtimeMessage::ApplyOperation(Box::new(
+                    message.clone(),
+                )))
+                .await
+            {
+                Ok(ServerRealtimeMessage::Rejected(r)) => {
+                    message.revision = self.get_next_revision();
+                    message.op_id = Some(Uuid::new_v4().to_string());
+                    continue;
+                }
+                o => return o,
+            }
+        }
+
+        Err(anyhow!("Failed to send operation after 3 retries"))
     }
 
     async fn send_message(&self, message: ClientRealtimeMessage) -> Result<ServerRealtimeMessage> {
@@ -458,11 +554,6 @@ impl Worker {
             let mut inner = self.inner.write().unwrap();
             let k = message.op_id().clone().unwrap();
 
-            if let ClientRealtimeMessage::ApplyOperation(apply) = &message {
-                inner
-                    .operations_queue
-                    .insert(k.clone(), apply.operation.clone());
-            }
             inner.reply_waiters.insert(k, tx);
         }
 
@@ -531,22 +622,6 @@ impl Worker {
                         }
                         ServerRealtimeMessage::Rejected(r) => {
                             debug!("reverting rejected operation");
-
-                            if let Some(op_id) = &r.op_id {
-                                if let Some(operation) = inner.operations_queue.remove(op_id) {
-                                    let revert = invert_operation(&operation);
-                                    if let Ok(nb) = inner.notebook.apply_operation(&revert) {
-                                        inner.notebook = nb;
-                                        match r.reason.as_ref() {
-                                            realtime::RejectReason::Outdated(outdated) => {
-                                                inner.notebook.0.revision =
-                                                    outdated.current_revision
-                                            }
-                                            _ => {}
-                                        }
-                                    }
-                                }
-                            }
                         }
                         _ => {}
                     }
@@ -555,11 +630,11 @@ impl Worker {
                         .and_then(|id| inner.reply_waiters.remove(&id))
                         .map(|tx| tx.send(msg).unwrap());
                 }
-                Message::Binary(_) => eprintln!("Received unexpected binary content"),
-                Message::Ping(_) => eprintln!("Received ping message"),
-                Message::Pong(_) => eprintln!("Received pong message"),
-                Message::Close(_) => eprintln!("Received close message"),
-                Message::Frame(_) => eprintln!("Received frame message"),
+                Message::Binary(_) => debug!("Received unexpected binary content"),
+                Message::Ping(_) => debug!("Received ping message"),
+                Message::Pong(_) => debug!("Received pong message"),
+                Message::Close(_) => debug!("Received close message"),
+                Message::Frame(_) => debug!("Received frame message"),
             };
         }
 

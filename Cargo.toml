@@ -48,13 +48,16 @@ tokio-tungstenite = { version = "0.17.1", features = [
     "rustls-tls-webpki-roots",
 ] }
 uuid = { version = "0.8", features = ["serde", "v4"] }
-pty-process = { version = "0.2.0", features = ["backend-tokio"] }
-async-std = "1.10.0"
 bytes = "1.1.0"
 nix = "0.23.1"
 term_size = "0.3.2"
 strip-ansi-escapes = "0.1.1"
-futures-retry = "0.6.0"
+vte = "0.10.1"
+anes = { version = "0.1.6", features = ["parser"] }
+crossterm = "0.23.0"
+portable-pty = "0.7.0"
+async-compat = "0.2.1"
+blocking = "1.1.0"
 
 [build-dependencies]
 anyhow = "1.0"

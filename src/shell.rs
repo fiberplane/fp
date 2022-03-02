@@ -1,24 +1,38 @@
+use crate::utils::ansi::Action;
+use crate::utils::notebook_worker::Worker;
+use crate::{config::api_client_configuration, utils::ansi::Collector};
+use anes::parser::{KeyCode, KeyModifiers};
+use anyhow::{anyhow, Result};
+use clap::Parser;
+use fiberplane::protocols::core::{Cell, CodeCell};
+use portable_pty::{native_pty_system, CommandBuilder, PtySize, PtySystem};
+//use pty_process::Command;
+use async_compat::CompatExt;
+use blocking::{unblock, Unblock};
+use std::cmp;
+use std::collections::VecDeque;
+use std::os::unix::io::AsRawFd;
+use std::time::Duration;
 use std::{
     io::{Read, Write},
     process::Stdio,
     sync::Arc,
 };
-
-use crate::config::api_client_configuration;
-use crate::utils::notebook_worker::Worker;
-use anyhow::{anyhow, Result};
-use bytes::BytesMut;
-use clap::Parser;
-use fiberplane::protocols::core::{Cell, CodeCell};
-use pty_process::{Command, Size};
-//use portable_pty::{native_pty_system, CommandBuilder, PtySize, PtySystem};
+use tokio::io::AsyncReadExt;
+use tokio::{
+    fs::File,
+    io::{AsyncReadExt as _, AsyncWriteExt as _},
+};
 use tracing::{error, info, instrument};
 
 #[derive(Parser)]
 pub struct Arguments {
     // ID of the notebook
-    #[clap(name = "id")]
+    #[clap(name = "id", env = "__FP_NOTEBOOK_ID")]
     id: String,
+
+    #[clap(default_value_t = false, parse(from_flag), env = "__FP_SHELL_SESSION")]
+    nested: bool,
 
     #[clap(from_global)]
     base_url: String,
@@ -32,54 +46,37 @@ const DEFAULT_SHELL: &str = "/bin/bash";
 #[cfg(target_os = "windows")]
 const DEFAULT_SHELL: &str = "powershell.exe";
 
-use std::os::unix::io::AsRawFd;
-
 pub struct RawGuard {
-    termios: nix::sys::termios::Termios,
+    was_enabled: bool,
 }
 
 impl RawGuard {
     #[allow(dead_code)]
     pub fn new() -> Self {
-        let stdin = std::io::stdin().as_raw_fd();
-        let termios = nix::sys::termios::tcgetattr(stdin).unwrap();
-        let mut termios_raw = termios.clone();
-        nix::sys::termios::cfmakeraw(&mut termios_raw);
-        nix::sys::termios::tcsetattr(stdin, nix::sys::termios::SetArg::TCSANOW, &termios_raw)
-            .unwrap();
-        Self { termios }
+        if crossterm::terminal::is_raw_mode_enabled().unwrap() {
+            Self { was_enabled: true }
+        } else {
+            crossterm::terminal::enable_raw_mode().unwrap();
+            Self { was_enabled: false }
+        }
     }
 }
 
 impl Drop for RawGuard {
     fn drop(&mut self) {
-        let stdin = std::io::stdin().as_raw_fd();
-        let _ =
-            nix::sys::termios::tcsetattr(stdin, nix::sys::termios::SetArg::TCSANOW, &self.termios);
+        if !self.was_enabled {
+            crossterm::terminal::disable_raw_mode().unwrap();
+        }
     }
 }
 
-use tokio::{
-    fs::File,
-    io::{AsyncReadExt as _, AsyncWriteExt as _},
-};
-
-use futures_retry::{FutureRetry, RetryPolicy};
-use std::time::Duration;
-
 #[instrument(err, skip_all)]
 pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
+    use anes::parser::Sequence::*;
+    const NONE: KeyModifiers = KeyModifiers::empty();
     let shell_exe = std::env::var("SHELL").unwrap_or(DEFAULT_SHELL.to_string());
 
-    let w = Arc::new(Worker::new(args.base_url, args.id, args.config).await?);
-
-    let id = w
-        .insert_cell(Cell::Code(CodeCell {
-            ..Default::default()
-        }))
-        .await?;
-
-    let mut child = tokio::process::Command::new(&shell_exe).spawn_pty(None)?;
+    let w = Arc::new(Worker::new(args.base_url.clone(), args.id.clone(), args.config).await?);
 
     let _raw = RawGuard::new();
 
@@ -91,95 +88,116 @@ pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
 
     let mut f = File::create("./log.txt").await?;
 
+    let mut statemachine = vte::Parser::new();
+
+    let mut parser = anes::parser::Parser::default();
+
+    let pty_system = native_pty_system();
+
+    let (cols, rows) = crossterm::terminal::size()?;
+
+    let pair = pty_system.openpty(PtySize {
+        rows,
+        cols,
+        pixel_width: 0,
+        pixel_height: 0,
+    })?;
+
+    let mut cmd = CommandBuilder::new(shell_exe);
+    cmd.cwd(std::env::current_dir()?);
+    cmd.env("__FP_NOTEBOOK_ID", &args.id);
+    cmd.env("__FP_SHELL_SESSION", "1");
+
+    // Move the slave to another thread to block and spawn a
+    // command.
+    // Note that this implicitly drops slave and closes out
+    // file handles which is important to avoid deadlock
+    // when waiting for the child process!
+    let slave = pair.slave;
+    let mut child = tokio::task::spawn_blocking(move || slave.spawn_command(cmd)).await??;
+
+    let mut reader = Unblock::new(pair.master.try_clone_reader()?).compat();
+    let mut writer = Unblock::new(pair.master.try_clone_writer()?).compat();
+
+    let mut child_waiter = tokio::task::spawn_blocking(move || child.wait());
+
+    let mut buffer = String::new();
+    let mut cursor = buffer.len();
+
+    let id = w
+        .insert_cell(Cell::Code(CodeCell {
+            read_only: Some(true),
+            ..Default::default()
+        }))
+        .await?;
+
     loop {
         tokio::select! {
+            _ = &mut child_waiter => break,
             bytes = stdin.read(&mut in_buf) => match bytes {
                 Ok(bytes) => {
                     let data = &in_buf[..bytes];
-                    child.pty_mut().write_all(data).await.unwrap();
+                    writer.write_all(data).await.unwrap();
                 }
                 Err(e) => {
                     eprintln!("stdin read failed: {:?}", e);
                     break;
                 }
             },
-            bytes = {child.pty_mut().read(&mut out_buf)} => match bytes {
+            bytes = {reader.read(&mut out_buf)} => match bytes {
                 Ok(bytes) => {
                     let data = &out_buf[..bytes];
                     stdout.write_all(data).await.unwrap();
                     stdout.flush().await.unwrap();
+                    parser.advance(data, false);
 
-                    let data = strip_ansi_escapes::strip(data).unwrap();
-                    let utf8 = String::from_utf8_lossy(&data).to_string();
-                    f.write_all(utf8.as_str().as_bytes()).await;
+                    let mut min_cursor = cursor;
+                    let mut max_cursor = cursor;
 
-                    while let Err(_) = w.append_cell_content(&id, &utf8).await {
-                        tokio::time::sleep(Duration::from_millis(10)).await;
+                    for seq in &mut parser {
+                        match seq {
+                            Key(KeyCode::Char(c), NONE) => {
+                                buffer.insert(cursor, c);
+                                cursor += 1;
+                            }
+                            Key(KeyCode::Enter, NONE) => {
+                                buffer.insert(cursor, '\n');
+                                cursor += 1;
+                            }
+                            Key(KeyCode::Backspace, NONE) => {
+                                buffer.remove(if cursor > buffer.len() {
+                                    cursor - 1
+                                } else {
+                                    cursor
+                                });
+                                cursor -= 1;
+                            }
+                            Key(KeyCode::Left, NONE) => {
+                                cursor -= 1;
+                            }
+                            Key(KeyCode::Right, NONE) => {
+                                cursor += 1;
+                            },
+                            CursorPosition(x, y) => {
+
+                            }
+                            _ => {},
+                        }
+
+                        min_cursor = cmp::min(cursor, min_cursor);
+                        max_cursor = cmp::max(cursor, max_cursor);
                     }
+
+                    w.replace_cell_content(&id, &buffer[min_cursor..max_cursor], min_cursor..max_cursor).await?;
                 }
                 Err(e) => {
                     eprintln!("pty read failed: {:?}", e);
                     break;
                 }
             },
-            //_ = child.wait() => break,
+            else => break,
         }
     }
-
-    /* let foo = tokio::task::spawn_blocking(move || -> Result<()> {
-        info!("Spawned blocking");
-
-        let mut child = std::process::Command::new(&shell_exe)
-            .stdin(Stdio::inherit())
-            .stdout(Stdio::piped())
-            .spawn()?;
-
-        info!("Spawned child");
-        let reader = child.stdout.as_mut().unwrap();
-
-        let mut buf = BytesMut::with_capacity(1024);
-        while let Some(Ok(s)) = child
-            .stdout
-            .as_mut()
-            .map(|reader| reader.read(&mut buf[..]))
-        {
-            if s == 0 {
-                if let Ok(res) = child.try_wait() {
-                    if let Some(status) = res {
-                        info!(?status, "child exit");
-                        break;
-                    }
-                    continue;
-                } else {
-                    error!("try_wait fail");
-                    break;
-                }
-            }
-            info!("read {} bytes", s);
-
-            let data = buf.split_off(s).freeze();
-            //std::io::stdout().write_all(&data);
-            tx.try_send(data)?
-        }
-
-        child.wait();
-
-        Ok(())
-    });
-
-    let reader = tokio::spawn(async move {
-        let mut data = vec![];
-        while let Ok(bytes) = rx.recv().await {
-            data.copy_from_slice(&bytes[..]);
-        }
-
-        data
-    });
-
-    foo.await?;
-    let data = reader.await?;
-
-    info!("Read {} bytes from ptty", data.len()); */
 
     Ok(())
 }
