@@ -3,12 +3,13 @@ use anyhow::{anyhow, Error, Result};
 use clap::Parser;
 use fp_api_client::apis::default_api::{get_notebook, notebook_create};
 use fp_api_client::models::{Label, NewNotebook, TimeRange};
+use std::io::Write;
 use std::io::{self, BufWriter};
 use std::str::FromStr;
 use std::time::Duration;
 use time::OffsetDateTime;
 use time_util::clap_rfc3339;
-use tracing::{info, trace};
+use tracing::{debug, info, trace};
 
 #[derive(Parser)]
 pub struct Arguments {
@@ -94,7 +95,8 @@ async fn handle_add_command(args: AddArgs) -> Result<()> {
     };
 
     let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
-    trace!(?notebook, "creating new notebook");
+
+    debug!(?notebook, "creating new notebook");
     let notebook = notebook_create(&config, Some(notebook)).await?;
 
     info!("Successfully created new notebook");
@@ -105,8 +107,8 @@ async fn handle_add_command(args: AddArgs) -> Result<()> {
 
 #[derive(Parser)]
 pub struct GetArgs {
-    // ID of the notebook
-    #[clap(name = "id")]
+    /// ID of the notebook
+    #[clap()]
     id: String,
 
     #[clap(from_global)]
@@ -122,8 +124,9 @@ async fn handle_get_command(args: GetArgs) -> Result<()> {
 
     let notebook = get_notebook(&config, &args.id).await?;
 
-    let writer = BufWriter::new(io::stdout());
-    serde_json::to_writer_pretty(writer, &notebook)?;
+    let mut writer = BufWriter::new(io::stdout());
+    serde_json::to_writer_pretty(&mut writer, &notebook)?;
+    write!(writer, "\n")?;
 
     Ok(())
 }
