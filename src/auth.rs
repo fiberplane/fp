@@ -117,10 +117,11 @@ pub async fn handle_logout_command(args: Arguments) -> Result<(), Error> {
 
             config.api_token = None;
             config.save().await?;
-            info!("Logged out");
+
+            info!("You are logged out");
         }
         None => {
-            warn!("Already logged out");
+            warn!("You are already logged out");
         }
     }
 
