@@ -5,12 +5,14 @@ use directories::ProjectDirs;
 use manifest::Manifest;
 use once_cell::sync::Lazy;
 use std::fs::OpenOptions;
-use std::io;
 use std::io::{stdout, Write};
 use std::process;
 use std::time::{Duration, SystemTime};
+use std::{env, io};
 use tokio::time::timeout;
-use tracing::{trace, warn};
+use tracing::{error, info, trace, warn};
+use tracing_subscriber::filter::EnvFilter;
+use tracing_subscriber::fmt::format;
 use update::retrieve_latest_version;
 
 mod auth;
@@ -55,6 +57,10 @@ pub struct Arguments {
     /// Disables the version check
     #[clap(long, global = true, env)]
     disable_version_check: bool,
+
+    /// Display verbose logs
+    #[clap(long, env)]
+    verbose: bool,
 }
 
 #[derive(Parser)]
@@ -104,8 +110,6 @@ enum SubCommand {
 
 #[tokio::main]
 async fn main() {
-    initialize_logger();
-
     // We would like to override the builtin version display behavior, so we
     // will try to parse the arguments. If it failed, we will check if it was
     // the DisplayVersion error and show our version, otherwise just fallback to
@@ -129,6 +133,8 @@ async fn main() {
             },
         }
     };
+
+    initialize_logger(&args);
 
     // Start the background version check, but skip it when running the `Update`
     // or `Version` command, or if the disable_version_check is set to true.
@@ -194,14 +200,14 @@ async fn main() {
     };
 
     if let Err(ref err) = result {
-        eprintln!("Command did not finish successfully: {:?}", err);
+        error!("Command did not finish successfully: {:?}", err);
     }
 
     // Wait for an extra second for the background check to finish
     if let Ok(version_check_result) = timeout(Duration::from_secs(1), version_check_result).await {
         match version_check_result {
             Ok(Some(new_version)) => {
-                eprintln!("A new version of fp is available (version: {}). Use `fp update` to update your current fp binary", new_version);
+                info!("A new version of fp is available (version: {}). Use `fp update` to update your current fp binary", new_version);
             }
             Ok(None) => trace!("background version check skipped or no new version available"),
             Err(err) => warn!(%err, "background version check failed"),
@@ -218,13 +224,50 @@ async fn main() {
     }
 }
 
-fn initialize_logger() {
-    // Initialize the builder with some defaults
-    tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .with_writer(io::stderr)
-        .try_init()
-        .expect("unable to initialize logging");
+/// If verbose is set, then we show debug log message from the `fp` target,
+/// using a more verbose format.
+fn initialize_logger(args: &Arguments) {
+    if args.verbose {
+        // Log everything with default info level, and use debug for our own log
+        // messages.
+        let mut filter = EnvFilter::new("info,fp=debug");
+
+        // If RUST_LOG is set, override any of the previous values. NOTE:
+        // setting this to `trace` does not change the value of `fp`, since
+        // setting that to `debug` above is more specific.
+        if let Ok(env_var) = env::var(EnvFilter::DEFAULT_ENV) {
+            filter = filter.add_directive(env_var.parse().unwrap());
+        }
+
+        // Create a more verbose logger that show timestamp, level, and all the
+        // fields.
+        tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::TRACE)
+            .with_env_filter(filter)
+            .with_writer(io::stderr)
+            .try_init()
+            .expect("unable to initialize logging");
+    } else {
+        // Create a custom field formatter, which only outputs the `message`
+        // field, all other fields are ignored.
+        let field_formatter = format::debug_fn(|writer, field, value| {
+            if field.name() == "message" {
+                write!(writer, "{:?}", value)
+            } else {
+                Ok(())
+            }
+        });
+        tracing_subscriber::fmt()
+            .fmt_fields(field_formatter)
+            .without_time()
+            .with_level(false)
+            .with_max_level(tracing::Level::INFO)
+            .with_span_events(format::FmtSpan::NONE)
+            .with_target(false)
+            .with_writer(io::stderr)
+            .try_init()
+            .expect("unable to initialize logging");
+    }
 }
 
 /// Fetches the latest remote version for fp and determines whether a new

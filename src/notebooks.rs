@@ -8,7 +8,7 @@ use std::str::FromStr;
 use std::time::Duration;
 use time::OffsetDateTime;
 use time_util::clap_rfc3339;
-use tracing::trace;
+use tracing::{info, trace};
 
 #[derive(Parser)]
 pub struct Arguments {
@@ -97,7 +97,7 @@ async fn handle_add_command(args: AddArgs) -> Result<()> {
     trace!(?notebook, "creating new notebook");
     let notebook = notebook_create(&config, Some(notebook)).await?;
 
-    eprintln!("Successfully created new notebook");
+    info!("Successfully created new notebook");
     println!("{}", notebook_url(args.base_url, notebook.id));
 
     Ok(())

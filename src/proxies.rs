@@ -7,6 +7,7 @@ use fp_api_client::apis::default_api::{
 use fp_api_client::models::{NewProxy, ProxyConnectionStatus};
 use petname::petname;
 use std::cmp::Ordering;
+use tracing::info;
 
 #[derive(Parser)]
 pub struct Arguments {
@@ -96,8 +97,8 @@ async fn handle_add_command(args: AddArgs) -> Result<()> {
         .token
         .ok_or_else(|| anyhow!("Create proxy endpoint should have returned an API token"))?;
 
-    println!("Added proxy \"{}\"", proxy.name);
-    println!("Proxy API Token: {}", token);
+    info!("Added proxy \"{}\"", proxy.name);
+    info!("Proxy API Token: {}", token);
     Ok(())
 }
 
@@ -176,6 +177,6 @@ async fn handle_data_sources_command(args: GlobalArgs) -> Result<()> {
 async fn handle_remove_command(args: SingleProxyArgs) -> Result<()> {
     let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
     proxy_delete(&config, &args.proxy_id).await?;
-    println!("Removed proxy");
+    info!("Removed proxy");
     Ok(())
 }

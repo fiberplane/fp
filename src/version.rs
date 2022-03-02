@@ -3,7 +3,7 @@ use crate::MANIFEST;
 use anyhow::Result;
 use clap::{ArgEnum, Parser};
 use std::io::Write;
-use tracing::error;
+use tracing::{debug, error, info, trace};
 
 #[derive(Parser)]
 pub struct Arguments {
@@ -43,12 +43,15 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
     // Force a version check every time this command gets run, unless
     // the --disable-version-check flag is set.
     if !args.disable_version_check {
+        trace!("Super verbose trace statement");
+        debug!("Starting version check");
         match retrieve_latest_version().await {
             Ok(remote_version) => {
-                if remote_version == *MANIFEST.build_version {
-                    eprintln!("You are running the latest version of fp");
+                let version = &*MANIFEST.build_version;
+                if remote_version == version {
+                    info!(%version, "You are running the latest version of fp");
                 } else {
-                    eprintln!("A new version of fp is available (version: {}). Use `fp update` to update your current fp binary", remote_version);
+                    info!("A new version of fp is available (version: {}). Use `fp update` to update your current fp binary", remote_version);
                 }
             }
             Err(err) => error!(%err, "unable to retrieve manifest"),

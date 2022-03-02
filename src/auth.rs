@@ -1,7 +1,5 @@
-use crate::{
-    config::{api_client_configuration, Config},
-    Arguments,
-};
+use crate::config::{api_client_configuration, Config};
+use crate::Arguments;
 use anyhow::Error;
 use fp_api_client::apis::default_api::logout;
 use hyper::service::{make_service_fn, service_fn};
@@ -9,7 +7,7 @@ use hyper::{Body, Response, Server, StatusCode};
 use qstring::QString;
 use std::convert::Infallible;
 use tokio::sync::broadcast;
-use tracing::{debug, error};
+use tracing::{debug, error, info, warn};
 
 /// Run the OAuth flow and save the API token to the config
 ///
@@ -73,7 +71,7 @@ pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
 
     // Open the user's web browser to start the login flow
     if webbrowser::open(&login_url).is_err() {
-        println!("Please go to this URL to login: {}", login_url);
+        info!("Please go to this URL to login: {}", login_url);
     }
 
     let mut config = Config::load(args.config.as_deref()).await?;
@@ -90,9 +88,9 @@ pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
                     config.api_token = Some(token);
                     match config.save().await {
                         Ok(_) => {
-                            println!("You are logged in to Fiberplane");
+                            info!("You are logged in to Fiberplane");
                         }
-                        Err(e) => eprintln!(
+                        Err(e) => error!(
                             "Error saving API token to config file {}: {:?}",
                             config.path.display(),
                             e
@@ -119,10 +117,10 @@ pub async fn handle_logout_command(args: Arguments) -> Result<(), Error> {
 
             config.api_token = None;
             config.save().await?;
-            println!("Logged out");
+            info!("Logged out");
         }
         None => {
-            println!("Already logged out");
+            warn!("Already logged out");
         }
     }
 
