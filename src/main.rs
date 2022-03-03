@@ -59,7 +59,7 @@ pub struct Arguments {
     disable_version_check: bool,
 
     /// Display verbose logs
-    #[clap(long, env)]
+    #[clap(short, long, env)]
     verbose: bool,
 }
 
