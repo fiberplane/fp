@@ -12,7 +12,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::{env::current_dir, ffi::OsStr, path::PathBuf, str::FromStr};
 use tokio::fs;
 use tokio::io::{self, AsyncReadExt, AsyncWriteExt};
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
 
 lazy_static! {
     static ref NOTEBOOK_ID_REGEX: Regex = Regex::from_str("([a-zA-Z0-9_-]{22})$").unwrap();
@@ -167,7 +167,7 @@ async fn handle_init_command() -> Result<()> {
     path.push("template.jsonnet");
 
     fs::write(&path, template).await?;
-    eprintln!("Saved template to: {}", path.display());
+    info!("Saved template to: {}", path.display());
 
     Ok(())
 }
@@ -240,7 +240,7 @@ async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
             .await
             .with_context(|| "Error creating notebook")?;
         let notebook_url = format!("{}/notebook/{}", config.base_path, notebook.id);
-        eprintln!("Created notebook: {}", notebook_url);
+        info!("Created notebook: {}", notebook_url);
     }
     Ok(())
 }

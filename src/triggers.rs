@@ -12,6 +12,7 @@ use regex::Regex;
 use serde_json::Value;
 use std::{collections::HashMap, path::PathBuf, str::FromStr};
 use tokio::fs;
+use tracing::info;
 use url::Url;
 
 lazy_static! {
@@ -151,11 +152,11 @@ async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {
         .await
         .with_context(|| "Error creating trigger")?;
 
-    eprintln!(
+    info!(
         "Created trigger: {}/api/triggers/{}",
         args.base_url, trigger.id
     );
-    eprintln!(
+    info!(
         "Trigger can be invoked with an HTTP POST to: {}/api/triggers/{}/webhook",
         args.base_url, trigger.id
     );
@@ -171,20 +172,20 @@ async fn handle_trigger_get_command(args: IndividualTriggerArguments) -> Result<
         .await
         .with_context(|| "Error getting trigger details")?;
 
-    eprintln!("Trigger ID: {}", trigger.id);
-    eprintln!(
+    info!("Trigger ID: {}", trigger.id);
+    info!(
         "WebHook URL: {}/api/triggers/{}/webhook",
         args.base_url, trigger.id
     );
-    eprintln!(
+    info!(
         "Template URL: {}",
         trigger.template_url.as_deref().unwrap_or("N/A")
     );
 
     // TODO should we default to not printing the body and give an option to print it?
-    eprintln!("Template Body:");
+    info!("Template Body:");
     for line in trigger.template_body.lines() {
-        eprintln!("  {}", line);
+        info!("  {}", line);
     }
 
     Ok(())
@@ -208,13 +209,13 @@ async fn handle_trigger_list_command(args: ListArguments) -> Result<()> {
         .with_context(|| "Error getting triggers")?;
 
     if triggers.is_empty() {
-        eprintln!("(No active triggers found)");
+        info!("(No active triggers found)");
     } else {
         // Show the most recently updated first
         triggers.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
 
         for trigger in triggers {
-            eprintln!(
+            info!(
                 "- Trigger ID: {id}
   WebHook URL: {base_url}/api/triggers/{id}/webhook
   Template URL: {template_url}",
@@ -247,7 +248,7 @@ async fn handle_trigger_invoke_command(args: InvokeArguments) -> Result<()> {
     let result = trigger_invoke(&config, trigger_id, Some(body))
         .await
         .with_context(|| "Error invoking trigger")?;
-    eprintln!("Created notebook: {}", result.notebook_url);
+    info!("Created notebook: {}", result.notebook_url);
 
     Ok(())
 }
