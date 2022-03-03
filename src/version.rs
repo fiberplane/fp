@@ -3,7 +3,7 @@ use crate::MANIFEST;
 use anyhow::Result;
 use clap::{ArgEnum, Parser};
 use std::io::Write;
-use tracing::{debug, error, info, trace};
+use tracing::{debug, error, info};
 
 #[derive(Parser)]
 pub struct Arguments {
@@ -43,7 +43,6 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
     // Force a version check every time this command gets run, unless
     // the --disable-version-check flag is set.
     if !args.disable_version_check {
-        trace!("Super verbose trace statement");
         debug!("Starting version check");
         match retrieve_latest_version().await {
             Ok(remote_version) => {
