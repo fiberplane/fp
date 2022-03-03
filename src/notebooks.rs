@@ -126,7 +126,7 @@ async fn handle_get_command(args: GetArgs) -> Result<()> {
 
     let mut writer = BufWriter::new(io::stdout());
     serde_json::to_writer_pretty(&mut writer, &notebook)?;
-    write!(writer, "\n")?;
+    writeln!(writer)?;
 
     Ok(())
 }
