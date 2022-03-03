@@ -119,12 +119,7 @@ async fn main() {
             Ok(arguments) => arguments,
             Err(err) => match err.kind {
                 clap::ErrorKind::DisplayVersion => {
-                    use std::io::Write;
                     version::output_version().await;
-
-                    let _ = std::io::stdout().lock().flush();
-                    let _ = std::io::stderr().lock().flush();
-
                     process::exit(0);
                 }
                 _ => {
@@ -134,7 +129,10 @@ async fn main() {
         }
     };
 
-    initialize_logger(&args);
+    if let Err(err) = initialize_logger(&args) {
+        eprintln!("unable to initialize logging: {:?}", err);
+        process::exit(1);
+    };
 
     // Start the background version check, but skip it when running the `Update`
     // or `Version` command, or if the disable_version_check is set to true.
@@ -215,29 +213,22 @@ async fn main() {
     }
 
     if result.is_err() {
-        use std::io::Write;
-
-        let _ = std::io::stdout().lock().flush();
-        let _ = std::io::stderr().lock().flush();
-
         process::exit(1);
     }
 }
 
 /// If verbose is set, then we show debug log message from the `fp` target,
 /// using a more verbose format.
-fn initialize_logger(args: &Arguments) {
+fn initialize_logger(args: &Arguments) -> Result<()> {
     if args.verbose {
-        // Log everything with default info level, and use debug for our own log
-        // messages.
-        let mut filter = EnvFilter::new("info,fp=debug");
-
-        // If RUST_LOG is set, override any of the previous values. NOTE:
-        // setting this to `trace` does not change the value of `fp`, since
-        // setting that to `debug` above is more specific.
-        if let Ok(env_var) = env::var(EnvFilter::DEFAULT_ENV) {
-            filter = filter.add_directive(env_var.parse().unwrap());
-        }
+        // If RUST_LOG is set, then use the directives from there, otherwise
+        // info as the default level for everything, except for fp, which will
+        // use debug.
+        let filter = if let Ok(env_var) = env::var(EnvFilter::DEFAULT_ENV) {
+            EnvFilter::try_new(env_var)
+        } else {
+            EnvFilter::try_new("info,fp=debug")
+        }?;
 
         // Create a more verbose logger that show timestamp, level, and all the
         // fields.
@@ -268,6 +259,8 @@ fn initialize_logger(args: &Arguments) {
             .try_init()
             .expect("unable to initialize logging");
     }
+
+    Ok(())
 }
 
 /// Fetches the latest remote version for fp and determines whether a new
