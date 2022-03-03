@@ -43,6 +43,8 @@ pub struct Arguments {
 
 #[cfg(target_os = "linux")]
 const DEFAULT_SHELL: &str = "/bin/bash";
+#[cfg(target_os = "macos")]
+const DEFAULT_SHELL: &str = "/bin/zsh";
 #[cfg(target_os = "windows")]
 const DEFAULT_SHELL: &str = "powershell.exe";
 
@@ -149,7 +151,7 @@ pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
                     let data = &out_buf[..bytes];
                     stdout.write_all(data).await.unwrap();
                     stdout.flush().await.unwrap();
-                    parser.advance(data, false);
+                    /* parser.advance(data, false);
 
                     let mut min_cursor = cursor;
                     let mut max_cursor = cursor;
@@ -188,7 +190,10 @@ pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
                         max_cursor = cmp::max(cursor, max_cursor);
                     }
 
-                    w.replace_cell_content(&id, &buffer[min_cursor..max_cursor], min_cursor..max_cursor).await?;
+                    w.replace_cell_content(&id, &buffer[min_cursor..max_cursor], min_cursor..max_cursor).await?; */
+                    let stripped = strip_ansi_escapes::strip(data)?;
+                    let utf8 = String::from_utf8_lossy(&stripped);
+                    w.append_cell_content(&id, &utf8);
                 }
                 Err(e) => {
                     eprintln!("pty read failed: {:?}", e);
