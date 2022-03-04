@@ -255,7 +255,7 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
             .with_context(|| "Error reading from stdin")?;
         let notebook: Notebook =
             serde_json::from_str(&notebook_json).with_context(|| "Notebook is invalid")?;
-        let url = format!("{}/notebook/{}", args.base_url, &notebook.id);
+        let url = format!("{}notebook/{}", args.base_url, &notebook.id);
         (notebook_json, notebook.id, url)
     } else {
         let config = api_client_configuration(args.config, &args.base_url).await?;
@@ -286,7 +286,7 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
         if let Cell::Image(cell) = cell {
             if let (None, Some(file_id)) = (&cell.url, &cell.file_id) {
                 cell.url = Some(format!(
-                    "{}/api/files/{}/{}",
+                    "{}api/files/{}/{}",
                     args.base_url, notebook_id, file_id
                 ));
                 cell.file_id = None;

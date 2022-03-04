@@ -134,7 +134,7 @@ async fn handle_get_command(args: GetArgs) -> Result<()> {
 }
 
 fn notebook_url(base_url: Url, id: String) -> String {
-    format!("{}/notebook/{}", base_url, id)
+    format!("{}notebook/{}", base_url, id)
 }
 
 pub struct KeyValue {
