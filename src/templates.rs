@@ -1,42 +1,50 @@
 use crate::config::api_client_configuration;
 use anyhow::{anyhow, Context, Error, Result};
+use base64uuid::Base64Uuid;
 use clap::{Parser, ValueHint};
 use fiberplane::protocols::core::{self, Cell, HeadingCell, HeadingType, TextCell, TimeRange};
 use fiberplane_templates::{notebook_to_template, TemplateExpander};
-use fp_api_client::apis::default_api::{get_notebook, notebook_create, proxy_data_sources_list};
-use fp_api_client::models::{NewNotebook, Notebook};
+use fp_api_client::apis::default_api::{
+    get_notebook, notebook_create, proxy_data_sources_list, template_create, template_delete,
+    template_expand, template_get, template_update,
+};
+use fp_api_client::models::{NewNotebook, NewTemplate, Notebook};
 use lazy_static::lazy_static;
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
 use std::{env::current_dir, ffi::OsStr, path::PathBuf, str::FromStr};
 use tokio::fs;
 use tokio::io::{self, AsyncReadExt, AsyncWriteExt};
-use tracing::{debug, info, warn};
+use tracing::{info, warn};
+use url::Url;
 
 lazy_static! {
     static ref NOTEBOOK_ID_REGEX: Regex = Regex::from_str("([a-zA-Z0-9_-]{22})$").unwrap();
 }
 
-// TODO remove these once the relay schema matches the generated API client
-use serde::{Deserialize, Serialize};
-#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(tag = "type", rename_all = "camelCase")]
-pub enum DataSourceType {
-    Prometheus,
-}
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub struct ProxyDataSource {
-    pub name: String,
-    #[serde(rename = "type")]
-    pub ty: DataSourceType,
-    pub proxy: ProxySummary,
-}
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct ProxySummary {
-    pub id: String,
-    pub name: String,
+#[derive(Serialize, Deserialize)]
+pub struct TemplateArguments(pub HashMap<String, Value>);
+
+impl FromStr for TemplateArguments {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        let mut args = HashMap::new();
+        // TODO this won't actually work if there are commas in the JSON values
+        for kv in s.split([';', ',']) {
+            let mut parts = kv.trim().split([':', '=']);
+            let key = parts
+                .next()
+                .ok_or_else(|| anyhow!("missing key"))?
+                .to_string();
+            let value = parts.next().ok_or_else(|| anyhow!("missing value"))?;
+            let value: Value = serde_json::from_str(value)?;
+            args.insert(key, value);
+        }
+        Ok(TemplateArguments(args))
+    }
 }
 
 #[derive(Parser)]
@@ -51,46 +59,52 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
         Init => handle_init_command().await,
         Expand(args) => handle_expand_command(args).await,
         Convert(args) => handle_convert_command(args).await,
+        Upload(args) => handle_upload_command(args).await,
+        Delete(args) => handle_delete_command(args).await,
+        Get(args) => handle_get_command(args).await,
     }
 }
 
 #[derive(Parser)]
 enum SubCommand {
-    #[clap(
-        name = "init",
-        about = "Create a blank template and save it in the current directory as template.jsonnet"
-    )]
+    /// Create a blank template and save it in the current directory as template.jsonnet
+    #[clap()]
     Init,
 
-    #[clap(
-        name = "expand",
-        about = "Expand a template into a Fiberplane notebook"
-    )]
+    /// Expand a template into a Fiberplane notebook
+    #[clap()]
     Expand(ExpandArguments),
 
-    #[clap(
-        name = "convert",
-        about = "Create a template from an existing Fiberplane notebook"
-    )]
+    /// Create a template from an existing Fiberplane notebook
+    #[clap()]
     Convert(ConvertArguments),
+
+    /// Upload the template to Fiberplane so it can be expanded via the web UI or API
+    #[clap()]
+    Upload(UploadArguments),
+
+    /// Get the details of a given template
+    #[clap(alias = "info")]
+    Get(GetArguments),
+
+    /// Delete the given template
+    #[clap()]
+    Delete(DeleteArguments),
 }
 
 #[derive(Parser)]
 struct ExpandArguments {
-    /// Values to inject into the template. Must be in the form name=value. JSON values are supported.
-    #[clap(name = "arg", short, long)]
-    args: Vec<TemplateArg>,
-
-    /// Path or URL of template file to expand
+    /// ID or URL of a template already uploaded to Fiberplane,
+    /// or the path or URL of a template file.
     #[clap(value_hint = ValueHint::AnyPath)]
     template: String,
 
-    /// Create the notebook on Fiberplane.com and return the URL
-    #[clap(long)]
-    create_notebook: bool,
+    /// Values to inject into the template. Must be in the form arg1=value,arg2=value. JSON values are supported.
+    #[clap()]
+    template_arguments: Option<TemplateArguments>,
 
     #[clap(from_global)]
-    base_url: String,
+    base_url: Url,
 
     #[clap(from_global)]
     config: Option<String>,
@@ -99,7 +113,7 @@ struct ExpandArguments {
 #[derive(Parser)]
 struct ConvertArguments {
     #[clap(from_global)]
-    base_url: String,
+    base_url: Url,
 
     #[clap(from_global)]
     config: Option<String>,
@@ -113,27 +127,62 @@ struct ConvertArguments {
     notebook_url: String,
 }
 
-pub struct TemplateArg {
-    pub name: String,
-    pub value: Value,
+#[derive(Parser)]
+struct UploadArguments {
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<String>,
+
+    /// Title of the template
+    #[clap(long, required = true)]
+    title: String,
+
+    /// Description of the template
+    #[clap(long, default_value = "")]
+    description: String,
+
+    /// Whether to make the template publicly accessible.
+    /// This means that anyone outside of your organization can
+    /// view it, expand it into notebooks, and create triggers
+    /// that point to it.
+    #[clap(long)]
+    public: bool,
+
+    /// Update the given template instead of creating a new one
+    #[clap(long)]
+    template_id: Option<Base64Uuid>,
+
+    /// Path or URL of template file to expand
+    #[clap(value_hint = ValueHint::AnyPath)]
+    template: String,
 }
 
-impl FromStr for TemplateArg {
-    type Err = Error;
+#[derive(Parser)]
+struct GetArguments {
+    #[clap(from_global)]
+    base_url: Url,
 
-    fn from_str(s: &str) -> Result<Self> {
-        if let Some((name, value)) = s.split_once('=') {
-            Ok(TemplateArg {
-                name: name.to_string(),
-                value: serde_json::from_str(value)
-                    .unwrap_or_else(|_| Value::String(value.to_string())),
-            })
-        } else {
-            Err(anyhow!(
-                "Invalid argument syntax. Must be in the form name=value"
-            ))
-        }
-    }
+    #[clap(from_global)]
+    config: Option<String>,
+
+    /// Template ID to delete
+    #[clap(long)]
+    template_id: Base64Uuid,
+}
+
+#[derive(Parser)]
+struct DeleteArguments {
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<String>,
+
+    /// Template ID to delete
+    #[clap(long)]
+    template_id: Base64Uuid,
 }
 
 async fn handle_init_command() -> Result<()> {
@@ -200,9 +249,40 @@ async fn load_template(template_path: &str) -> Result<String> {
 }
 
 async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
+    let base_url = args.base_url.clone();
+    let template_url_base = base_url.join("templates/")?;
+
+    // First, check if the template is the ID of an uploaded template
+    let notebook = if let Ok(template_id) = Base64Uuid::parse_str(&args.template) {
+        expand_template_api(args, template_id).await
+    } else if let Some(template_id) = args.template.strip_prefix(template_url_base.as_str()) {
+        // Next, check if it is a URL of an uploaded template
+        let template_id = Base64Uuid::parse_str(template_id)
+            .with_context(|| "Error parsing template ID from URL")?;
+        expand_template_api(args, template_id).await
+    } else {
+        // Otherwise, treat the template as a local path or URL of a template file
+        expand_template_file(args).await
+    }?;
+
+    let notebook_url = format!("{}/notebook/{}", base_url, notebook.id);
+    info!("Created notebook: {}", notebook_url);
+    Ok(())
+}
+
+/// Expand a template that has already been uploaded to Fiberplane
+async fn expand_template_api(args: ExpandArguments, template_id: Base64Uuid) -> Result<Notebook> {
+    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+    let template_args = serde_json::to_value(&args.template_arguments)?;
+    let notebook = template_expand(&config, &template_id.to_string(), Some(template_args))
+        .await
+        .with_context(|| format!("Error expanding template: {}", template_id))?;
+    Ok(notebook)
+}
+
+/// Expand a template that is either a local file or one hosted remotely
+async fn expand_template_file(args: ExpandArguments) -> Result<Notebook> {
     let template = load_template(&args.template).await?;
-    let template_args: HashMap<String, Value> =
-        args.args.into_iter().map(|a| (a.name, a.value)).collect();
 
     let config = api_client_configuration(args.config.as_deref(), &args.base_url)
         .await
@@ -223,26 +303,23 @@ async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
         serde_json::to_value(&data_sources)?,
     );
 
+    let template_args = if let Some(args) = args.template_arguments {
+        args.0
+    } else {
+        HashMap::new()
+    };
     let notebook = expander
-        .expand_template_to_string(template, template_args, !args.create_notebook)
+        .expand_template_to_string(template, template_args, false)
         .with_context(|| "expanding template")?;
 
-    if !args.create_notebook {
-        io::stdout().write_all(notebook.as_bytes()).await?;
-    } else {
-        debug!(%notebook, "Expanded template to notebook");
+    let config = config.ok_or_else(|| anyhow!("Must be logged in to create notebook"))?;
 
-        let config = config.ok_or_else(|| anyhow!("Must be logged in to create notebook"))?;
-
-        let notebook: NewNotebook = serde_json::from_str(&notebook)
-            .with_context(|| "Template did not produce a valid NewNotebook")?;
-        let notebook = notebook_create(&config, Some(notebook))
-            .await
-            .with_context(|| "Error creating notebook")?;
-        let notebook_url = format!("{}/notebook/{}", config.base_path, notebook.id);
-        info!("Created notebook: {}", notebook_url);
-    }
-    Ok(())
+    let notebook: NewNotebook = serde_json::from_str(&notebook)
+        .with_context(|| "Template did not produce a valid NewNotebook")?;
+    let notebook = notebook_create(&config, Some(notebook))
+        .await
+        .with_context(|| "Error creating notebook")?;
+    Ok(notebook)
 }
 
 async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
@@ -312,5 +389,53 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
         io::stdout().write_all(template.as_bytes()).await?;
     }
 
+    Ok(())
+}
+
+async fn handle_upload_command(args: UploadArguments) -> Result<()> {
+    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+    let body = load_template(&args.template).await?;
+    let template = NewTemplate {
+        title: args.title,
+        description: args.description,
+        body,
+        public: args.public,
+    };
+    if let Some(template_id) = args.template_id {
+        template_update(&config, &template_id.to_string(), Some(template))
+            .await
+            .with_context(|| format!("Error updating template {}", template_id))?;
+        info!("Updated template");
+    } else {
+        let template = template_create(&config, Some(template))
+            .await
+            .with_context(|| "Error creating template")?;
+        info!("Created template:");
+        println!("{}", template.id);
+    }
+    Ok(())
+}
+
+async fn handle_get_command(args: GetArguments) -> Result<()> {
+    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+
+    let template = template_get(&config, &args.template_id.to_string()).await?;
+    info!("Title: {}", template.title);
+    info!("Description: {}", template.description);
+    info!(
+        "Visibility: {}",
+        if template.public { "public" } else { "private" }
+    );
+    println!("{}", template.body);
+
+    Ok(())
+}
+
+async fn handle_delete_command(args: DeleteArguments) -> Result<()> {
+    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+    template_delete(&config, &args.template_id.to_string())
+        .await
+        .with_context(|| format!("Error deleting template {}", args.template_id))?;
+    info!("Deleted template");
     Ok(())
 }

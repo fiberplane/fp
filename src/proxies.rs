@@ -8,6 +8,7 @@ use fp_api_client::models::{NewProxy, ProxyConnectionStatus};
 use petname::petname;
 use std::cmp::Ordering;
 use tracing::info;
+use url::Url;
 
 #[derive(Parser)]
 pub struct Arguments {
@@ -46,7 +47,7 @@ pub struct AddArgs {
     name: Option<String>,
 
     #[clap(from_global)]
-    base_url: String,
+    base_url: Url,
 
     #[clap(from_global)]
     config: Option<String>,
@@ -55,7 +56,7 @@ pub struct AddArgs {
 #[derive(Parser)]
 pub struct GlobalArgs {
     #[clap(from_global)]
-    base_url: String,
+    base_url: Url,
 
     #[clap(from_global)]
     config: Option<String>,
@@ -68,7 +69,7 @@ pub struct SingleProxyArgs {
     proxy_id: String,
 
     #[clap(from_global)]
-    base_url: String,
+    base_url: Url,
 
     #[clap(from_global)]
     config: Option<String>,

@@ -1,7 +1,8 @@
 use crate::config::api_client_configuration;
-use crate::templates::TemplateArg;
-use anyhow::{anyhow, Context, Error, Result};
-use clap::{ArgEnum, Parser};
+use crate::templates::TemplateArguments;
+use anyhow::{anyhow, Context, Result};
+use base64uuid::Base64Uuid;
+use clap::Parser;
 use fp_api_client::apis::configuration::Configuration;
 use fp_api_client::apis::default_api::{
     trigger_create, trigger_delete, trigger_get, trigger_invoke, trigger_list,
@@ -9,9 +10,6 @@ use fp_api_client::apis::default_api::{
 use fp_api_client::models::NewTrigger;
 use lazy_static::lazy_static;
 use regex::Regex;
-use serde_json::Value;
-use std::{collections::HashMap, path::PathBuf, str::FromStr};
-use tokio::fs;
 use tracing::info;
 use url::Url;
 
@@ -41,15 +39,19 @@ enum SubCommand {
     /// Create a Trigger
     #[clap(alias = "new")]
     Create(CreateArguments),
+
     /// Print info about a trigger
     #[clap(alias = "info")]
     Get(IndividualTriggerArguments),
+
     /// Delete a trigger
     #[clap(alias = "remove")]
     Delete(IndividualTriggerArguments),
+
     /// List all triggers
     #[clap()]
     List(ListArguments),
+
     /// Invoke a trigger webhook to create a notebook from the template
     #[clap()]
     Invoke(InvokeArguments),
@@ -57,37 +59,23 @@ enum SubCommand {
 
 #[derive(Parser)]
 struct CreateArguments {
-    /// URL or path to template file
-    #[clap(name = "template")]
-    template_source: TemplateSource,
+    /// Name of the trigger
+    #[clap(long, alias = "name")]
+    title: String,
+
+    /// ID of the template (already uploaded to Fiberplane)
+    #[clap(long)]
+    template_id: Base64Uuid,
+
+    /// Default arguments to be passed to the template when the trigger is invoked
+    #[clap(long)]
+    default_arguments: Option<TemplateArguments>,
 
     #[clap(from_global)]
-    base_url: String,
+    base_url: Url,
 
     #[clap(from_global)]
     config: Option<String>,
-}
-
-#[derive(ArgEnum)]
-enum TemplateSource {
-    /// Template URL
-    #[clap()]
-    Url(Url),
-    /// Path to template file
-    #[clap()]
-    Path(PathBuf),
-}
-
-impl FromStr for TemplateSource {
-    type Err = Error;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Ok(url) = Url::parse(s) {
-            if !url.cannot_be_a_base() {
-                return Ok(TemplateSource::Url(url));
-            }
-        }
-        Ok(TemplateSource::Path(PathBuf::from(s)))
-    }
 }
 
 #[derive(Parser)]
@@ -97,7 +85,7 @@ struct IndividualTriggerArguments {
     trigger: String,
 
     #[clap(from_global)]
-    base_url: String,
+    base_url: Url,
 
     #[clap(from_global)]
     config: Option<String>,
@@ -106,7 +94,7 @@ struct IndividualTriggerArguments {
 #[derive(Parser)]
 struct ListArguments {
     #[clap(from_global)]
-    base_url: String,
+    base_url: Url,
 
     #[clap(from_global)]
     config: Option<String>,
@@ -118,37 +106,31 @@ struct InvokeArguments {
     #[clap()]
     trigger: String,
 
+    /// Secret Key (returned when the trigger is initially created)
+    #[clap()]
+    secret_key: String,
+
     /// Values to inject into the template. Must be in the form name=value. JSON values are supported.
-    #[clap(name = "arg", short, long)]
-    args: Vec<TemplateArg>,
+    #[clap()]
+    template_arguments: Option<TemplateArguments>,
 
     #[clap(from_global)]
-    base_url: String,
+    base_url: Url,
 }
 
 async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {
     let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
-    let new_trigger = match args.template_source {
-        TemplateSource::Path(path) => {
-            let template_body = fs::read_to_string(&path)
-                .await
-                .with_context(|| format!("Error reading template from file: {}", path.display()))?;
-            NewTrigger {
-                template_body: Some(template_body),
-                template_url: None,
-            }
-        }
-        TemplateSource::Url(template_url) => {
-            if template_url.scheme() != "https" {
-                return Err(anyhow!("Template URLs must use HTTPS"));
-            }
-            NewTrigger {
-                template_body: None,
-                template_url: Some(template_url.to_string()),
-            }
-        }
+    let default_arguments = if let Some(default_arguments) = args.default_arguments {
+        Some(serde_json::to_value(default_arguments)?)
+    } else {
+        None
     };
-    let trigger = trigger_create(&config, Some(new_trigger))
+    let trigger = NewTrigger {
+        title: args.title,
+        default_arguments,
+        template_id: args.template_id.to_string(),
+    };
+    let trigger = trigger_create(&config, Some(trigger))
         .await
         .with_context(|| "Error creating trigger")?;
 
@@ -156,9 +138,14 @@ async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {
         "Created trigger: {}/api/triggers/{}",
         args.base_url, trigger.id
     );
-    info!(
-        "Trigger can be invoked with an HTTP POST to: {}/api/triggers/{}/webhook",
-        args.base_url, trigger.id
+    info!("Trigger can be invoked with an HTTP POST to:");
+    println!(
+        "{}/api/triggers/{}/{}",
+        args.base_url,
+        trigger.id,
+        trigger
+            .secret_key
+            .ok_or_else(|| anyhow!("Trigger creation did not return a secret key"))?
     );
     Ok(())
 }
@@ -172,21 +159,14 @@ async fn handle_trigger_get_command(args: IndividualTriggerArguments) -> Result<
         .await
         .with_context(|| "Error getting trigger details")?;
 
-    info!("Trigger ID: {}", trigger.id);
+    // TODO add title to schema
+    // info!("Title: {}", trigger.title);
+    info!("ID: {}", trigger.id);
     info!(
-        "WebHook URL: {}/api/triggers/{}/webhook",
+        "Invoke URL: {}/api/triggers/{}/<secret key returned when trigger was created>",
         args.base_url, trigger.id
     );
-    info!(
-        "Template URL: {}",
-        trigger.template_url.as_deref().unwrap_or("N/A")
-    );
-
-    // TODO should we default to not printing the body and give an option to print it?
-    info!("Template Body:");
-    for line in trigger.template_body.lines() {
-        info!("  {}", line);
-    }
+    info!("Template ID: {}", trigger.template_id);
 
     Ok(())
 }
@@ -216,15 +196,13 @@ async fn handle_trigger_list_command(args: ListArguments) -> Result<()> {
 
         for trigger in triggers {
             info!(
-                "- Trigger ID: {id}
-  WebHook URL: {base_url}/api/triggers/{id}/webhook
-  Template URL: {template_url}",
-                id = trigger.id,
-                base_url = args.base_url,
-                template_url = trigger
-                    .template_url
-                    .as_deref()
-                    .unwrap_or("N/A (Query the individual trigger ID to display stored template)")
+                "- Title:
+  ID: {}
+  Template ID: {}",
+                // TODO add title
+                // trigger.title,
+                trigger.id,
+                trigger.template_id,
             );
         }
     }
@@ -236,19 +214,18 @@ async fn handle_trigger_invoke_command(args: InvokeArguments) -> Result<()> {
     let trigger_id = &TRIGGER_ID_REGEX
         .captures(&args.trigger)
         .with_context(|| "Could not parse trigger. Expected a Trigger ID or URL")?[1];
-    dbg!(&trigger_id);
 
-    let body: HashMap<String, Value> = args.args.into_iter().map(|a| (a.name, a.value)).collect();
-    let body = serde_json::to_value(&body)?;
+    let body = serde_json::to_value(&args.template_arguments)?;
 
     let config = Configuration {
         base_path: args.base_url.to_string(),
         ..Configuration::default()
     };
-    let result = trigger_invoke(&config, trigger_id, Some(body))
+    let notebook = trigger_invoke(&config, trigger_id, &args.secret_key, Some(body))
         .await
         .with_context(|| "Error invoking trigger")?;
-    info!("Created notebook: {}", result.notebook_url);
+    info!("Created notebook:");
+    println!("{}/notebook/{}", config.base_path, notebook.id);
 
     Ok(())
 }
