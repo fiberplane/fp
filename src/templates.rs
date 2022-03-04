@@ -24,25 +24,33 @@ lazy_static! {
     static ref NOTEBOOK_ID_REGEX: Regex = Regex::from_str("([a-zA-Z0-9_-]{22})$").unwrap();
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Default, Debug)]
 pub struct TemplateArguments(pub HashMap<String, Value>);
 
 impl FromStr for TemplateArguments {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
-        let mut args = HashMap::new();
-        // TODO this won't actually work if there are commas in the JSON values
-        for kv in s.split([';', ',']) {
-            let mut parts = kv.trim().split([':', '=']);
-            let key = parts
-                .next()
-                .ok_or_else(|| anyhow!("missing key"))?
-                .to_string();
-            let value = parts.next().ok_or_else(|| anyhow!("missing value"))?;
-            let value: Value = serde_json::from_str(value)?;
-            args.insert(key, value);
-        }
+        let args = if let Ok(args) = serde_json::from_str(s) {
+            args
+        } else {
+            let mut args = HashMap::new();
+            for kv in s.split([';', ',']) {
+                let mut parts = kv.trim().split([':', '=']);
+                let key = parts
+                    .next()
+                    .ok_or_else(|| anyhow!("missing key"))?
+                    .to_string();
+                let value = Value::String(
+                    parts
+                        .next()
+                        .ok_or_else(|| anyhow!("missing value"))?
+                        .to_string(),
+                );
+                args.insert(key, value);
+            }
+            args
+        };
         Ok(TemplateArguments(args))
     }
 }
@@ -99,7 +107,8 @@ struct ExpandArguments {
     #[clap(value_hint = ValueHint::AnyPath)]
     template: String,
 
-    /// Values to inject into the template. Must be in the form arg1=value,arg2=value. JSON values are supported.
+    /// Values to inject into the template
+    /// Can be passed as a JSON object or as a comma-separated list of key=value pairs
     #[clap()]
     template_arguments: Option<TemplateArguments>,
 
@@ -161,28 +170,28 @@ struct UploadArguments {
 
 #[derive(Parser)]
 struct GetArguments {
+    /// Template ID to delete
+    #[clap()]
+    template_id: Base64Uuid,
+
     #[clap(from_global)]
     base_url: Url,
 
     #[clap(from_global)]
     config: Option<PathBuf>,
-
-    /// Template ID to delete
-    #[clap(long)]
-    template_id: Base64Uuid,
 }
 
 #[derive(Parser)]
 struct DeleteArguments {
+    /// Template ID to delete
+    #[clap()]
+    template_id: Base64Uuid,
+
     #[clap(from_global)]
     base_url: Url,
 
     #[clap(from_global)]
     config: Option<PathBuf>,
-
-    /// Template ID to delete
-    #[clap(long)]
-    template_id: Base64Uuid,
 }
 
 async fn handle_init_command() -> Result<()> {
@@ -265,7 +274,7 @@ async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
         expand_template_file(args).await
     }?;
 
-    let notebook_url = format!("{}/notebook/{}", base_url, notebook.id);
+    let notebook_url = format!("{}notebook/{}", base_url, notebook.id);
     info!("Created notebook: {}", notebook_url);
     Ok(())
 }
@@ -273,8 +282,8 @@ async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
 /// Expand a template that has already been uploaded to Fiberplane
 async fn expand_template_api(args: ExpandArguments, template_id: Base64Uuid) -> Result<Notebook> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    let template_args = serde_json::to_value(&args.template_arguments)?;
-    let notebook = template_expand(&config, &template_id.to_string(), Some(template_args))
+    let template_arguments = serde_json::to_value(&args.template_arguments.unwrap_or_default())?;
+    let notebook = template_expand(&config, &template_id.to_string(), Some(template_arguments))
         .await
         .with_context(|| format!("Error expanding template: {}", template_id))?;
     Ok(notebook)
@@ -424,8 +433,9 @@ async fn handle_get_command(args: GetArguments) -> Result<()> {
     info!("Description: {}", template.description);
     info!(
         "Visibility: {}",
-        if template.public { "public" } else { "private" }
+        if template.public { "Public" } else { "Private" }
     );
+    info!("Body:");
     println!("{}", template.body);
 
     Ok(())

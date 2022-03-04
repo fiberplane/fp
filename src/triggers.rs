@@ -69,6 +69,7 @@ struct CreateArguments {
     template_id: Base64Uuid,
 
     /// Default arguments to be passed to the template when the trigger is invoked
+    /// Can be passed as a JSON object or as a comma-separated list of key=value pairs
     #[clap(long)]
     default_arguments: Option<TemplateArguments>,
 
@@ -111,7 +112,8 @@ struct InvokeArguments {
     #[clap()]
     secret_key: String,
 
-    /// Values to inject into the template. Must be in the form name=value. JSON values are supported.
+    /// Values to inject into the template
+    /// Can be passed as a JSON object or as a comma-separated list of key=value pairs
     #[clap()]
     template_arguments: Option<TemplateArguments>,
 
