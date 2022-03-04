@@ -62,7 +62,7 @@ struct CreateArguments {
     template_source: TemplateSource,
 
     #[clap(from_global)]
-    base_url: String,
+    base_url: Url,
 
     #[clap(from_global)]
     config: Option<PathBuf>,
@@ -97,7 +97,7 @@ struct IndividualTriggerArguments {
     trigger: String,
 
     #[clap(from_global)]
-    base_url: String,
+    base_url: Url,
 
     #[clap(from_global)]
     config: Option<PathBuf>,
@@ -106,7 +106,7 @@ struct IndividualTriggerArguments {
 #[derive(Parser)]
 struct ListArguments {
     #[clap(from_global)]
-    base_url: String,
+    base_url: Url,
 
     #[clap(from_global)]
     config: Option<PathBuf>,
@@ -123,7 +123,7 @@ struct InvokeArguments {
     args: Vec<TemplateArg>,
 
     #[clap(from_global)]
-    base_url: String,
+    base_url: Url,
 }
 
 async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {

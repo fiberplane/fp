@@ -6,6 +6,7 @@ use std::io::ErrorKind;
 use std::path::PathBuf;
 use tokio::fs;
 use tracing::debug;
+use url::Url;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Config {
@@ -75,7 +76,7 @@ fn default_config_file_path() -> PathBuf {
 
 pub(crate) async fn api_client_configuration(
     config_path: Option<PathBuf>,
-    base_url: &str,
+    base_url: &Url,
 ) -> Result<Configuration> {
     let token = Config::load(config_path).await?.api_token.ok_or_else(|| {
         anyhow!("Must be logged in to run this command. Please run `fp login` first.")
@@ -86,10 +87,11 @@ pub(crate) async fn api_client_configuration(
 
 pub(crate) fn api_client_configuration_from_token(
     token: String,
-    base_url: &str,
+    base_url: &Url,
 ) -> Result<Configuration> {
+    let base_path = base_url.to_string().trim_end_matches('/').to_owned();
     let config = Configuration {
-        base_path: base_url.to_string(),
+        base_path,
         bearer_access_token: Some(token),
         ..Configuration::default()
     };

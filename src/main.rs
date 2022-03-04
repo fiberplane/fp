@@ -15,6 +15,7 @@ use tracing::{error, info, trace, warn};
 use tracing_subscriber::filter::EnvFilter;
 use tracing_subscriber::fmt::format;
 use update::retrieve_latest_version;
+use url::Url;
 
 mod auth;
 mod config;
@@ -47,8 +48,7 @@ pub struct Arguments {
         env = "API_BASE",
         global = true
     )]
-    // TODO parse as a URL
-    base_url: String,
+    base_url: Url,
 
     /// Path to Fiberplane config.toml file
     #[clap(long, global = true, env)]

@@ -13,6 +13,7 @@ use std::{env::current_dir, ffi::OsStr, path::PathBuf, str::FromStr};
 use tokio::fs;
 use tokio::io::{self, AsyncReadExt, AsyncWriteExt};
 use tracing::{debug, info, warn};
+use url::Url;
 
 lazy_static! {
     static ref NOTEBOOK_ID_REGEX: Regex = Regex::from_str("([a-zA-Z0-9_-]{22})$").unwrap();
@@ -90,7 +91,7 @@ struct ExpandArguments {
     create_notebook: bool,
 
     #[clap(from_global)]
-    base_url: String,
+    base_url: Url,
 
     #[clap(from_global)]
     config: Option<PathBuf>,
@@ -99,7 +100,7 @@ struct ExpandArguments {
 #[derive(Parser)]
 struct ConvertArguments {
     #[clap(from_global)]
-    base_url: String,
+    base_url: Url,
 
     #[clap(from_global)]
     config: Option<PathBuf>,
