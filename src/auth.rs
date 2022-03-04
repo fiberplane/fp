@@ -65,7 +65,7 @@ pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
     let port: u16 = server.local_addr().port();
     debug!("listening for the login redirect on port {}", port);
     let login_url = format!(
-        "{}/api/oidc/authorize/google?cli_redirect_port={}",
+        "{}api/oidc/authorize/google?cli_redirect_port={}",
         args.base_url, port
     );
 

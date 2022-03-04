@@ -11,6 +11,7 @@ use std::time::Duration;
 use time::OffsetDateTime;
 use time_util::clap_rfc3339;
 use tracing::{debug, info, trace};
+use url::Url;
 
 #[derive(Parser)]
 pub struct Arguments {
@@ -54,7 +55,7 @@ pub struct AddArgs {
     to: Option<OffsetDateTime>,
 
     #[clap(from_global)]
-    base_url: String,
+    base_url: Url,
 
     #[clap(from_global)]
     config: Option<PathBuf>,
@@ -113,7 +114,7 @@ pub struct GetArgs {
     id: String,
 
     #[clap(from_global)]
-    base_url: String,
+    base_url: Url,
 
     #[clap(from_global)]
     config: Option<PathBuf>,
@@ -132,8 +133,8 @@ async fn handle_get_command(args: GetArgs) -> Result<()> {
     Ok(())
 }
 
-fn notebook_url(base_url: String, id: String) -> String {
-    format!("{}/notebook/{}", base_url, id)
+fn notebook_url(base_url: Url, id: String) -> String {
+    format!("{}notebook/{}", base_url, id)
 }
 
 pub struct KeyValue {

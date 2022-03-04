@@ -62,7 +62,7 @@ struct CreateArguments {
     template_source: TemplateSource,
 
     #[clap(from_global)]
-    base_url: String,
+    base_url: Url,
 
     #[clap(from_global)]
     config: Option<PathBuf>,
@@ -97,7 +97,7 @@ struct IndividualTriggerArguments {
     trigger: String,
 
     #[clap(from_global)]
-    base_url: String,
+    base_url: Url,
 
     #[clap(from_global)]
     config: Option<PathBuf>,
@@ -106,7 +106,7 @@ struct IndividualTriggerArguments {
 #[derive(Parser)]
 struct ListArguments {
     #[clap(from_global)]
-    base_url: String,
+    base_url: Url,
 
     #[clap(from_global)]
     config: Option<PathBuf>,
@@ -123,7 +123,7 @@ struct InvokeArguments {
     args: Vec<TemplateArg>,
 
     #[clap(from_global)]
-    base_url: String,
+    base_url: Url,
 }
 
 async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {
@@ -153,11 +153,11 @@ async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {
         .with_context(|| "Error creating trigger")?;
 
     info!(
-        "Created trigger: {}/api/triggers/{}",
+        "Created trigger: {}api/triggers/{}",
         args.base_url, trigger.id
     );
     info!(
-        "Trigger can be invoked with an HTTP POST to: {}/api/triggers/{}/webhook",
+        "Trigger can be invoked with an HTTP POST to: {}api/triggers/{}/webhook",
         args.base_url, trigger.id
     );
     Ok(())
@@ -174,7 +174,7 @@ async fn handle_trigger_get_command(args: IndividualTriggerArguments) -> Result<
 
     info!("Trigger ID: {}", trigger.id);
     info!(
-        "WebHook URL: {}/api/triggers/{}/webhook",
+        "WebHook URL: {}api/triggers/{}/webhook",
         args.base_url, trigger.id
     );
     info!(
@@ -217,7 +217,7 @@ async fn handle_trigger_list_command(args: ListArguments) -> Result<()> {
         for trigger in triggers {
             info!(
                 "- Trigger ID: {id}
-  WebHook URL: {base_url}/api/triggers/{id}/webhook
+  WebHook URL: {base_url}api/triggers/{id}/webhook
   Template URL: {template_url}",
                 id = trigger.id,
                 base_url = args.base_url,

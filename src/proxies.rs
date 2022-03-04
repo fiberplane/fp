@@ -9,6 +9,7 @@ use petname::petname;
 use std::cmp::Ordering;
 use std::path::PathBuf;
 use tracing::info;
+use url::Url;
 
 #[derive(Parser)]
 pub struct Arguments {
@@ -47,7 +48,7 @@ pub struct AddArgs {
     name: Option<String>,
 
     #[clap(from_global)]
-    base_url: String,
+    base_url: Url,
 
     #[clap(from_global)]
     config: Option<PathBuf>,
@@ -56,7 +57,7 @@ pub struct AddArgs {
 #[derive(Parser)]
 pub struct GlobalArgs {
     #[clap(from_global)]
-    base_url: String,
+    base_url: Url,
 
     #[clap(from_global)]
     config: Option<PathBuf>,
@@ -69,7 +70,7 @@ pub struct SingleProxyArgs {
     proxy_id: String,
 
     #[clap(from_global)]
-    base_url: String,
+    base_url: Url,
 
     #[clap(from_global)]
     config: Option<PathBuf>,
