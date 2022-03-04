@@ -107,7 +107,7 @@ struct ExpandArguments {
     base_url: Url,
 
     #[clap(from_global)]
-    config: Option<String>,
+    config: Option<PathBuf>,
 }
 
 #[derive(Parser)]
@@ -116,7 +116,7 @@ struct ConvertArguments {
     base_url: Url,
 
     #[clap(from_global)]
-    config: Option<String>,
+    config: Option<PathBuf>,
 
     /// If specified, save the template to the given file. If not, write the template to stdout
     #[clap(long, short)]
@@ -133,7 +133,7 @@ struct UploadArguments {
     base_url: Url,
 
     #[clap(from_global)]
-    config: Option<String>,
+    config: Option<PathBuf>,
 
     /// Title of the template
     #[clap(long, required = true)]
@@ -165,7 +165,7 @@ struct GetArguments {
     base_url: Url,
 
     #[clap(from_global)]
-    config: Option<String>,
+    config: Option<PathBuf>,
 
     /// Template ID to delete
     #[clap(long)]
@@ -178,7 +178,7 @@ struct DeleteArguments {
     base_url: Url,
 
     #[clap(from_global)]
-    config: Option<String>,
+    config: Option<PathBuf>,
 
     /// Template ID to delete
     #[clap(long)]
@@ -272,7 +272,7 @@ async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
 
 /// Expand a template that has already been uploaded to Fiberplane
 async fn expand_template_api(args: ExpandArguments, template_id: Base64Uuid) -> Result<Notebook> {
-    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+    let config = api_client_configuration(args.config, &args.base_url).await?;
     let template_args = serde_json::to_value(&args.template_arguments)?;
     let notebook = template_expand(&config, &template_id.to_string(), Some(template_args))
         .await
@@ -284,7 +284,7 @@ async fn expand_template_api(args: ExpandArguments, template_id: Base64Uuid) -> 
 async fn expand_template_file(args: ExpandArguments) -> Result<Notebook> {
     let template = load_template(&args.template).await?;
 
-    let config = api_client_configuration(args.config.as_deref(), &args.base_url)
+    let config = api_client_configuration(args.config, &args.base_url)
         .await
         .ok();
 
@@ -331,10 +331,10 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
             .with_context(|| "Error reading from stdin")?;
         let notebook: Notebook =
             serde_json::from_str(&notebook_json).with_context(|| "Notebook is invalid")?;
-        let url = format!("{}/notebook/{}", args.base_url, &notebook.id);
+        let url = format!("{}notebook/{}", args.base_url, &notebook.id);
         (notebook_json, notebook.id, url)
     } else {
-        let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+        let config = api_client_configuration(args.config, &args.base_url).await?;
         let id = &NOTEBOOK_ID_REGEX
             .captures(&args.notebook_url)
             .ok_or_else(|| anyhow!("Notebook URL is invalid"))?[1];
@@ -362,7 +362,7 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
         if let Cell::Image(cell) = cell {
             if let (None, Some(file_id)) = (&cell.url, &cell.file_id) {
                 cell.url = Some(format!(
-                    "{}/api/files/{}/{}",
+                    "{}api/files/{}/{}",
                     args.base_url, notebook_id, file_id
                 ));
                 cell.file_id = None;
@@ -393,7 +393,7 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
 }
 
 async fn handle_upload_command(args: UploadArguments) -> Result<()> {
-    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+    let config = api_client_configuration(args.config, &args.base_url).await?;
     let body = load_template(&args.template).await?;
     let template = NewTemplate {
         title: args.title,
@@ -417,7 +417,7 @@ async fn handle_upload_command(args: UploadArguments) -> Result<()> {
 }
 
 async fn handle_get_command(args: GetArguments) -> Result<()> {
-    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+    let config = api_client_configuration(args.config, &args.base_url).await?;
 
     let template = template_get(&config, &args.template_id.to_string()).await?;
     info!("Title: {}", template.title);
@@ -432,10 +432,11 @@ async fn handle_get_command(args: GetArguments) -> Result<()> {
 }
 
 async fn handle_delete_command(args: DeleteArguments) -> Result<()> {
-    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
-    template_delete(&config, &args.template_id.to_string())
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let template_id = args.template_id;
+    template_delete(&config, &template_id.to_string())
         .await
-        .with_context(|| format!("Error deleting template {}", args.template_id))?;
+        .with_context(|| format!("Error deleting template {}", template_id))?;
     info!("Deleted template");
     Ok(())
 }

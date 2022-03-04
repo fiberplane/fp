@@ -1,4 +1,4 @@
-use crate::config::{api_client_configuration, Config};
+use crate::config::{api_client_configuration_from_token, Config};
 use crate::Arguments;
 use anyhow::Error;
 use fp_api_client::apis::default_api::logout;
@@ -65,7 +65,7 @@ pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
     let port: u16 = server.local_addr().port();
     debug!("listening for the login redirect on port {}", port);
     let login_url = format!(
-        "{}/api/oidc/authorize/google?cli_redirect_port={}",
+        "{}api/oidc/authorize/google?cli_redirect_port={}",
         args.base_url, port
     );
 
@@ -74,7 +74,7 @@ pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
         info!("Please go to this URL to login: {}", login_url);
     }
 
-    let mut config = Config::load(args.config.as_deref()).await?;
+    let mut config = Config::load(args.config).await?;
 
     // Shut down the web server once the token is received
     server
@@ -107,12 +107,11 @@ pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
 
 /// Logout from Fiberplane and delete the API Token from the config file
 pub async fn handle_logout_command(args: Arguments) -> Result<(), Error> {
-    let mut config = Config::load(args.config.as_deref()).await?;
+    let mut config = Config::load(args.config).await?;
 
     match config.api_token {
-        Some(_) => {
-            let api_config =
-                &api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+        Some(token) => {
+            let api_config = &api_client_configuration_from_token(token, &args.base_url)?;
             logout(api_config).await?;
 
             config.api_token = None;

@@ -10,6 +10,7 @@ use fp_api_client::apis::default_api::{
 use fp_api_client::models::NewTrigger;
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::path::PathBuf;
 use tracing::info;
 use url::Url;
 
@@ -75,7 +76,7 @@ struct CreateArguments {
     base_url: Url,
 
     #[clap(from_global)]
-    config: Option<String>,
+    config: Option<PathBuf>,
 }
 
 #[derive(Parser)]
@@ -88,7 +89,7 @@ struct IndividualTriggerArguments {
     base_url: Url,
 
     #[clap(from_global)]
-    config: Option<String>,
+    config: Option<PathBuf>,
 }
 
 #[derive(Parser)]
@@ -97,7 +98,7 @@ struct ListArguments {
     base_url: Url,
 
     #[clap(from_global)]
-    config: Option<String>,
+    config: Option<PathBuf>,
 }
 
 #[derive(Parser)]
@@ -119,7 +120,7 @@ struct InvokeArguments {
 }
 
 async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {
-    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+    let config = api_client_configuration(args.config, &args.base_url).await?;
     let default_arguments = if let Some(default_arguments) = args.default_arguments {
         Some(serde_json::to_value(default_arguments)?)
     } else {
@@ -135,12 +136,12 @@ async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {
         .with_context(|| "Error creating trigger")?;
 
     info!(
-        "Created trigger: {}/api/triggers/{}",
+        "Created trigger: {}api/triggers/{}",
         args.base_url, trigger.id
     );
     info!("Trigger can be invoked with an HTTP POST to:");
     println!(
-        "{}/api/triggers/{}/{}",
+        "{}api/triggers/{}/{}",
         args.base_url,
         trigger.id,
         trigger
@@ -151,7 +152,7 @@ async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {
 }
 
 async fn handle_trigger_get_command(args: IndividualTriggerArguments) -> Result<()> {
-    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+    let config = api_client_configuration(args.config, &args.base_url).await?;
     let trigger_id = &TRIGGER_ID_REGEX
         .captures(&args.trigger)
         .with_context(|| "Could not parse trigger. Expected a Trigger ID or URL")?[1];
@@ -162,7 +163,7 @@ async fn handle_trigger_get_command(args: IndividualTriggerArguments) -> Result<
     info!("Title: {}", trigger.title);
     info!("ID: {}", trigger.id);
     info!(
-        "Invoke URL: {}/api/triggers/{}/<secret key returned when trigger was created>",
+        "Invoke URL: {}api/triggers/{}/<secret key returned when trigger was created>",
         args.base_url, trigger.id
     );
     info!("Template ID: {}", trigger.template_id);
@@ -171,7 +172,7 @@ async fn handle_trigger_get_command(args: IndividualTriggerArguments) -> Result<
 }
 
 async fn handle_trigger_delete_command(args: IndividualTriggerArguments) -> Result<()> {
-    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+    let config = api_client_configuration(args.config, &args.base_url).await?;
     let trigger_id = &TRIGGER_ID_REGEX
         .captures(&args.trigger)
         .with_context(|| "Could not parse trigger. Expected a Trigger ID or URL")?[1];
@@ -182,7 +183,7 @@ async fn handle_trigger_delete_command(args: IndividualTriggerArguments) -> Resu
 }
 
 async fn handle_trigger_list_command(args: ListArguments) -> Result<()> {
-    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+    let config = api_client_configuration(args.config, &args.base_url).await?;
     let mut triggers = trigger_list(&config)
         .await
         .with_context(|| "Error getting triggers")?;
@@ -198,7 +199,7 @@ async fn handle_trigger_list_command(args: ListArguments) -> Result<()> {
                 "- Title: {}
   ID: {}
   Template ID: {}",
-                trigger.title, trigger.id, trigger.template_id,
+                trigger.title, trigger.id, trigger.template_id
             );
         }
     }
