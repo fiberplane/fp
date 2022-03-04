@@ -7,6 +7,7 @@ use fp_api_client::apis::default_api::{
 use fp_api_client::models::{NewProxy, ProxyConnectionStatus};
 use petname::petname;
 use std::cmp::Ordering;
+use std::path::PathBuf;
 use tracing::info;
 
 #[derive(Parser)]
@@ -49,7 +50,7 @@ pub struct AddArgs {
     base_url: String,
 
     #[clap(from_global)]
-    config: Option<String>,
+    config: Option<PathBuf>,
 }
 
 #[derive(Parser)]
@@ -58,7 +59,7 @@ pub struct GlobalArgs {
     base_url: String,
 
     #[clap(from_global)]
-    config: Option<String>,
+    config: Option<PathBuf>,
 }
 
 #[derive(Parser)]
@@ -71,7 +72,7 @@ pub struct SingleProxyArgs {
     base_url: String,
 
     #[clap(from_global)]
-    config: Option<String>,
+    config: Option<PathBuf>,
 }
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
@@ -87,7 +88,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 
 async fn handle_add_command(args: AddArgs) -> Result<()> {
     let name = args.name.unwrap_or_else(|| petname(2, "-"));
-    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+    let config = api_client_configuration(args.config, &args.base_url).await?;
 
     let proxy = proxy_create(&config, Some(NewProxy { name }))
         .await
@@ -103,7 +104,7 @@ async fn handle_add_command(args: AddArgs) -> Result<()> {
 }
 
 async fn handle_list_command(args: GlobalArgs) -> Result<()> {
-    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+    let config = api_client_configuration(args.config, &args.base_url).await?;
     let mut proxies = proxy_list(&config).await?;
 
     // Show connected proxies first, and then sort alphabetically by name
@@ -133,7 +134,7 @@ async fn handle_list_command(args: GlobalArgs) -> Result<()> {
 }
 
 async fn handle_inspect_command(args: SingleProxyArgs) -> Result<()> {
-    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+    let config = api_client_configuration(args.config, &args.base_url).await?;
     let proxy = proxy_get(&config, &args.proxy_id).await?;
     println!(
         "Name: {}
@@ -156,7 +157,7 @@ Data Sources: {}",
 }
 
 async fn handle_data_sources_command(args: GlobalArgs) -> Result<()> {
-    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+    let config = api_client_configuration(args.config, &args.base_url).await?;
     let data_sources = proxy_data_sources_list(&config).await?;
 
     // TODO should we print something if there are no data sources?
@@ -175,7 +176,7 @@ async fn handle_data_sources_command(args: GlobalArgs) -> Result<()> {
 }
 
 async fn handle_remove_command(args: SingleProxyArgs) -> Result<()> {
-    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+    let config = api_client_configuration(args.config, &args.base_url).await?;
     proxy_delete(&config, &args.proxy_id).await?;
     info!("Removed proxy");
     Ok(())

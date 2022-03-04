@@ -16,8 +16,8 @@ pub struct Config {
 }
 
 impl Config {
-    pub async fn load(path: Option<&str>) -> Result<Self, Error> {
-        let path = parse_config_file_path(path)?;
+    pub async fn load(path: Option<PathBuf>) -> Result<Self, Error> {
+        let path = path_or_default(path);
         debug!("loading config from: {}", path.as_path().display());
 
         match fs::read_to_string(&path).await {
@@ -49,17 +49,19 @@ impl Config {
     }
 }
 
-fn parse_config_file_path(path: Option<&str>) -> Result<PathBuf, Error> {
+/// Returns the path if it is set and does not look like a directory, if it does
+/// look like a directory, then append config.toml to it. Finally if nothing is
+/// set then use the default path.
+fn path_or_default(path: Option<PathBuf>) -> PathBuf {
     match path {
         Some(path) => {
-            let path = PathBuf::from(path);
             if path.is_dir() {
-                Ok(path.with_file_name("config.toml"))
+                path.with_file_name("config.toml")
             } else {
-                Ok(path)
+                path
             }
         }
-        None => Ok(default_config_file_path()),
+        None => default_config_file_path(),
     }
 }
 
@@ -72,13 +74,20 @@ fn default_config_file_path() -> PathBuf {
 }
 
 pub(crate) async fn api_client_configuration(
-    config_path: Option<&str>,
+    config_path: Option<PathBuf>,
     base_url: &str,
 ) -> Result<Configuration> {
     let token = Config::load(config_path).await?.api_token.ok_or_else(|| {
         anyhow!("Must be logged in to run this command. Please run `fp login` first.")
     })?;
 
+    api_client_configuration_from_token(token, base_url)
+}
+
+pub(crate) fn api_client_configuration_from_token(
+    token: String,
+    base_url: &str,
+) -> Result<Configuration> {
     let config = Configuration {
         base_path: base_url.to_string(),
         bearer_access_token: Some(token),

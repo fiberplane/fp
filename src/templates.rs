@@ -93,7 +93,7 @@ struct ExpandArguments {
     base_url: String,
 
     #[clap(from_global)]
-    config: Option<String>,
+    config: Option<PathBuf>,
 }
 
 #[derive(Parser)]
@@ -102,7 +102,7 @@ struct ConvertArguments {
     base_url: String,
 
     #[clap(from_global)]
-    config: Option<String>,
+    config: Option<PathBuf>,
 
     /// If specified, save the template to the given file. If not, write the template to stdout
     #[clap(long, short)]
@@ -204,7 +204,7 @@ async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
     let template_args: HashMap<String, Value> =
         args.args.into_iter().map(|a| (a.name, a.value)).collect();
 
-    let config = api_client_configuration(args.config.as_deref(), &args.base_url)
+    let config = api_client_configuration(args.config, &args.base_url)
         .await
         .ok();
 
@@ -257,7 +257,7 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
         let url = format!("{}/notebook/{}", args.base_url, &notebook.id);
         (notebook_json, notebook.id, url)
     } else {
-        let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+        let config = api_client_configuration(args.config, &args.base_url).await?;
         let id = &NOTEBOOK_ID_REGEX
             .captures(&args.notebook_url)
             .ok_or_else(|| anyhow!("Notebook URL is invalid"))?[1];

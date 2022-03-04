@@ -65,7 +65,7 @@ struct CreateArguments {
     base_url: String,
 
     #[clap(from_global)]
-    config: Option<String>,
+    config: Option<PathBuf>,
 }
 
 #[derive(ArgEnum)]
@@ -100,7 +100,7 @@ struct IndividualTriggerArguments {
     base_url: String,
 
     #[clap(from_global)]
-    config: Option<String>,
+    config: Option<PathBuf>,
 }
 
 #[derive(Parser)]
@@ -109,7 +109,7 @@ struct ListArguments {
     base_url: String,
 
     #[clap(from_global)]
-    config: Option<String>,
+    config: Option<PathBuf>,
 }
 
 #[derive(Parser)]
@@ -127,7 +127,7 @@ struct InvokeArguments {
 }
 
 async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {
-    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+    let config = api_client_configuration(args.config, &args.base_url).await?;
     let new_trigger = match args.template_source {
         TemplateSource::Path(path) => {
             let template_body = fs::read_to_string(&path)
@@ -164,7 +164,7 @@ async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {
 }
 
 async fn handle_trigger_get_command(args: IndividualTriggerArguments) -> Result<()> {
-    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+    let config = api_client_configuration(args.config, &args.base_url).await?;
     let trigger_id = &TRIGGER_ID_REGEX
         .captures(&args.trigger)
         .with_context(|| "Could not parse trigger. Expected a Trigger ID or URL")?[1];
@@ -192,7 +192,7 @@ async fn handle_trigger_get_command(args: IndividualTriggerArguments) -> Result<
 }
 
 async fn handle_trigger_delete_command(args: IndividualTriggerArguments) -> Result<()> {
-    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+    let config = api_client_configuration(args.config, &args.base_url).await?;
     let trigger_id = &TRIGGER_ID_REGEX
         .captures(&args.trigger)
         .with_context(|| "Could not parse trigger. Expected a Trigger ID or URL")?[1];
@@ -203,7 +203,7 @@ async fn handle_trigger_delete_command(args: IndividualTriggerArguments) -> Resu
 }
 
 async fn handle_trigger_list_command(args: ListArguments) -> Result<()> {
-    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+    let config = api_client_configuration(args.config, &args.base_url).await?;
     let mut triggers = trigger_list(&config)
         .await
         .with_context(|| "Error getting triggers")?;
