@@ -5,6 +5,7 @@ use fp_api_client::apis::default_api::{get_notebook, notebook_create};
 use fp_api_client::models::{Label, NewNotebook, TimeRange};
 use std::io::Write;
 use std::io::{self, BufWriter};
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
 use time::OffsetDateTime;
@@ -56,7 +57,7 @@ pub struct AddArgs {
     base_url: String,
 
     #[clap(from_global)]
-    config: Option<String>,
+    config: Option<PathBuf>,
 }
 
 async fn handle_add_command(args: AddArgs) -> Result<()> {
@@ -94,7 +95,7 @@ async fn handle_add_command(args: AddArgs) -> Result<()> {
         labels,
     };
 
-    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+    let config = api_client_configuration(args.config, &args.base_url).await?;
 
     debug!(?notebook, "creating new notebook");
     let notebook = notebook_create(&config, Some(notebook)).await?;
@@ -115,11 +116,11 @@ pub struct GetArgs {
     base_url: String,
 
     #[clap(from_global)]
-    config: Option<String>,
+    config: Option<PathBuf>,
 }
 
 async fn handle_get_command(args: GetArgs) -> Result<()> {
-    let config = api_client_configuration(args.config.as_deref(), &args.base_url).await?;
+    let config = api_client_configuration(args.config, &args.base_url).await?;
     trace!(id = ?args.id, "fetching notebook");
 
     let notebook = get_notebook(&config, &args.id).await?;

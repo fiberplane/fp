@@ -6,6 +6,7 @@ use manifest::Manifest;
 use once_cell::sync::Lazy;
 use std::fs::OpenOptions;
 use std::io::{stdout, Write};
+use std::path::PathBuf;
 use std::process;
 use std::time::{Duration, SystemTime};
 use std::{env, io};
@@ -50,9 +51,8 @@ pub struct Arguments {
     base_url: String,
 
     /// Path to Fiberplane config.toml file
-    #[clap(long, global = true)]
-    // TODO parse this as a PathBuf
-    config: Option<String>,
+    #[clap(long, global = true, env)]
+    config: Option<PathBuf>,
 
     /// Disables the version check
     #[clap(long, global = true, env)]
