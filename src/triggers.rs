@@ -130,7 +130,7 @@ async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {
         default_arguments,
         template_id: args.template_id.to_string(),
     };
-    let trigger = trigger_create(&config, Some(trigger))
+    let trigger = trigger_create(&config, trigger)
         .await
         .with_context(|| "Error creating trigger")?;
 
@@ -159,8 +159,7 @@ async fn handle_trigger_get_command(args: IndividualTriggerArguments) -> Result<
         .await
         .with_context(|| "Error getting trigger details")?;
 
-    // TODO add title to schema
-    // info!("Title: {}", trigger.title);
+    info!("Title: {}", trigger.title);
     info!("ID: {}", trigger.id);
     info!(
         "Invoke URL: {}/api/triggers/{}/<secret key returned when trigger was created>",
@@ -196,13 +195,10 @@ async fn handle_trigger_list_command(args: ListArguments) -> Result<()> {
 
         for trigger in triggers {
             info!(
-                "- Title:
+                "- Title: {}
   ID: {}
   Template ID: {}",
-                // TODO add title
-                // trigger.title,
-                trigger.id,
-                trigger.template_id,
+                trigger.title, trigger.id, trigger.template_id,
             );
         }
     }

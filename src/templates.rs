@@ -402,12 +402,12 @@ async fn handle_upload_command(args: UploadArguments) -> Result<()> {
         public: args.public,
     };
     if let Some(template_id) = args.template_id {
-        template_update(&config, &template_id.to_string(), Some(template))
+        template_update(&config, &template_id.to_string(), template)
             .await
             .with_context(|| format!("Error updating template {}", template_id))?;
         info!("Updated template");
     } else {
-        let template = template_create(&config, Some(template))
+        let template = template_create(&config, template)
             .await
             .with_context(|| "Error creating template")?;
         info!("Created template:");
