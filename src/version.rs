@@ -2,7 +2,7 @@ use crate::update::retrieve_latest_version;
 use crate::MANIFEST;
 use anyhow::Result;
 use clap::{ArgEnum, Parser};
-use std::io::Write;
+use std::io::prelude::*;
 use tracing::{debug, error, info};
 
 #[derive(Parser)]

@@ -25,6 +25,51 @@ lazy_static! {
     static ref NOTEBOOK_ID_REGEX: Regex = Regex::from_str("([a-zA-Z0-9_-]{22})$").unwrap();
 }
 
+#[derive(Parser)]
+pub struct Arguments {
+    #[clap(subcommand)]
+    sub_command: SubCommand,
+}
+
+#[derive(Parser)]
+enum SubCommand {
+    /// Initializes a blank template and save it in the current directory as template.jsonnet
+    #[clap()]
+    Init,
+
+    /// Expand a template into a Fiberplane notebook
+    #[clap()]
+    Expand(ExpandArguments),
+
+    /// Create a template from an existing Fiberplane notebook
+    #[clap()]
+    Convert(ConvertArguments),
+
+    /// Create a new template
+    #[clap()]
+    Create(CreateArguments),
+
+    /// Retrieve a single template
+    #[clap()]
+    Get(GetArguments),
+
+    /// Remove a template
+    #[clap()]
+    Remove(RemoveArguments),
+}
+
+pub async fn handle_command(args: Arguments) -> Result<()> {
+    use SubCommand::*;
+    match args.sub_command {
+        Init => handle_init_command().await,
+        Expand(args) => handle_expand_command(args).await,
+        Convert(args) => handle_convert_command(args).await,
+        Create(args) => handle_create_command(args).await,
+        Remove(args) => handle_delete_command(args).await,
+        Get(args) => handle_get_command(args).await,
+    }
+}
+
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct TemplateArguments(pub HashMap<String, Value>);
 
@@ -57,51 +102,6 @@ impl FromStr for TemplateArguments {
 }
 
 #[derive(Parser)]
-pub struct Arguments {
-    #[clap(subcommand)]
-    sub_command: SubCommand,
-}
-
-pub async fn handle_command(args: Arguments) -> Result<()> {
-    use SubCommand::*;
-    match args.sub_command {
-        Init => handle_init_command().await,
-        Expand(args) => handle_expand_command(args).await,
-        Convert(args) => handle_convert_command(args).await,
-        Upload(args) => handle_upload_command(args).await,
-        Delete(args) => handle_delete_command(args).await,
-        Get(args) => handle_get_command(args).await,
-    }
-}
-
-#[derive(Parser)]
-enum SubCommand {
-    /// Create a blank template and save it in the current directory as template.jsonnet
-    #[clap()]
-    Init,
-
-    /// Expand a template into a Fiberplane notebook
-    #[clap()]
-    Expand(ExpandArguments),
-
-    /// Create a template from an existing Fiberplane notebook
-    #[clap()]
-    Convert(ConvertArguments),
-
-    /// Upload the template to Fiberplane so it can be expanded via the web UI or API
-    #[clap()]
-    Upload(UploadArguments),
-
-    /// Get the details of a given template
-    #[clap(alias = "info")]
-    Get(GetArguments),
-
-    /// Delete the given template
-    #[clap()]
-    Delete(DeleteArguments),
-}
-
-#[derive(Parser)]
 struct ExpandArguments {
     /// ID or URL of a template already uploaded to Fiberplane,
     /// or the path or URL of a template file.
@@ -122,12 +122,6 @@ struct ExpandArguments {
 
 #[derive(Parser)]
 struct ConvertArguments {
-    #[clap(from_global)]
-    base_url: Url,
-
-    #[clap(from_global)]
-    config: Option<PathBuf>,
-
     /// Notebook ID or URL to convert. Pass - to read the Notebook JSON representation from stdin
     #[clap()]
     notebook: String,
@@ -155,23 +149,22 @@ struct ConvertArguments {
     /// If this is specified, save the template to the given file. If specified as "-", print it to stdout.
     #[clap(
         long,
-        short,
         conflicts_with = "title",
         conflicts_with = "description",
         conflicts_with = "public",
         conflicts_with = "template-id"
     )]
     out: Option<String>,
-}
 
-#[derive(Parser)]
-struct UploadArguments {
     #[clap(from_global)]
     base_url: Url,
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+}
 
+#[derive(Parser)]
+struct CreateArguments {
     /// Title of the template
     #[clap(long, required = true)]
     title: String,
@@ -181,9 +174,6 @@ struct UploadArguments {
     description: String,
 
     /// Whether to make the template publicly accessible.
-    /// This means that anyone outside of your organization can
-    /// view it, expand it into notebooks, and create triggers
-    /// that point to it.
     #[clap(long)]
     public: bool,
 
@@ -194,11 +184,17 @@ struct UploadArguments {
     /// Path or URL of template file to expand
     #[clap(value_hint = ValueHint::AnyPath)]
     template: String,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
 }
 
 #[derive(Parser)]
 struct GetArguments {
-    /// Template ID to delete
+    /// The ID of the template
     #[clap()]
     template_id: Base64Uuid,
 
@@ -210,8 +206,8 @@ struct GetArguments {
 }
 
 #[derive(Parser)]
-struct DeleteArguments {
-    /// Template ID to delete
+struct RemoveArguments {
+    /// The ID of the template
     #[clap()]
     template_id: Base64Uuid,
 
@@ -448,7 +444,7 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
     Ok(())
 }
 
-async fn handle_upload_command(args: UploadArguments) -> Result<()> {
+async fn handle_create_command(args: CreateArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
     let body = load_template(&args.template).await?;
     let template = NewTemplate {
@@ -497,12 +493,14 @@ async fn handle_get_command(args: GetArguments) -> Result<()> {
     Ok(())
 }
 
-async fn handle_delete_command(args: DeleteArguments) -> Result<()> {
+async fn handle_delete_command(args: RemoveArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
     let template_id = args.template_id;
+
     template_delete(&config, &template_id.to_string())
         .await
         .with_context(|| format!("Error deleting template {}", template_id))?;
-    info!("Deleted template");
+
+    info!(%template_id, "Deleted template");
     Ok(())
 }

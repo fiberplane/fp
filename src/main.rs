@@ -41,7 +41,7 @@ pub struct Arguments {
     #[clap(subcommand)]
     sub_command: SubCommand,
 
-    /// Base URL for requests to Fiberplane
+    /// Base URL to the Fiberplane API
     #[clap(
         long,
         default_value = "https://fiberplane.com",
@@ -50,7 +50,7 @@ pub struct Arguments {
     )]
     base_url: Url,
 
-    /// Path to Fiberplane config.toml file
+    /// Path to Fiberplane config file
     #[clap(long, global = true, env)]
     config: Option<PathBuf>,
 
@@ -79,32 +79,32 @@ enum SubCommand {
     #[clap()]
     Logout,
 
-    /// Commands related to Fiberplane Notebooks
-    #[clap(aliases = &["notebook", "n"])]
+    /// Interact with notebooks
+    #[clap(aliases = &["notebook"])]
     Notebooks(notebooks::Arguments),
 
-    /// Interact with Fiberplane Providers
-    #[clap()]
+    /// Interact with providers
+    #[clap(aliases = &["provider"])]
     Providers(providers::Arguments),
 
-    /// Commands related to Fiberplane Proxies
+    /// Interact with proxies
     #[clap(alias = "proxy")]
     Proxies(proxies::Arguments),
 
-    /// Commands related to Fiberplane Templates
+    /// Interact with templates
     #[clap(alias = "template")]
     Templates(templates::Arguments),
 
-    /// Interact with Fiberplane Triggers
+    /// Interact with triggers
     #[clap(alias = "trigger")]
     Triggers(triggers::Arguments),
 
-    /// Update the current binary
+    /// Update the current FP binary
     #[clap()]
     Update(update::Arguments),
 
     /// Display extra version information
-    #[clap(aliases = &["v"])]
+    #[clap()]
     Version(version::Arguments),
 }
 

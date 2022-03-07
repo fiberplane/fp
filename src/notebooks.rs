@@ -21,23 +21,25 @@ pub struct Arguments {
 
 #[derive(Parser)]
 pub enum SubCommand {
-    #[clap(name = "add", aliases = &["a"], about = "Creates an empty notebook")]
-    Add(AddArgs),
+    /// Create a new notebook
+    #[clap()]
+    Create(CreateArgs),
 
-    #[clap(name = "get", aliases = &["g"], about = "Get an notebook as JSON")]
+    /// Retrieve a single notebook
+    #[clap()]
     Get(GetArgs),
 }
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
     use SubCommand::*;
     match args.sub_command {
-        Add(args) => handle_add_command(args).await,
+        Create(args) => handle_add_command(args).await,
         Get(args) => handle_get_command(args).await,
     }
 }
 
 #[derive(Parser)]
-pub struct AddArgs {
+pub struct CreateArgs {
     /// Title for the new notebook
     #[clap(short, long)]
     title: Option<String>,
@@ -46,11 +48,11 @@ pub struct AddArgs {
     #[clap(name = "label", short, long)]
     labels: Vec<KeyValue>,
 
-    /// Start time to be passed into the new notebook. Leave empty to use 60 minutes ago.
+    /// Start time to be passed into the new notebook (RFC3339). Leave empty to use 60 minutes ago.
     #[clap(long, parse(try_from_str = clap_rfc3339::parse_rfc3339))]
     from: Option<OffsetDateTime>,
 
-    /// End time to be passed into the new notebook. Leave empty to use the current time.
+    /// End time to be passed into the new notebook (RFC3339). Leave empty to use the current time.
     #[clap(long, parse(try_from_str = clap_rfc3339::parse_rfc3339))]
     to: Option<OffsetDateTime>,
 
@@ -61,7 +63,7 @@ pub struct AddArgs {
     config: Option<PathBuf>,
 }
 
-async fn handle_add_command(args: AddArgs) -> Result<()> {
+async fn handle_add_command(args: CreateArgs) -> Result<()> {
     let title = args.title.unwrap_or_else(|| String::from("new title"));
 
     let labels = match args.labels.len() {
