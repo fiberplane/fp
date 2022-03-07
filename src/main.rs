@@ -117,7 +117,7 @@ async fn main() {
     let args = {
         match Arguments::try_parse() {
             Ok(arguments) => arguments,
-            Err(err) => match err.kind {
+            Err(err) => match err.kind() {
                 clap::ErrorKind::DisplayVersion => {
                     version::output_version().await;
                     process::exit(0);
