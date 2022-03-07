@@ -4,6 +4,7 @@ use base64uuid::Base64Uuid;
 use clap::{Parser, ValueHint};
 use fiberplane::protocols::core::{self, Cell, HeadingCell, HeadingType, TextCell, TimeRange};
 use fiberplane_templates::{notebook_to_template, TemplateExpander};
+use fp_api_client::apis::configuration::Configuration;
 use fp_api_client::apis::default_api::{
     get_notebook, notebook_create, proxy_data_sources_list, template_create, template_delete,
     template_expand, template_get, template_update,
@@ -127,13 +128,40 @@ struct ConvertArguments {
     #[clap(from_global)]
     config: Option<PathBuf>,
 
-    /// If specified, save the template to the given file. If not, write the template to stdout
-    #[clap(long, short)]
-    out: Option<PathBuf>,
-
-    /// Notebook URL to convert. Pass - to read the Notebook JSON representation from stdin
+    /// Notebook ID or URL to convert. Pass - to read the Notebook JSON representation from stdin
     #[clap()]
-    notebook_url: String,
+    notebook: String,
+
+    /// Title of the template (defaults to the notebook title)
+    #[clap(long)]
+    title: Option<String>,
+
+    /// Description of the template
+    #[clap(long, default_value = "")]
+    description: String,
+
+    /// Whether to make the template publicly accessible.
+    /// This means that anyone outside of your organization can
+    /// view it, expand it into notebooks, and create triggers
+    /// that point to it.
+    #[clap(long)]
+    public: bool,
+
+    /// Update the given template instead of creating a new one
+    #[clap(long)]
+    template_id: Option<Base64Uuid>,
+
+    /// By default (if this is not specified), the template will be uploaded to Fiberplane.
+    /// If this is specified, save the template to the given file. If specified as "-", print it to stdout.
+    #[clap(
+        long,
+        short,
+        conflicts_with = "title",
+        conflicts_with = "description",
+        conflicts_with = "public",
+        conflicts_with = "template-id"
+    )]
+    out: Option<String>,
 }
 
 #[derive(Parser)]
@@ -332,7 +360,8 @@ async fn expand_template_file(args: ExpandArguments) -> Result<Notebook> {
 }
 
 async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
-    let (notebook, notebook_id, url) = if args.notebook_url == "-" {
+    // Load the notebook from stdin or from the API
+    let (notebook, notebook_id, url) = if args.notebook == "-" {
         let mut notebook_json = String::new();
         io::stdin()
             .read_to_string(&mut notebook_json)
@@ -343,15 +372,15 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
         let url = format!("{}notebook/{}", args.base_url, &notebook.id);
         (notebook_json, notebook.id, url)
     } else {
-        let config = api_client_configuration(args.config, &args.base_url).await?;
+        let config = api_client_configuration(args.config.clone(), &args.base_url).await?;
         let id = &NOTEBOOK_ID_REGEX
-            .captures(&args.notebook_url)
+            .captures(&args.notebook)
             .ok_or_else(|| anyhow!("Notebook URL is invalid"))?[1];
         let notebook = get_notebook(&config, id)
             .await
             .with_context(|| "Error fetching notebook")?;
         let notebook = serde_json::to_string(&notebook)?;
-        (notebook, id.to_string(), args.notebook_url)
+        (notebook, id.to_string(), args.notebook)
     };
 
     // TODO remove the extra (de)serialization when we unify the generated API client
@@ -379,6 +408,7 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
         }
     }
 
+    let notebook_title = notebook.title.clone();
     let template = notebook_to_template(notebook);
     let template = format!(
         "
@@ -387,15 +417,32 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
 {}",
         url, template
     );
-    if let Some(mut path) = args.out {
-        // If the given path is a directory, add the filename
-        if path.file_name().is_none() {
-            path.push("template.jsonnet");
-        }
 
-        fs::write(path, template).await?;
-    } else {
-        io::stdout().write_all(template.as_bytes()).await?;
+    match &args.out {
+        // Upload the template
+        None => {
+            let template = NewTemplate {
+                title: args.title.unwrap_or(notebook_title),
+                description: args.description,
+                body: template,
+                public: args.public,
+            };
+            let config = api_client_configuration(args.config, &args.base_url).await?;
+            template_update_or_create(&config, args.template_id, template).await?;
+        }
+        // Write the template to stdout
+        Some(path) if path == "-" => {
+            io::stdout().write_all(template.as_bytes()).await?;
+        }
+        // Write the template to a file
+        Some(path) => {
+            let mut path = PathBuf::from(path);
+            // If the given path is a directory, add the filename
+            if path.is_dir() {
+                path.push("template.jsonnet");
+            }
+            fs::write(&path, template).await?;
+        }
     }
 
     Ok(())
@@ -410,7 +457,16 @@ async fn handle_upload_command(args: UploadArguments) -> Result<()> {
         body,
         public: args.public,
     };
-    if let Some(template_id) = args.template_id {
+    template_update_or_create(&config, args.template_id, template).await?;
+    Ok(())
+}
+
+async fn template_update_or_create(
+    config: &Configuration,
+    template_id: Option<Base64Uuid>,
+    template: NewTemplate,
+) -> Result<()> {
+    if let Some(template_id) = template_id {
         template_update(&config, &template_id.to_string(), template)
             .await
             .with_context(|| format!("Error updating template {}", template_id))?;
@@ -419,7 +475,7 @@ async fn handle_upload_command(args: UploadArguments) -> Result<()> {
         let template = template_create(&config, template)
             .await
             .with_context(|| "Error creating template")?;
-        info!("Created template:");
+        info!("Uploaded template:");
         println!("{}", template.id);
     }
     Ok(())
