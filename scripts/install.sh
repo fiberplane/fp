@@ -9,7 +9,7 @@ Darwin) target_os="apple-darwin" ;;
 esac
 
 case $(uname -m) in
-aarch64) target_arch="aarch64" ;;
+arm64) target_arch="aarch64" ;;
 *) target_arch="x86_64" ;;
 esac
 
