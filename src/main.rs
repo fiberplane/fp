@@ -80,22 +80,35 @@ enum SubCommand {
     Logout,
 
     /// Interact with notebooks
+    ///
+    /// Notebooks are the main resource that Studio exposes.
     #[clap(alias = "notebook")]
     Notebooks(notebooks::Arguments),
 
     /// Interact with providers
+    ///
+    /// Providers are wasm files that contain the logic to retrieve data based
+    /// on a query. This is being used by Studio and Proxy.
     #[clap(alias = "provider")]
     Providers(providers::Arguments),
 
-    /// Interact with proxies
+    /// Interact with Fiberplane proxies
+    ///
+    /// The Fiberplane proxy allows you to expose services that are hosted
+    /// within your network without exposing them or sharing credentials.
     #[clap(alias = "proxy")]
     Proxies(proxies::Arguments),
 
     /// Interact with templates
+    ///
+    /// Templates allow you to create notebooks based on jsonnet.
     #[clap(alias = "template")]
     Templates(templates::Arguments),
 
     /// Interact with triggers
+    ///
+    /// Triggers allow you to expose webhooks that will expand templates.
+    /// This could be used for alertmanager, for example.
     #[clap(alias = "trigger")]
     Triggers(triggers::Arguments),
 
