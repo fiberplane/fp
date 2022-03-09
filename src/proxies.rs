@@ -19,31 +19,30 @@ pub struct Arguments {
 
 #[derive(Parser)]
 pub enum SubCommand {
-    /// Add a new proxy for your organization.
-    /// This returns the token the Proxy will use to authenticate with Fiberplane
-    #[clap(name = "add")]
-    Add(AddArgs),
+    /// Create a new Proxy
+    #[clap()]
+    Create(CreateArgs),
 
-    /// List all proxies configured for your organization
-    #[clap(name = "list")]
+    /// List all proxies
+    #[clap()]
     List(GlobalArgs),
 
-    /// List all data sources configured for your organization
-    #[clap(name = "data-sources")]
+    /// List all data sources
+    #[clap()]
     DataSources(GlobalArgs),
 
-    /// Get the details of a given Proxy
-    #[clap(name = "inspect", alias = "info")]
-    Inspect(SingleProxyArgs),
+    /// Retrieve a single proxy
+    #[clap()]
+    Get(SingleProxyArgs),
 
-    /// Remove a proxy from your organization
-    #[clap(name = "remove")]
+    /// Remove a proxy
+    #[clap()]
     Remove(SingleProxyArgs),
 }
 
 #[derive(Parser)]
-pub struct AddArgs {
-    /// Proxy name (for example, you might name after different environments like production, staging, etc)
+pub struct CreateArgs {
+    /// Proxy name, leave empty to auto-generate a name
     #[clap()]
     name: Option<String>,
 
@@ -65,7 +64,7 @@ pub struct GlobalArgs {
 
 #[derive(Parser)]
 pub struct SingleProxyArgs {
-    /// ID of the proxy to inspect
+    /// ID of the proxy
     #[clap()]
     proxy_id: String,
 
@@ -79,15 +78,15 @@ pub struct SingleProxyArgs {
 pub async fn handle_command(args: Arguments) -> Result<()> {
     use SubCommand::*;
     match args.sub_command {
-        Add(args) => handle_add_command(args).await,
+        Create(args) => handle_add_command(args).await,
         List(args) => handle_list_command(args).await,
-        Inspect(args) => handle_inspect_command(args).await,
+        Get(args) => handle_inspect_command(args).await,
         DataSources(args) => handle_data_sources_command(args).await,
         Remove(args) => handle_remove_command(args).await,
     }
 }
 
-async fn handle_add_command(args: AddArgs) -> Result<()> {
+async fn handle_add_command(args: CreateArgs) -> Result<()> {
     let name = args.name.unwrap_or_else(|| petname(2, "-"));
     let config = api_client_configuration(args.config, &args.base_url).await?;
 

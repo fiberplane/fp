@@ -41,7 +41,7 @@ pub struct Arguments {
     #[clap(subcommand)]
     sub_command: SubCommand,
 
-    /// Base URL for requests to Fiberplane
+    /// Base URL to the Fiberplane API
     #[clap(
         long,
         default_value = "https://fiberplane.com",
@@ -50,7 +50,7 @@ pub struct Arguments {
     )]
     base_url: Url,
 
-    /// Path to Fiberplane config.toml file
+    /// Path to Fiberplane config file
     #[clap(long, global = true, env)]
     config: Option<PathBuf>,
 
@@ -79,32 +79,45 @@ enum SubCommand {
     #[clap()]
     Logout,
 
-    /// Commands related to Fiberplane Notebooks
-    #[clap(aliases = &["notebook", "n"])]
+    /// Interact with notebooks
+    ///
+    /// Notebooks are the main resource that Studio exposes.
+    #[clap(alias = "notebook")]
     Notebooks(notebooks::Arguments),
 
-    /// Interact with Fiberplane Providers
-    #[clap()]
+    /// Interact with providers
+    ///
+    /// Providers are wasm files that contain the logic to retrieve data based
+    /// on a query. This is being used by Studio and Proxy.
+    #[clap(alias = "provider")]
     Providers(providers::Arguments),
 
-    /// Commands related to Fiberplane Proxies
+    /// Interact with Fiberplane proxies
+    ///
+    /// The Fiberplane proxy allows you to expose services that are hosted
+    /// within your network without exposing them or sharing credentials.
     #[clap(alias = "proxy")]
     Proxies(proxies::Arguments),
 
-    /// Commands related to Fiberplane Templates
+    /// Interact with templates
+    ///
+    /// Templates allow you to create notebooks based on jsonnet.
     #[clap(alias = "template")]
     Templates(templates::Arguments),
 
-    /// Interact with Fiberplane Triggers
+    /// Interact with triggers
+    ///
+    /// Triggers allow you to expose webhooks that will expand templates.
+    /// This could be used for alertmanager, for example.
     #[clap(alias = "trigger")]
     Triggers(triggers::Arguments),
 
-    /// Update the current binary
+    /// Update the current FP binary
     #[clap()]
     Update(update::Arguments),
 
     /// Display extra version information
-    #[clap(aliases = &["v"])]
+    #[clap()]
     Version(version::Arguments),
 }
 
