@@ -80,11 +80,11 @@ enum SubCommand {
     Logout,
 
     /// Interact with notebooks
-    #[clap(aliases = &["notebook"])]
+    #[clap(alias = "notebook")]
     Notebooks(notebooks::Arguments),
 
     /// Interact with providers
-    #[clap(aliases = &["provider"])]
+    #[clap(alias = "provider")]
     Providers(providers::Arguments),
 
     /// Interact with proxies
