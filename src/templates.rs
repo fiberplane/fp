@@ -7,7 +7,8 @@ use fiberplane_templates::{notebook_to_template, TemplateExpander};
 use fp_api_client::apis::configuration::Configuration;
 use fp_api_client::apis::default_api::{
     get_notebook, notebook_create, proxy_data_sources_list, template_create, template_delete,
-    template_expand, template_get, template_list, template_update,
+    template_example_expand, template_example_list, template_expand, template_get, template_list,
+    template_update,
 };
 use fp_api_client::models::{NewNotebook, NewTemplate, Notebook};
 use lazy_static::lazy_static;
@@ -60,6 +61,22 @@ enum SubCommand {
     /// List of the templates that have been uploaded to Fiberplane
     #[clap()]
     List(ListArguments),
+
+    /// Interact with the official example templates
+    #[clap(subcommand)]
+    Examples(ExamplesSubCommand),
+}
+
+#[derive(Parser)]
+#[clap(alias = "example")]
+enum ExamplesSubCommand {
+    /// Expand one of the example templates
+    #[clap()]
+    Expand(ExpandExampleArguments),
+
+    /// List the example templates
+    #[clap()]
+    List(ListArguments),
 }
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
@@ -72,6 +89,10 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
         Remove(args) => handle_delete_command(args).await,
         Get(args) => handle_get_command(args).await,
         List(args) => handle_list_command(args).await,
+        Examples(args) => match args {
+            ExamplesSubCommand::Expand(args) => handle_expand_example_command(args).await,
+            ExamplesSubCommand::List(args) => handle_list_example_command(args).await,
+        },
     }
 }
 
@@ -214,6 +235,25 @@ struct RemoveArguments {
 
 #[derive(Parser)]
 struct ListArguments {
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
+#[derive(Parser)]
+struct ExpandExampleArguments {
+    /// Title or ID of the example template to expand
+    /// The title can be passed as a quoted string ("Incident Response") or as kebab-case ("root-cause-analysis")
+    #[clap()]
+    template: String,
+
+    /// Values to inject into the template
+    /// Can be passed as a JSON object or as a comma-separated list of key=value pairs
+    #[clap()]
+    template_arguments: Option<TemplateArguments>,
+
     #[clap(from_global)]
     base_url: Url,
 
@@ -517,6 +557,41 @@ async fn handle_list_command(args: ListArguments) -> Result<()> {
             "  Updated at: {}. Originally uploaded at: {}",
             template.updated_at, template.created_at
         );
+    }
+    Ok(())
+}
+
+async fn handle_expand_example_command(args: ExpandExampleArguments) -> Result<()> {
+    let template = args.template.clone();
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+
+    let templates = template_example_list(&config).await?;
+
+    let template = templates
+        .iter()
+        .find(|t| {
+            t.id == template
+                || t.title.to_lowercase() == template.to_lowercase()
+                || t.title.to_lowercase().replace(" ", "-") == template
+        })
+        .ok_or_else(|| anyhow!("Example template not found"))?;
+
+    let template_arguments = serde_json::to_value(&args.template_arguments.unwrap_or_default())?;
+    let notebook = template_example_expand(&config, &template.id, Some(template_arguments)).await?;
+    let notebook_url = format!("{}notebook/{}", args.base_url, notebook.id);
+    info!("Created notebook: {}", notebook_url);
+    Ok(())
+}
+
+async fn handle_list_example_command(args: ListArguments) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+
+    let templates = template_example_list(&config).await?;
+
+    for template in templates {
+        info!("- {}", template.title);
+        info!("  Description: {}", template.description);
+        info!("  ID: {}", template.id);
     }
     Ok(())
 }
