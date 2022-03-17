@@ -7,7 +7,7 @@ use fiberplane_templates::{notebook_to_template, TemplateExpander};
 use fp_api_client::apis::configuration::Configuration;
 use fp_api_client::apis::default_api::{
     get_notebook, notebook_create, proxy_data_sources_list, template_create, template_delete,
-    template_expand, template_get, template_update,
+    template_expand, template_get, template_list, template_update,
 };
 use fp_api_client::models::{NewNotebook, NewTemplate, Notebook};
 use lazy_static::lazy_static;
@@ -56,6 +56,10 @@ enum SubCommand {
     /// Remove a template
     #[clap()]
     Remove(RemoveArguments),
+
+    /// List of the templates that have been uploaded to Fiberplane
+    #[clap()]
+    List(ListArguments),
 }
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
@@ -67,6 +71,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
         Create(args) => handle_create_command(args).await,
         Remove(args) => handle_delete_command(args).await,
         Get(args) => handle_get_command(args).await,
+        List(args) => handle_list_command(args).await,
     }
 }
 
@@ -200,6 +205,15 @@ struct RemoveArguments {
     #[clap()]
     template_id: Base64Uuid,
 
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
+#[derive(Parser)]
+struct ListArguments {
     #[clap(from_global)]
     base_url: Url,
 
@@ -485,5 +499,24 @@ async fn handle_delete_command(args: RemoveArguments) -> Result<()> {
         .with_context(|| format!("Error deleting template {}", template_id))?;
 
     info!(%template_id, "Deleted template");
+    Ok(())
+}
+
+async fn handle_list_command(args: ListArguments) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+
+    let mut templates = template_list(&config).await?;
+    // Sort by updated at so that the most recent is first
+    templates.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+
+    for template in templates {
+        info!("- {}", template.title);
+        info!("  Description: {}", template.description);
+        info!("  ID: {}", template.id);
+        info!(
+            "  Updated at: {}. Originally uploaded at: {}",
+            template.updated_at, template.created_at
+        );
+    }
     Ok(())
 }
