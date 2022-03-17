@@ -134,13 +134,6 @@ struct ConvertArguments {
     #[clap(long, default_value = "")]
     description: String,
 
-    /// Whether to make the template publicly accessible.
-    /// This means that anyone outside of your organization can
-    /// view it, expand it into notebooks, and create triggers
-    /// that point to it.
-    #[clap(long)]
-    public: bool,
-
     /// Update the given template instead of creating a new one
     #[clap(long)]
     template_id: Option<Base64Uuid>,
@@ -172,10 +165,6 @@ struct CreateArguments {
     /// Description of the template
     #[clap(long, default_value = "")]
     description: String,
-
-    /// Whether to make the template publicly accessible.
-    #[clap(long)]
-    public: bool,
 
     /// Update the given template instead of creating a new one
     #[clap(long)]
@@ -421,7 +410,6 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
                 title: args.title.unwrap_or(notebook_title),
                 description: args.description,
                 body: template,
-                public: args.public,
             };
             let config = api_client_configuration(args.config, &args.base_url).await?;
             template_update_or_create(&config, args.template_id, template).await?;
@@ -451,7 +439,6 @@ async fn handle_create_command(args: CreateArguments) -> Result<()> {
         title: args.title,
         description: args.description,
         body,
-        public: args.public,
     };
     template_update_or_create(&config, args.template_id, template).await?;
     Ok(())
@@ -483,10 +470,6 @@ async fn handle_get_command(args: GetArguments) -> Result<()> {
     let template = template_get(&config, &args.template_id.to_string()).await?;
     info!("Title: {}", template.title);
     info!("Description: {}", template.description);
-    info!(
-        "Visibility: {}",
-        if template.public { "Public" } else { "Private" }
-    );
     info!("Body:");
     println!("{}", template.body);
 
