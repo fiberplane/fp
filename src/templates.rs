@@ -10,7 +10,7 @@ use fp_api_client::apis::default_api::{
     template_example_expand, template_example_list, template_expand, template_get, template_list,
     template_update,
 };
-use fp_api_client::models::{NewNotebook, NewTemplate, Notebook};
+use fp_api_client::models::{NewNotebook, NewTemplate, Notebook, TemplateParameter};
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -524,7 +524,9 @@ async fn handle_get_command(args: GetArguments) -> Result<()> {
     let template = template_get(&config, &args.template_id.to_string()).await?;
     info!("Title: {}", template.title);
     info!("Description: {}", template.description);
-    info!("Body:");
+    info!("Parameters:");
+    print_template_parameters(&template.parameters, 2);
+    info!("Body:\n");
     println!("{}", template.body);
 
     Ok(())
@@ -589,9 +591,80 @@ async fn handle_list_example_command(args: ListArguments) -> Result<()> {
     let templates = template_example_list(&config).await?;
 
     for template in templates {
-        info!("- {}", template.title);
+        info!("- {} (ID: {})", template.title, template.id);
         info!("  Description: {}", template.description);
-        info!("  ID: {}", template.id);
+        info!("  Parameters:");
+        print_template_parameters(&template.parameters, 4);
     }
     Ok(())
+}
+
+fn print_template_parameters(parameters: &[TemplateParameter], indent: usize) {
+    let indent = " ".repeat(indent);
+    for parameter in parameters {
+        match parameter {
+            TemplateParameter::StringTemplateParameter {
+                name,
+                default_value,
+            } => {
+                info!(
+                    "{}- {}: string (default: \"{}\")",
+                    indent,
+                    name,
+                    if let Some(default_value) = default_value {
+                        default_value
+                    } else {
+                        ""
+                    }
+                );
+            }
+            TemplateParameter::NumberTemplateParameter {
+                name,
+                default_value,
+            } => {
+                info!(
+                    "{}- {}: number (default: {})",
+                    indent,
+                    name,
+                    default_value.unwrap_or_default()
+                );
+            }
+            TemplateParameter::BooleanTemplateParameter {
+                name,
+                default_value,
+            } => {
+                info!(
+                    "{}- {}: boolean (default: {})",
+                    indent,
+                    name,
+                    default_value.unwrap_or_default()
+                );
+            }
+            TemplateParameter::ArrayTemplateParameter {
+                name,
+                default_value,
+            } => {
+                info!(
+                    "{}- {}: array (default: {})",
+                    indent,
+                    name,
+                    serde_json::to_string(&default_value).unwrap()
+                );
+            }
+            TemplateParameter::ObjectTemplateParameter {
+                name,
+                default_value,
+            } => {
+                info!(
+                    "{}- {}: object (default: {})",
+                    indent,
+                    name,
+                    serde_json::to_string(&default_value).unwrap()
+                );
+            }
+            TemplateParameter::UnknownTemplateParameter { name } => {
+                info!("{}- {}: (type unknown)", indent, name,);
+            }
+        }
+    }
 }
