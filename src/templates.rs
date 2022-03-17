@@ -135,6 +135,7 @@ struct ExpandArguments {
     template: String,
 
     /// Values to inject into the template
+    ///
     /// Can be passed as a JSON object or as a comma-separated list of key=value pairs
     #[clap()]
     template_arguments: Option<TemplateArguments>,
@@ -245,11 +246,13 @@ struct ListArguments {
 #[derive(Parser)]
 struct ExpandExampleArguments {
     /// Title or ID of the example template to expand
+    ///
     /// The title can be passed as a quoted string ("Incident Response") or as kebab-case ("root-cause-analysis")
     #[clap()]
     template: String,
 
     /// Values to inject into the template
+    ///
     /// Can be passed as a JSON object or as a comma-separated list of key=value pairs
     #[clap()]
     template_arguments: Option<TemplateArguments>,
