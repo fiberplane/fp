@@ -7,9 +7,10 @@ use fiberplane_templates::{notebook_to_template, TemplateExpander};
 use fp_api_client::apis::configuration::Configuration;
 use fp_api_client::apis::default_api::{
     get_notebook, notebook_create, proxy_data_sources_list, template_create, template_delete,
-    template_expand, template_get, template_update,
+    template_example_expand, template_example_list, template_expand, template_get, template_list,
+    template_update,
 };
-use fp_api_client::models::{NewNotebook, NewTemplate, Notebook};
+use fp_api_client::models::{NewNotebook, NewTemplate, Notebook, TemplateParameter};
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -56,6 +57,26 @@ enum SubCommand {
     /// Remove a template
     #[clap()]
     Remove(RemoveArguments),
+
+    /// List of the templates that have been uploaded to Fiberplane
+    #[clap()]
+    List(ListArguments),
+
+    /// Interact with the official example templates
+    #[clap(subcommand)]
+    Examples(ExamplesSubCommand),
+}
+
+#[derive(Parser)]
+#[clap(alias = "example")]
+enum ExamplesSubCommand {
+    /// Expand one of the example templates
+    #[clap()]
+    Expand(ExpandExampleArguments),
+
+    /// List the example templates
+    #[clap()]
+    List(ListArguments),
 }
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
@@ -67,6 +88,11 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
         Create(args) => handle_create_command(args).await,
         Remove(args) => handle_delete_command(args).await,
         Get(args) => handle_get_command(args).await,
+        List(args) => handle_list_command(args).await,
+        Examples(args) => match args {
+            ExamplesSubCommand::Expand(args) => handle_expand_example_command(args).await,
+            ExamplesSubCommand::List(args) => handle_list_example_command(args).await,
+        },
     }
 }
 
@@ -109,6 +135,7 @@ struct ExpandArguments {
     template: String,
 
     /// Values to inject into the template
+    ///
     /// Can be passed as a JSON object or as a comma-separated list of key=value pairs
     #[clap()]
     template_arguments: Option<TemplateArguments>,
@@ -199,6 +226,36 @@ struct RemoveArguments {
     /// The ID of the template
     #[clap()]
     template_id: Base64Uuid,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
+#[derive(Parser)]
+struct ListArguments {
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
+#[derive(Parser)]
+struct ExpandExampleArguments {
+    /// Title or ID of the example template to expand
+    ///
+    /// The title can be passed as a quoted string ("Incident Response") or as kebab-case ("root-cause-analysis")
+    #[clap()]
+    template: String,
+
+    /// Values to inject into the template
+    ///
+    /// Can be passed as a JSON object or as a comma-separated list of key=value pairs
+    #[clap()]
+    template_arguments: Option<TemplateArguments>,
 
     #[clap(from_global)]
     base_url: Url,
@@ -450,12 +507,12 @@ async fn template_update_or_create(
     template: NewTemplate,
 ) -> Result<()> {
     if let Some(template_id) = template_id {
-        template_update(&config, &template_id.to_string(), template)
+        template_update(config, &template_id.to_string(), template)
             .await
             .with_context(|| format!("Error updating template {}", template_id))?;
         info!("Updated template");
     } else {
-        let template = template_create(&config, template)
+        let template = template_create(config, template)
             .await
             .with_context(|| "Error creating template")?;
         info!("Uploaded template:");
@@ -470,7 +527,9 @@ async fn handle_get_command(args: GetArguments) -> Result<()> {
     let template = template_get(&config, &args.template_id.to_string()).await?;
     info!("Title: {}", template.title);
     info!("Description: {}", template.description);
-    info!("Body:");
+    info!("Parameters:");
+    print_template_parameters(template.parameters, 2);
+    info!("Body:\n");
     println!("{}", template.body);
 
     Ok(())
@@ -486,4 +545,129 @@ async fn handle_delete_command(args: RemoveArguments) -> Result<()> {
 
     info!(%template_id, "Deleted template");
     Ok(())
+}
+
+async fn handle_list_command(args: ListArguments) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+
+    let mut templates = template_list(&config).await?;
+    // Sort by updated at so that the most recent is first
+    templates.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+
+    for template in templates {
+        info!("- {}", template.title);
+        info!("  Description: {}", template.description);
+        info!("  ID: {}", template.id);
+        info!(
+            "  Updated at: {}. Originally uploaded at: {}",
+            template.updated_at, template.created_at
+        );
+    }
+    Ok(())
+}
+
+async fn handle_expand_example_command(args: ExpandExampleArguments) -> Result<()> {
+    let template = args.template.clone();
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+
+    // If the template is passed as an ID, just use it
+    // Otherwise, load the list of example templates and find the one with the given title
+    let template_id = if Base64Uuid::parse_str(&args.template).is_ok() {
+        template
+    } else {
+        let templates = template_example_list(&config).await?;
+
+        let kebab_case_title = template.to_lowercase().replace(' ', "-");
+        let template = templates
+            .into_iter()
+            .find(|t| t.title.to_lowercase().replace(' ', "-") == kebab_case_title)
+            .ok_or_else(|| anyhow!("Example template not found"))?;
+        template.id
+    };
+
+    let template_arguments = serde_json::to_value(&args.template_arguments.unwrap_or_default())?;
+    let notebook = template_example_expand(&config, &template_id, Some(template_arguments)).await?;
+    let notebook_url = format!("{}notebook/{}", args.base_url, notebook.id);
+    info!("Created notebook: {}", notebook_url);
+    Ok(())
+}
+
+async fn handle_list_example_command(args: ListArguments) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+
+    let templates = template_example_list(&config).await?;
+
+    for template in templates {
+        info!("- {} (ID: {})", template.title, template.id);
+        info!("  Description: {}", template.description);
+        info!("  Parameters:");
+        print_template_parameters(template.parameters, 4);
+    }
+    Ok(())
+}
+
+fn print_template_parameters(parameters: Vec<TemplateParameter>, indent: usize) {
+    let indent = " ".repeat(indent);
+    for parameter in parameters {
+        match parameter {
+            TemplateParameter::StringTemplateParameter {
+                name,
+                default_value,
+            } => {
+                info!(
+                    "{}- {}: string (default: \"{}\")",
+                    indent,
+                    name,
+                    default_value.unwrap_or_default()
+                );
+            }
+            TemplateParameter::NumberTemplateParameter {
+                name,
+                default_value,
+            } => {
+                info!(
+                    "{}- {}: number (default: {})",
+                    indent,
+                    name,
+                    default_value.unwrap_or_default()
+                );
+            }
+            TemplateParameter::BooleanTemplateParameter {
+                name,
+                default_value,
+            } => {
+                info!(
+                    "{}- {}: boolean (default: {})",
+                    indent,
+                    name,
+                    default_value.unwrap_or_default()
+                );
+            }
+            TemplateParameter::ArrayTemplateParameter {
+                name,
+                default_value,
+            } => {
+                info!(
+                    "{}- {}: array (default: {})",
+                    indent,
+                    name,
+                    serde_json::to_string(&default_value).unwrap()
+                );
+            }
+            TemplateParameter::ObjectTemplateParameter {
+                name,
+                default_value,
+            } => {
+                info!(
+                    "{}- {}: object (default: {})",
+                    indent,
+                    name,
+                    serde_json::to_string(&default_value).unwrap()
+                );
+            }
+            TemplateParameter::UnknownTemplateParameter { name } => {
+                info!("{}- {}: (type unknown)", indent, name,);
+            }
+        }
+    }
 }
