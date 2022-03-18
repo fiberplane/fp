@@ -507,12 +507,12 @@ async fn template_update_or_create(
     template: NewTemplate,
 ) -> Result<()> {
     if let Some(template_id) = template_id {
-        template_update(&config, &template_id.to_string(), template)
+        template_update(config, &template_id.to_string(), template)
             .await
             .with_context(|| format!("Error updating template {}", template_id))?;
         info!("Updated template");
     } else {
-        let template = template_create(&config, template)
+        let template = template_create(config, template)
             .await
             .with_context(|| "Error creating template")?;
         info!("Uploaded template:");
@@ -528,7 +528,7 @@ async fn handle_get_command(args: GetArguments) -> Result<()> {
     info!("Title: {}", template.title);
     info!("Description: {}", template.description);
     info!("Parameters:");
-    print_template_parameters(&template.parameters, 2);
+    print_template_parameters(template.parameters, 2);
     info!("Body:\n");
     println!("{}", template.body);
 
@@ -570,19 +570,23 @@ async fn handle_expand_example_command(args: ExpandExampleArguments) -> Result<(
     let template = args.template.clone();
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
-    let templates = template_example_list(&config).await?;
+    // If the template is passed as an ID, just use it
+    // Otherwise, load the list of example templates and find the one with the given title
+    let template_id = if Base64Uuid::parse_str(&args.template).is_ok() {
+        template
+    } else {
+        let templates = template_example_list(&config).await?;
 
-    let template = templates
-        .iter()
-        .find(|t| {
-            t.id == template
-                || t.title.to_lowercase() == template.to_lowercase()
-                || t.title.to_lowercase().replace(" ", "-") == template
-        })
-        .ok_or_else(|| anyhow!("Example template not found"))?;
+        let kebab_case_title = template.to_lowercase().replace(' ', "-");
+        let template = templates
+            .into_iter()
+            .find(|t| t.title.to_lowercase().replace(' ', "-") == kebab_case_title)
+            .ok_or_else(|| anyhow!("Example template not found"))?;
+        template.id
+    };
 
     let template_arguments = serde_json::to_value(&args.template_arguments.unwrap_or_default())?;
-    let notebook = template_example_expand(&config, &template.id, Some(template_arguments)).await?;
+    let notebook = template_example_expand(&config, &template_id, Some(template_arguments)).await?;
     let notebook_url = format!("{}notebook/{}", args.base_url, notebook.id);
     info!("Created notebook: {}", notebook_url);
     Ok(())
@@ -597,12 +601,12 @@ async fn handle_list_example_command(args: ListArguments) -> Result<()> {
         info!("- {} (ID: {})", template.title, template.id);
         info!("  Description: {}", template.description);
         info!("  Parameters:");
-        print_template_parameters(&template.parameters, 4);
+        print_template_parameters(template.parameters, 4);
     }
     Ok(())
 }
 
-fn print_template_parameters(parameters: &[TemplateParameter], indent: usize) {
+fn print_template_parameters(parameters: Vec<TemplateParameter>, indent: usize) {
     let indent = " ".repeat(indent);
     for parameter in parameters {
         match parameter {
@@ -614,11 +618,7 @@ fn print_template_parameters(parameters: &[TemplateParameter], indent: usize) {
                     "{}- {}: string (default: \"{}\")",
                     indent,
                     name,
-                    if let Some(default_value) = default_value {
-                        default_value
-                    } else {
-                        ""
-                    }
+                    default_value.unwrap_or_default()
                 );
             }
             TemplateParameter::NumberTemplateParameter {
