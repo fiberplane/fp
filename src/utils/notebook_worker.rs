@@ -5,7 +5,10 @@ use fiberplane::{
         core::*,
         formatting::{Annotation, AnnotationWithOffset, Mention},
         operations::*,
-        realtime::{self, ApplyOperationMessage, ClientRealtimeMessage, ServerRealtimeMessage},
+        realtime::{
+            self, ApplyOperationBatchMessage, ApplyOperationMessage, ClientRealtimeMessage,
+            ServerRealtimeMessage,
+        },
     },
 };
 use futures_util::{
@@ -420,11 +423,10 @@ impl Worker {
         Ok(())
     }
 
-    pub async fn replace_cell_content(
+    pub async fn replace_cell_sections_batch(
         &self,
         cell_id: &str,
-        new_content: &str,
-        section: Range<usize>,
+        sections: Vec<(Range<usize>, String)>,
     ) -> Result<()> {
         let cell = self
             .get_cell(cell_id)
@@ -433,27 +435,95 @@ impl Worker {
             .content()
             .ok_or_else(|| anyhow!("cell without content"))?;
 
-        let clamped =
-            std::cmp::min(section.start, content.len())..std::cmp::min(section.end, content.len());
-        let old_text = content
-            .get(clamped.clone())
-            .ok_or_else(|| {
-                anyhow!(
-                    "section [{:?}] outside content len {}",
-                    clamped,
-                    content.len()
-                )
-            })?
-            .to_string();
+        self.send_operations(ApplyOperationBatchMessage {
+            notebook_id: self.notebook_id.clone(),
+            operations: sections
+                .into_iter()
+                .map(|(section, new_text)| {
+                    let clamped = std::cmp::min(section.start, content.len())
+                        ..std::cmp::min(section.end, content.len());
+                    let old_text = content
+                        .get(clamped.clone())
+                        .ok_or_else(|| {
+                            let good_start = {
+                                let mut i = clamped.start;
+                                loop {
+                                    if content.is_char_boundary(i) {
+                                        break i;
+                                    }
+                                    i -= 1;
+                                }
+                            };
+                            let good_end = {
+                                let mut i2 = clamped.end;
+                                loop {
+                                    if content.is_char_boundary(i2) {
+                                        break i2;
+                                    }
+                                    i2 += 1;
+                                }
+                            };
+                            anyhow!(
+                                "section [{:?}] outside content len {}: >>>{}<<<",
+                                clamped,
+                                content.len(),
+                                content[good_start..good_end].escape_debug()
+                            )
+                        })
+                        .unwrap()
+                        .to_string();
+
+                    Operation::ReplaceText(ReplaceTextOperation {
+                        cell_id: cell_id.to_string(),
+                        offset: section.start as u32,
+                        new_text,
+                        new_formatting: None,
+                        old_text,
+                        old_formatting: None,
+                    })
+                })
+                .collect(),
+            revision: self.get_next_revision(),
+            op_id: Some(Uuid::new_v4().to_string()),
+        })
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn replace_cell_content(
+        &self,
+        cell_id: &str,
+        new_content: &str,
+        offset: u32,
+    ) -> Result<()> {
+        let cell = self
+            .get_cell(cell_id)
+            .ok_or_else(|| anyhow!("cell not found"))?;
+        let content = cell
+            .content()
+            .ok_or_else(|| anyhow!("cell without content"))?;
+
+        let offset_u = (offset as usize);
+
+        let content = if offset_u < content.len() {
+            &content[offset_u..]
+        } else {
+            content
+        };
+
+        if content == new_content {
+            return Ok(());
+        }
 
         self.send_operation(ApplyOperationMessage {
             notebook_id: self.notebook_id.clone(),
             operation: Operation::ReplaceText(ReplaceTextOperation {
                 cell_id: cell_id.to_string(),
-                offset: section.start as u32,
+                offset,
                 new_text: new_content.to_string(),
                 new_formatting: None,
-                old_text,
+                old_text: content.to_string(),
                 old_formatting: None,
             }),
             revision: self.get_next_revision(),
@@ -544,6 +614,33 @@ impl Worker {
         }
 
         Err(anyhow!("Failed to send operation after 3 retries"))
+    }
+    pub async fn send_operations(
+        &self,
+        mut message: ApplyOperationBatchMessage,
+    ) -> Result<ServerRealtimeMessage> {
+        let mut msg = None;
+        for _ in 1..=3 {
+            match self
+                .send_message(ClientRealtimeMessage::ApplyOperationBatch(Box::new(
+                    message.clone(),
+                )))
+                .await
+            {
+                Ok(ServerRealtimeMessage::Rejected(r)) => {
+                    msg = Some(r);
+                    message.revision = self.get_next_revision();
+                    message.op_id = Some(Uuid::new_v4().to_string());
+                    continue;
+                }
+                o => return o,
+            }
+        }
+
+        Err(anyhow!(
+            "Failed to send operation after 3 retries: {:?}",
+            msg
+        ))
     }
 
     async fn send_message(&self, message: ClientRealtimeMessage) -> Result<ServerRealtimeMessage> {

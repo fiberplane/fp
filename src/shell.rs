@@ -1,7 +1,5 @@
 use crate::utils::ansi::Action;
 use crate::utils::notebook_worker::Worker;
-use crate::{config::api_client_configuration, utils::ansi::Collector};
-use anes::parser::{KeyCode, KeyModifiers};
 use anyhow::{anyhow, Result};
 use clap::Parser;
 use fiberplane::protocols::core::{Cell, CodeCell};
@@ -9,9 +7,7 @@ use portable_pty::{native_pty_system, CommandBuilder, PtySize, PtySystem};
 //use pty_process::Command;
 use async_compat::CompatExt;
 use blocking::{unblock, Unblock};
-use std::cmp;
-use std::collections::VecDeque;
-use std::os::unix::io::AsRawFd;
+use std::ops::Range;
 use std::time::Duration;
 use std::{
     io::{Read, Write},
@@ -24,6 +20,7 @@ use tokio::{
     io::{AsyncReadExt as _, AsyncWriteExt as _},
 };
 use tracing::{error, info, instrument};
+use wezterm_term::{Line, Screen, TerminalConfiguration};
 
 #[derive(Parser)]
 pub struct Arguments {
@@ -72,10 +69,38 @@ impl Drop for RawGuard {
     }
 }
 
+#[derive(Debug)]
+struct TermSettings;
+
+impl TerminalConfiguration for TermSettings {
+    fn color_palette(&self) -> wezterm_term::color::ColorPalette {
+        wezterm_term::color::ColorPalette::default()
+    }
+}
+fn scroll_back_lines(screen: &Screen) -> impl Iterator<Item = &Line> {
+    screen
+        .lines
+        .iter()
+        .take(screen.lines.len() - screen.physical_rows)
+}
+
+fn scroll_back_char_len(screen: &Screen) -> u32 {
+    scroll_back_lines(screen)
+        .map(|l| l.as_str().trim_end().len() as u32)
+        .sum()
+}
+
+fn visible_lines(screen: &Screen) -> impl Iterator<Item = &Line> {
+    let line_idx = screen.lines.len() - screen.physical_rows;
+    screen
+        .lines
+        .iter()
+        .skip(line_idx)
+        .take(screen.physical_rows)
+}
+
 #[instrument(err, skip_all)]
 pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
-    use anes::parser::Sequence::*;
-    const NONE: KeyModifiers = KeyModifiers::empty();
     let shell_exe = std::env::var("SHELL").unwrap_or(DEFAULT_SHELL.to_string());
 
     let w = Arc::new(Worker::new(args.base_url.clone(), args.id.clone(), args.config).await?);
@@ -90,13 +115,24 @@ pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
 
     let mut f = File::create("./log.txt").await?;
 
-    let mut statemachine = vte::Parser::new();
-
-    let mut parser = anes::parser::Parser::default();
-
     let pty_system = native_pty_system();
 
     let (cols, rows) = crossterm::terminal::size()?;
+    let cols = cols.min(80);
+    let rows = rows.min(120);
+
+    let mut term = wezterm_term::Terminal::new(
+        wezterm_term::TerminalSize {
+            physical_rows: rows as usize,
+            physical_cols: cols as usize,
+            pixel_width: cols as usize * 4,
+            pixel_height: rows as usize * 8,
+        },
+        Arc::new(TermSettings {}),
+        &"xterm",
+        "",
+        Box::new(Vec::new()),
+    );
 
     let pair = pty_system.openpty(PtySize {
         rows,
@@ -123,15 +159,22 @@ pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
 
     let mut child_waiter = tokio::task::spawn_blocking(move || child.wait());
 
-    let mut buffer = String::new();
-    let mut cursor = buffer.len();
-
     let id = w
         .insert_cell(Cell::Code(CodeCell {
             read_only: Some(true),
             ..Default::default()
         }))
         .await?;
+
+    let mut buffer = String::new();
+    let mut line2range: Vec<Range<usize>> = vec![];
+
+    let mut interval = tokio::time::interval(Duration::from_millis(250));
+    let mut seqno = term.current_seqno();
+
+    let mut parser = termwiz::escape::parser::Parser::new();
+
+    let mut buf = String::with_capacity((rows * (cols + 1)) as usize);
 
     loop {
         tokio::select! {
@@ -151,58 +194,46 @@ pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
                     let data = &out_buf[..bytes];
                     stdout.write_all(data).await.unwrap();
                     stdout.flush().await.unwrap();
-                    /* parser.advance(data, false);
 
-                    let mut min_cursor = cursor;
-                    let mut max_cursor = cursor;
-
-                    for seq in &mut parser {
-                        match seq {
-                            Key(KeyCode::Char(c), NONE) => {
-                                buffer.insert(cursor, c);
-                                cursor += 1;
-                            }
-                            Key(KeyCode::Enter, NONE) => {
-                                buffer.insert(cursor, '\n');
-                                cursor += 1;
-                            }
-                            Key(KeyCode::Backspace, NONE) => {
-                                buffer.remove(if cursor > buffer.len() {
-                                    cursor - 1
-                                } else {
-                                    cursor
-                                });
-                                cursor -= 1;
-                            }
-                            Key(KeyCode::Left, NONE) => {
-                                cursor -= 1;
-                            }
-                            Key(KeyCode::Right, NONE) => {
-                                cursor += 1;
-                            },
-                            CursorPosition(x, y) => {
-
-                            }
-                            _ => {},
-                        }
-
-                        min_cursor = cmp::min(cursor, min_cursor);
-                        max_cursor = cmp::max(cursor, max_cursor);
+                    for a in parser.parse_as_vec(data) {
+                        f.write_all(format!("{:?}\n", a).as_bytes()).await?;
                     }
 
-                    w.replace_cell_content(&id, &buffer[min_cursor..max_cursor], min_cursor..max_cursor).await?; */
-                    let stripped = strip_ansi_escapes::strip(data)?;
-                    let utf8 = String::from_utf8_lossy(&stripped);
-                    w.append_cell_content(&id, &utf8);
+                    term.advance_bytes(data);
+
                 }
                 Err(e) => {
                     eprintln!("pty read failed: {:?}", e);
                     break;
                 }
             },
+            _ = interval.tick() => {
+                let screen = term.screen();
+                buf.clear();
+                for l in visible_lines(screen) {
+                    buf.push_str(l.as_str().trim_end());
+                    buf.push('\n');
+                }
+
+                let offset = scroll_back_char_len(screen);
+
+                w.replace_cell_content(&id, &buf, offset).await;
+                seqno = term.current_seqno();
+            },
             else => break,
         }
     }
+
+    /* f.write_all(
+        term.screen()
+            .lines
+            .iter()
+            .map(|l| l.as_str())
+            .collect::<Vec<_>>()
+            .join("\n")
+            .as_bytes(),
+    )
+    .await?; */
 
     Ok(())
 }
