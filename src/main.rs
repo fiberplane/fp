@@ -1,7 +1,10 @@
 use anyhow::{Context, Result};
 use clap::{AppSettings, IntoApp, Parser};
 use clap_complete::{generate, Shell};
+use cli_table::format::{Border, Justify, Separator};
+use cli_table::Table;
 use directories::ProjectDirs;
+use fp_api_client::models::{Proxy, Template};
 use manifest::Manifest;
 use once_cell::sync::Lazy;
 use std::fs::OpenOptions;
@@ -331,5 +334,70 @@ pub async fn background_version_check() -> Result<Option<String>> {
         Ok(Some(remote_version))
     } else {
         Ok(None)
+    }
+}
+
+fn default_list_separator() -> Separator {
+    use cli_table::format::{HorizontalLine, VerticalLine};
+    Separator::builder()
+        .column(Some(VerticalLine::new('|')))
+        .row(None)
+        .title(Some(HorizontalLine::new('+', '+', '+', '-')))
+        .build()
+}
+
+fn default_detail_separator() -> Separator {
+    Separator::builder().build()
+}
+
+fn default_detail_border() -> Border {
+    Border::builder().build()
+}
+
+#[derive(Table)]
+struct GenericKeyValue {
+    #[table(title = "key", justify = "Justify::Right")]
+    key: String,
+
+    #[table(title = "value")]
+    value: String,
+}
+
+impl GenericKeyValue {
+    #[must_use]
+    fn new(key: impl Into<String>, value: impl Into<String>) -> Self {
+        Self {
+            key: key.into(),
+            value: value.into(),
+        }
+    }
+
+    fn from_proxy(proxy: Proxy) -> Vec<GenericKeyValue> {
+        let datasources = if proxy.data_sources.is_empty() {
+            String::from("(none)")
+        } else {
+            let mut datasources = String::new();
+            for datasource in proxy.data_sources {
+                datasources
+                    .push_str(format!("{} ({:?})", datasource.name, datasource._type).as_str())
+            }
+            datasources
+        };
+
+        vec![
+            GenericKeyValue::new("Name:", proxy.name),
+            GenericKeyValue::new("ID:", proxy.id),
+            GenericKeyValue::new("Status:", proxy.status.to_string()),
+            GenericKeyValue::new("Datasources:", datasources),
+        ]
+    }
+
+    fn from_template(template: Template) -> Vec<GenericKeyValue> {
+        vec![
+            GenericKeyValue::new("Title:", template.title),
+            GenericKeyValue::new("ID:", template.id),
+            GenericKeyValue::new("Parameters:", template.parameters.len().to_string()),
+            GenericKeyValue::new("Body:", template.body),
+        ]
     }
 }
