@@ -1,7 +1,9 @@
 use crate::config::api_client_configuration;
+use crate::output::{output_details, output_list, GenericKeyValue};
 use anyhow::{anyhow, Context, Error, Result};
 use base64uuid::Base64Uuid;
 use clap::{Parser, ValueHint};
+use cli_table::Table;
 use fiberplane::protocols::core::{self, Cell, HeadingCell, HeadingType, TextCell, TimeRange};
 use fiberplane_templates::{notebook_to_template, TemplateExpander};
 use fp_api_client::apis::configuration::Configuration;
@@ -10,7 +12,9 @@ use fp_api_client::apis::default_api::{
     template_example_expand, template_example_list, template_expand, template_get, template_list,
     template_update,
 };
-use fp_api_client::models::{NewNotebook, NewTemplate, Notebook, TemplateParameter};
+use fp_api_client::models::{
+    NewNotebook, NewTemplate, Notebook, Template, TemplateParameter, TemplateSummary,
+};
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -77,6 +81,10 @@ enum ExamplesSubCommand {
     /// List the example templates
     #[clap()]
     List(ListArguments),
+
+    /// Get a single example templates
+    #[clap()]
+    Get(GetExampleArguments),
 }
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
@@ -92,6 +100,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
         Examples(args) => match args {
             ExamplesSubCommand::Expand(args) => handle_expand_example_command(args).await,
             ExamplesSubCommand::List(args) => handle_list_example_command(args).await,
+            ExamplesSubCommand::Get(args) => handle_get_example_command(args).await,
         },
     }
 }
@@ -256,6 +265,21 @@ struct ExpandExampleArguments {
     /// Can be passed as a JSON object or as a comma-separated list of key=value pairs
     #[clap()]
     template_arguments: Option<TemplateArguments>,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
+#[derive(Parser)]
+struct GetExampleArguments {
+    /// Title or ID of the example template to expand
+    ///
+    /// The title can be passed as a quoted string ("Incident Response") or as kebab-case ("root-cause-analysis")
+    #[clap()]
+    template: String,
 
     #[clap(from_global)]
     base_url: Url,
@@ -547,23 +571,56 @@ async fn handle_delete_command(args: RemoveArguments) -> Result<()> {
     Ok(())
 }
 
+#[derive(Table)]
+struct TemplateList {
+    #[table(title = "ID")]
+    id: String,
+
+    #[table(title = "Title")]
+    title: String,
+
+    #[table(title = "Updated at")]
+    updated_at: String,
+
+    #[table(title = "Created at")]
+    created_at: String,
+}
+
+impl From<TemplateSummary> for TemplateList {
+    fn from(template: TemplateSummary) -> Self {
+        Self {
+            id: template.id,
+            title: template.title,
+            updated_at: template.updated_at,
+            created_at: template.created_at,
+        }
+    }
+}
+
+impl From<Template> for TemplateList {
+    fn from(template: Template) -> Self {
+        Self {
+            id: template.id,
+            title: template.title,
+            updated_at: template.updated_at,
+            created_at: template.created_at,
+        }
+    }
+}
+
 async fn handle_list_command(args: ListArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
-    let mut templates = template_list(&config).await?;
+    let mut templates: Vec<TemplateList> = template_list(&config)
+        .await?
+        .into_iter()
+        .map(Into::into)
+        .collect();
+
     // Sort by updated at so that the most recent is first
     templates.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
 
-    for template in templates {
-        info!("- {}", template.title);
-        info!("  Description: {}", template.description);
-        info!("  ID: {}", template.id);
-        info!(
-            "  Updated at: {}. Originally uploaded at: {}",
-            template.updated_at, template.created_at
-        );
-    }
-    Ok(())
+    output_list(templates)
 }
 
 async fn handle_expand_example_command(args: ExpandExampleArguments) -> Result<()> {
@@ -595,15 +652,45 @@ async fn handle_expand_example_command(args: ExpandExampleArguments) -> Result<(
 async fn handle_list_example_command(args: ListArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
-    let templates = template_example_list(&config).await?;
+    let mut templates: Vec<TemplateList> = template_example_list(&config)
+        .await?
+        .into_iter()
+        .map(Into::into)
+        .collect();
 
-    for template in templates {
-        info!("- {} (ID: {})", template.title, template.id);
-        info!("  Description: {}", template.description);
-        info!("  Parameters:");
-        print_template_parameters(template.parameters, 4);
-    }
-    Ok(())
+    // Sort by updated at so that the most recent is first
+    templates.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+
+    output_list(templates)
+}
+
+async fn handle_get_example_command(args: GetExampleArguments) -> Result<()> {
+    // let template = args.template.clone();
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+
+    let template = {
+        let kebab_case_title = args.template.to_lowercase().replace(' ', "-");
+        template_example_list(&config)
+            .await?
+            .into_iter()
+            .find(|t| t.title.to_lowercase().replace(' ', "-") == kebab_case_title)
+            .ok_or_else(|| anyhow!("example template not found"))?
+    };
+
+    let template = GenericKeyValue::from_template(template);
+
+    output_details(template)
+
+    // // If the template is passed as an ID, just use it
+    // // Otherwise, load the list of example templates and find the one with the given title
+    // let template_id = if Base64Uuid::parse_str(&args.template).is_ok() {
+    //     template
+    // } else {
+    //     let template = templates
+    //         .into_iter()
+    //         .ok_or_else(|| anyhow!("Example template not found"))?;
+    //     template.id
+    // };
 }
 
 fn print_template_parameters(parameters: Vec<TemplateParameter>, indent: usize) {

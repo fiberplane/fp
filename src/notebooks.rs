@@ -1,12 +1,12 @@
 use crate::config::api_client_configuration;
-use anyhow::{anyhow, Error, Result};
+use crate::KeyValueArgument;
+use anyhow::Result;
 use clap::Parser;
 use fp_api_client::apis::default_api::{get_notebook, notebook_create};
 use fp_api_client::models::{Label, NewNotebook, TimeRange};
 use std::io::Write;
 use std::io::{self, BufWriter};
 use std::path::PathBuf;
-use std::str::FromStr;
 use std::time::Duration;
 use time::OffsetDateTime;
 use time_util::clap_rfc3339;
@@ -51,7 +51,7 @@ pub struct CreateArgs {
 
     /// Labels to attach to the newly created notebook (you can specify multiple labels).
     #[clap(name = "label", short, long)]
-    labels: Vec<KeyValue>,
+    labels: Vec<KeyValueArgument>,
 
     /// Start time to be passed into the new notebook (RFC3339). Leave empty to use 60 minutes ago.
     #[clap(long, parse(try_from_str = clap_rfc3339::parse_rfc3339))]
@@ -161,29 +161,4 @@ async fn handle_open_command(args: OpenArgs) -> Result<()> {
 
 fn notebook_url(base_url: Url, id: String) -> String {
     format!("{}notebook/{}", base_url, id)
-}
-
-pub struct KeyValue {
-    pub key: String,
-    pub value: String,
-}
-
-impl FromStr for KeyValue {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self> {
-        if s.is_empty() {
-            return Err(anyhow!("empty input"));
-        }
-
-        let (key, value) = match s.split_once('=') {
-            Some((key, value)) => (key, value),
-            None => (s, ""),
-        };
-
-        Ok(KeyValue {
-            key: key.to_owned(),
-            value: value.to_owned(),
-        })
-    }
 }

@@ -1,5 +1,8 @@
-use crate::update::retrieve_latest_version;
-use crate::MANIFEST;
+use crate::{
+    output::{output_details, GenericKeyValue},
+    update::retrieve_latest_version,
+    MANIFEST,
+};
 use anyhow::Result;
 use clap::{ArgEnum, Parser};
 use std::io::prelude::*;
@@ -34,7 +37,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
             Ok(())
         }
         OutputType::Verbose => {
-            output_verbose().await;
+            output_verbose().await?;
             Ok(())
         }
         OutputType::Json => output_json().await,
@@ -64,18 +67,10 @@ pub async fn output_version() {
     println!("{}", MANIFEST.build_version);
 }
 
-async fn output_verbose() {
-    println!("Build Timestamp: {}", MANIFEST.build_timestamp);
-    println!("Build Version: {}", MANIFEST.build_version);
-    println!("Commit Date: {}", MANIFEST.commit_date);
-    println!("Commit SHA: {}", MANIFEST.commit_sha);
-    println!("Commit Branch: {}", MANIFEST.commit_branch);
-    println!("rustc Version: {}", MANIFEST.rustc_version);
-    println!("rustc Channel: {}", MANIFEST.rustc_channel);
-    println!("rustc Host Triple {}", MANIFEST.rustc_host_triple);
-    println!("rustc Commit SHA {}", MANIFEST.rustc_commit_sha);
-    println!("cargo Target Triple {}", MANIFEST.cargo_target_triple);
-    println!("cargo Profile: {}", MANIFEST.cargo_profile);
+async fn output_verbose() -> Result<()> {
+    let manifest = GenericKeyValue::from_manifest(MANIFEST.clone());
+
+    output_details(manifest)
 }
 
 async fn output_json() -> Result<()> {

@@ -12,6 +12,7 @@ anyhow = "1.0"
 base64uuid = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main" }
 clap = { version = "3.0.5", features = ["derive", "env", "wrap_help"] }
 clap_complete = "3.0.6"
+cli-table = "0.4"
 directories = "4.0.1"
 fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main" }
 fiberplane-templates = { git = "ssh://git@github.com/fiberplane/templates.git", branch = "main" }
@@ -47,6 +48,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 url = "2.2"
 webbrowser = "0.6.0"
+
 
 [build-dependencies]
 anyhow = "1.0"
