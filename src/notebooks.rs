@@ -12,6 +12,7 @@ use time::OffsetDateTime;
 use time_util::clap_rfc3339;
 use tracing::{debug, info, trace};
 use url::Url;
+use webbrowser::open;
 
 #[derive(Parser)]
 pub struct Arguments {
@@ -28,6 +29,9 @@ pub enum SubCommand {
     /// Retrieve a single notebook
     #[clap()]
     Get(GetArgs),
+
+    /// Open a notebook in the studio
+    Open(OpenArgs),
 }
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
@@ -35,6 +39,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
     match args.sub_command {
         Create(args) => handle_add_command(args).await,
         Get(args) => handle_get_command(args).await,
+        Open(args) => handle_open_command(args).await,
     }
 }
 
@@ -122,6 +127,16 @@ pub struct GetArgs {
     config: Option<PathBuf>,
 }
 
+#[derive(Parser)]
+pub struct OpenArgs {
+    /// ID of the notebook
+    #[clap()]
+    id: String,
+
+    #[clap(from_global)]
+    base_url: Url,
+}
+
 async fn handle_get_command(args: GetArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
     trace!(id = ?args.id, "fetching notebook");
@@ -131,6 +146,15 @@ async fn handle_get_command(args: GetArgs) -> Result<()> {
     let mut writer = BufWriter::new(io::stdout());
     serde_json::to_writer_pretty(&mut writer, &notebook)?;
     writeln!(writer)?;
+
+    Ok(())
+}
+
+async fn handle_open_command(args: OpenArgs) -> Result<()> {
+    let url = notebook_url(args.base_url, args.id);
+    if open(&url).is_err() {
+        info!("Please go to {} to view the notebook", url);
+    }
 
     Ok(())
 }
