@@ -1,15 +1,14 @@
 use crate::config::api_client_configuration;
-use crate::{
-    default_detail_border, default_detail_separator, default_list_separator, GenericKeyValue,
-};
+use crate::{output_details, output_list, GenericKeyValue};
 use anyhow::{anyhow, Result};
 use clap::Parser;
-use cli_table::{print_stdout, Table, TableStruct, WithTitle};
+use cli_table::{Table, WithTitle};
 use fp_api_client::apis::default_api::{
     proxy_create, proxy_data_sources_list, proxy_delete, proxy_get, proxy_list,
 };
-use fp_api_client::models::{NewProxy, ProxySummary};
+use fp_api_client::models::{DataSourceAndProxySummary, NewProxy, ProxySummary};
 use petname::petname;
+use std::cmp::Ordering;
 use std::path::PathBuf;
 use tracing::info;
 use url::Url;
@@ -31,7 +30,7 @@ pub enum SubCommand {
     List(GlobalArgs),
 
     /// List all data sources
-    #[clap()]
+    #[clap(alias = "datasources")]
     DataSources(GlobalArgs),
 
     /// Retrieve a single proxy
@@ -99,15 +98,62 @@ async fn handle_add_command(args: CreateArgs) -> Result<()> {
 
     let token = proxy
         .token
+        .clone()
         .ok_or_else(|| anyhow!("Create proxy endpoint should have returned an API token"))?;
 
-    info!("Added proxy \"{}\"", proxy.name);
-    info!("Proxy API Token: {}", token);
+    let mut proxy = GenericKeyValue::from_proxy(proxy);
+    proxy.push(GenericKeyValue::new("Token", token));
+
+    output_details(proxy.table())
+}
+
+async fn handle_list_command(args: GlobalArgs) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let mut proxies = proxy_list(&config).await?;
+
+    // Show connected proxies first, and then sort alphabetically by name
+    proxies.sort_by(|a, b| {
+        use fp_api_client::models::ProxyConnectionStatus::*;
+        match (a.status, b.status) {
+            (Connected, Disconnected) => Ordering::Less,
+            (Disconnected, Connected) => Ordering::Greater,
+            _ => a.name.cmp(&b.name),
+        }
+    });
+
+    let proxies: Vec<ProxySummaryRow> = proxies.into_iter().map(Into::into).collect();
+
+    output_list(proxies.with_title())
+}
+
+async fn handle_get_command(args: SingleProxyArgs) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let proxy = proxy_get(&config, &args.proxy_id).await?;
+
+    let proxy = GenericKeyValue::from_proxy(proxy);
+
+    output_details(proxy.table())
+}
+
+async fn handle_data_sources_command(args: GlobalArgs) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let data_sources = proxy_data_sources_list(&config).await?;
+
+    let data_sources: Vec<DataSourceAndProxySummaryRow> =
+        data_sources.into_iter().map(Into::into).collect();
+
+    output_list(data_sources.with_title())
+}
+
+async fn handle_remove_command(args: SingleProxyArgs) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+    proxy_delete(&config, &args.proxy_id).await?;
+    info!("Removed proxy");
     Ok(())
 }
 
 #[derive(Table)]
-struct ProxyList {
+struct ProxySummaryRow {
     #[table(title = "ID")]
     id: String,
 
@@ -118,7 +164,7 @@ struct ProxyList {
     status: String,
 }
 
-impl From<ProxySummary> for ProxyList {
+impl From<ProxySummary> for ProxySummaryRow {
     fn from(proxy: ProxySummary) -> Self {
         Self {
             id: proxy.id,
@@ -128,66 +174,32 @@ impl From<ProxySummary> for ProxyList {
     }
 }
 
-async fn handle_list_command(args: GlobalArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let mut proxies: Vec<ProxyList> = proxy_list(&config)
-        .await?
-        .into_iter()
-        .map(Into::into)
-        .collect();
+#[derive(Table)]
+struct DataSourceAndProxySummaryRow {
+    #[table(title = "Name")]
+    name: String,
 
-    // Show connected proxies first, and then sort alphabetically by name
-    proxies.sort_by(|a, b| a.name.cmp(&b.name));
+    #[table(title = "Type")]
+    _type: String,
 
-    output_list(proxies.with_title())
+    #[table(title = "Proxy name")]
+    proxy_name: String,
+
+    #[table(title = "Proxy ID")]
+    proxy_id: String,
+
+    #[table(title = "Proxy status")]
+    proxy_status: String,
 }
 
-pub fn output_list(table: TableStruct) -> Result<()> {
-    print_stdout(
-        table
-            .border(default_detail_border())
-            .separator(default_detail_separator()),
-    )
-    .map_err(Into::into)
-}
-
-async fn handle_get_command(args: SingleProxyArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let proxy = proxy_get(&config, &args.proxy_id).await?;
-
-    let proxy = GenericKeyValue::from_proxy(proxy);
-
-    print_stdout(
-        proxy
-            .table()
-            .border(default_detail_border())
-            .separator(default_detail_separator()),
-    )
-    .map_err(Into::into)
-}
-
-async fn handle_data_sources_command(args: GlobalArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let data_sources = proxy_data_sources_list(&config).await?;
-
-    // TODO should we print something if there are no data sources?
-    for data_source in data_sources {
-        println!(
-            "- {} (Type: {:?}, Proxy: {}, Proxy ID: {}, Proxy Status: {:?})",
-            data_source.name,
-            data_source._type,
-            data_source.proxy.name,
-            data_source.proxy.id,
-            data_source.proxy.status
-        );
+impl From<DataSourceAndProxySummary> for DataSourceAndProxySummaryRow {
+    fn from(data_source_and_proxy_summary: DataSourceAndProxySummary) -> Self {
+        Self {
+            name: data_source_and_proxy_summary.name,
+            _type: data_source_and_proxy_summary._type.to_string(),
+            proxy_name: data_source_and_proxy_summary.proxy.name,
+            proxy_id: data_source_and_proxy_summary.proxy.id,
+            proxy_status: data_source_and_proxy_summary.proxy.status.to_string(),
+        }
     }
-
-    Ok(())
-}
-
-async fn handle_remove_command(args: SingleProxyArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    proxy_delete(&config, &args.proxy_id).await?;
-    info!("Removed proxy");
-    Ok(())
 }

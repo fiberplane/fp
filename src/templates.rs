@@ -1,7 +1,5 @@
 use crate::config::api_client_configuration;
-use crate::{
-    default_detail_border, default_detail_separator, default_list_separator, GenericKeyValue,
-};
+use crate::{output_details, output_list, GenericKeyValue};
 use anyhow::{anyhow, Context, Error, Result};
 use base64uuid::Base64Uuid;
 use clap::{Parser, ValueHint};
@@ -622,7 +620,7 @@ async fn handle_list_command(args: ListArguments) -> Result<()> {
     // Sort by updated at so that the most recent is first
     templates.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
 
-    print_stdout(templates.with_title().separator(default_list_separator())).map_err(Into::into)
+    output_list(templates.with_title())
 }
 
 async fn handle_expand_example_command(args: ExpandExampleArguments) -> Result<()> {
@@ -663,7 +661,7 @@ async fn handle_list_example_command(args: ListArguments) -> Result<()> {
     // Sort by updated at so that the most recent is first
     templates.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
 
-    print_stdout(templates.with_title().separator(default_list_separator())).map_err(Into::into)
+    output_list(templates.with_title())
 }
 
 async fn handle_get_example_command(args: GetExampleArguments) -> Result<()> {
@@ -681,13 +679,7 @@ async fn handle_get_example_command(args: GetExampleArguments) -> Result<()> {
 
     let template = GenericKeyValue::from_template(template);
 
-    print_stdout(
-        template
-            .table()
-            .border(default_detail_border())
-            .separator(default_detail_separator()),
-    )
-    .map_err(Into::into)
+    output_details(template.table())
 
     // // If the template is passed as an ID, just use it
     // // Otherwise, load the list of example templates and find the one with the given title

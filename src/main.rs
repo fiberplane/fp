@@ -2,9 +2,9 @@ use anyhow::{Context, Result};
 use clap::{AppSettings, IntoApp, Parser};
 use clap_complete::{generate, Shell};
 use cli_table::format::{Border, Justify, Separator};
-use cli_table::Table;
+use cli_table::{print_stdout, Table, TableStruct};
 use directories::ProjectDirs;
-use fp_api_client::models::{Proxy, Template};
+use fp_api_client::models::{Proxy, Template, Trigger};
 use manifest::Manifest;
 use once_cell::sync::Lazy;
 use std::fs::OpenOptions;
@@ -337,22 +337,6 @@ pub async fn background_version_check() -> Result<Option<String>> {
     }
 }
 
-fn default_list_separator() -> Separator {
-    Separator::builder().build()
-}
-
-fn default_list_border() -> Border {
-    Border::builder().build()
-}
-
-fn default_detail_separator() -> Separator {
-    Separator::builder().build()
-}
-
-fn default_detail_border() -> Border {
-    Border::builder().build()
-}
-
 #[derive(Table)]
 struct GenericKeyValue {
     #[table(title = "key", justify = "Justify::Right")]
@@ -399,4 +383,38 @@ impl GenericKeyValue {
             GenericKeyValue::new("Body:", template.body),
         ]
     }
+
+    fn from_trigger(trigger: Trigger, base_url: Url) -> Vec<GenericKeyValue> {
+        let invoke_url = format!(
+            "{}api/triggers/{}/{}",
+            base_url,
+            trigger.id,
+            trigger
+                .secret_key
+                .unwrap_or_else(|| String::from("<secret_key>"))
+        );
+
+        vec![
+            GenericKeyValue::new("Title:", trigger.title),
+            GenericKeyValue::new("ID:", trigger.id),
+            GenericKeyValue::new("Invoke URL:", invoke_url),
+            GenericKeyValue::new("Template ID:", trigger.template_id),
+        ]
+    }
+}
+pub fn output_list(table: TableStruct) -> Result<()> {
+    print_stdout(
+        table
+            .border(Border::builder().build())
+            .separator(Separator::builder().build()),
+    )
+    .map_err(Into::into)
+}
+
+pub fn output_details(args: TableStruct) -> Result<()> {
+    print_stdout(
+        args.border(Border::builder().build())
+            .separator(Separator::builder().build()),
+    )
+    .map_err(Into::into)
 }
