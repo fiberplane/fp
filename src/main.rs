@@ -338,12 +338,11 @@ pub async fn background_version_check() -> Result<Option<String>> {
 }
 
 fn default_list_separator() -> Separator {
-    use cli_table::format::{HorizontalLine, VerticalLine};
-    Separator::builder()
-        .column(Some(VerticalLine::new('|')))
-        .row(None)
-        .title(Some(HorizontalLine::new('+', '+', '+', '-')))
-        .build()
+    Separator::builder().build()
+}
+
+fn default_list_border() -> Border {
+    Border::builder().build()
 }
 
 fn default_detail_separator() -> Separator {

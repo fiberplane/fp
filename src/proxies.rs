@@ -4,7 +4,7 @@ use crate::{
 };
 use anyhow::{anyhow, Result};
 use clap::Parser;
-use cli_table::{print_stdout, Table, WithTitle};
+use cli_table::{print_stdout, Table, TableStruct, WithTitle};
 use fp_api_client::apis::default_api::{
     proxy_create, proxy_data_sources_list, proxy_delete, proxy_get, proxy_list,
 };
@@ -139,7 +139,16 @@ async fn handle_list_command(args: GlobalArgs) -> Result<()> {
     // Show connected proxies first, and then sort alphabetically by name
     proxies.sort_by(|a, b| a.name.cmp(&b.name));
 
-    print_stdout(proxies.with_title().separator(default_list_separator())).map_err(Into::into)
+    output_list(proxies.with_title())
+}
+
+pub fn output_list(table: TableStruct) -> Result<()> {
+    print_stdout(
+        table
+            .border(default_detail_border())
+            .separator(default_detail_separator()),
+    )
+    .map_err(Into::into)
 }
 
 async fn handle_get_command(args: SingleProxyArgs) -> Result<()> {
