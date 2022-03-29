@@ -1,5 +1,5 @@
 use crate::config::api_client_configuration;
-use crate::output::{output_details, output_list, GenericKeyValue};
+use crate::output::{output_details, output_list, GenericKeyValue, TemplateRow};
 use anyhow::{anyhow, Context, Error, Result};
 use base64uuid::Base64Uuid;
 use clap::{Parser, ValueHint};
@@ -571,47 +571,10 @@ async fn handle_delete_command(args: RemoveArguments) -> Result<()> {
     Ok(())
 }
 
-#[derive(Table)]
-struct TemplateList {
-    #[table(title = "ID")]
-    id: String,
-
-    #[table(title = "Title")]
-    title: String,
-
-    #[table(title = "Updated at")]
-    updated_at: String,
-
-    #[table(title = "Created at")]
-    created_at: String,
-}
-
-impl From<TemplateSummary> for TemplateList {
-    fn from(template: TemplateSummary) -> Self {
-        Self {
-            id: template.id,
-            title: template.title,
-            updated_at: template.updated_at,
-            created_at: template.created_at,
-        }
-    }
-}
-
-impl From<Template> for TemplateList {
-    fn from(template: Template) -> Self {
-        Self {
-            id: template.id,
-            title: template.title,
-            updated_at: template.updated_at,
-            created_at: template.created_at,
-        }
-    }
-}
-
 async fn handle_list_command(args: ListArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
-    let mut templates: Vec<TemplateList> = template_list(&config)
+    let mut templates: Vec<TemplateRow> = template_list(&config)
         .await?
         .into_iter()
         .map(Into::into)
@@ -652,7 +615,7 @@ async fn handle_expand_example_command(args: ExpandExampleArguments) -> Result<(
 async fn handle_list_example_command(args: ListArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
-    let mut templates: Vec<TemplateList> = template_example_list(&config)
+    let mut templates: Vec<TemplateRow> = template_example_list(&config)
         .await?
         .into_iter()
         .map(Into::into)
@@ -670,27 +633,19 @@ async fn handle_get_example_command(args: GetExampleArguments) -> Result<()> {
 
     let template = {
         let kebab_case_title = args.template.to_lowercase().replace(' ', "-");
+        let template_id = args.template;
         template_example_list(&config)
             .await?
             .into_iter()
-            .find(|t| t.title.to_lowercase().replace(' ', "-") == kebab_case_title)
+            .find(|t| {
+                t.id == template_id || t.title.to_lowercase().replace(' ', "-") == kebab_case_title
+            })
             .ok_or_else(|| anyhow!("example template not found"))?
     };
 
     let template = GenericKeyValue::from_template(template);
 
     output_details(template)
-
-    // // If the template is passed as an ID, just use it
-    // // Otherwise, load the list of example templates and find the one with the given title
-    // let template_id = if Base64Uuid::parse_str(&args.template).is_ok() {
-    //     template
-    // } else {
-    //     let template = templates
-    //         .into_iter()
-    //         .ok_or_else(|| anyhow!("Example template not found"))?;
-    //     template.id
-    // };
 }
 
 fn print_template_parameters(parameters: Vec<TemplateParameter>, indent: usize) {

@@ -173,3 +173,40 @@ impl From<DataSourceAndProxySummary> for DataSourceAndProxySummaryRow {
         }
     }
 }
+
+#[derive(Table)]
+pub struct TemplateRow {
+    #[table(title = "ID")]
+    pub id: String,
+
+    #[table(title = "Title")]
+    pub title: String,
+
+    #[table(title = "Updated at")]
+    pub updated_at: String,
+
+    #[table(title = "Created at")]
+    pub created_at: String,
+}
+
+impl From<TemplateSummary> for TemplateRow {
+    fn from(template: TemplateSummary) -> Self {
+        Self {
+            id: template.id,
+            title: template.title,
+            updated_at: template.updated_at,
+            created_at: template.created_at,
+        }
+    }
+}
+
+impl From<Template> for TemplateRow {
+    fn from(template: Template) -> Self {
+        Self {
+            id: template.id,
+            title: template.title,
+            updated_at: template.updated_at,
+            created_at: template.created_at,
+        }
+    }
+}
