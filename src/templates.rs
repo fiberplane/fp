@@ -1,8 +1,9 @@
 use crate::config::api_client_configuration;
-use crate::output::{output_details, output_list, GenericKeyValue, TemplateRow};
+use crate::output::{output_details, output_list, GenericKeyValue};
 use anyhow::{anyhow, Context, Error, Result};
 use base64uuid::Base64Uuid;
 use clap::{ArgEnum, Parser, ValueHint};
+use cli_table::Table;
 use fiberplane::protocols::core::{self, Cell, HeadingCell, HeadingType, TextCell, TimeRange};
 use fiberplane_templates::{notebook_to_template, TemplateExpander};
 use fp_api_client::apis::configuration::Configuration;
@@ -11,7 +12,9 @@ use fp_api_client::apis::default_api::{
     template_example_expand, template_example_list, template_expand, template_get, template_list,
     template_update,
 };
-use fp_api_client::models::{NewNotebook, NewTemplate, Notebook};
+use fp_api_client::models::{
+    NewNotebook, NewTemplate, Notebook, Template, TemplateParameter, TemplateSummary,
+};
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -642,7 +645,6 @@ async fn handle_list_example_command(args: ListArguments) -> Result<()> {
 }
 
 async fn handle_get_example_command(args: GetExampleArguments) -> Result<()> {
-    // let template = args.template.clone();
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
     let template = {
@@ -664,4 +666,121 @@ async fn handle_get_example_command(args: GetExampleArguments) -> Result<()> {
             Ok(())
         }
     }
+}
+
+#[derive(Table)]
+pub struct TemplateRow {
+    #[table(title = "Title")]
+    pub title: String,
+
+    #[table(title = "ID")]
+    pub id: String,
+
+    #[table(title = "Updated at")]
+    pub updated_at: String,
+
+    #[table(title = "Created at")]
+    pub created_at: String,
+}
+
+impl From<TemplateSummary> for TemplateRow {
+    fn from(template: TemplateSummary) -> Self {
+        Self {
+            id: template.id,
+            title: template.title,
+            updated_at: template.updated_at,
+            created_at: template.created_at,
+        }
+    }
+}
+
+impl From<Template> for TemplateRow {
+    fn from(template: Template) -> Self {
+        Self {
+            id: template.id,
+            title: template.title,
+            updated_at: template.updated_at,
+            created_at: template.created_at,
+        }
+    }
+}
+
+impl GenericKeyValue {
+    pub fn from_template(template: Template) -> Vec<GenericKeyValue> {
+        vec![
+            GenericKeyValue::new("Title:", template.title),
+            GenericKeyValue::new("ID:", template.id),
+            GenericKeyValue::new(
+                "Parameters:",
+                format_template_parameters(template.parameters),
+            ),
+        ]
+    }
+}
+
+fn format_template_parameters(parameters: Vec<TemplateParameter>) -> String {
+    if parameters.is_empty() {
+        return String::from("(none)");
+    }
+
+    let mut result: Vec<String> = vec![];
+    for parameter in parameters {
+        match parameter {
+            TemplateParameter::StringTemplateParameter {
+                name,
+                default_value,
+            } => {
+                result.push(format!(
+                    "{}: string (default: \"{}\")",
+                    name,
+                    default_value.unwrap_or_default()
+                ));
+            }
+            TemplateParameter::NumberTemplateParameter {
+                name,
+                default_value,
+            } => {
+                result.push(format!(
+                    "{}: number (default: {})",
+                    name,
+                    default_value.unwrap_or_default()
+                ));
+            }
+            TemplateParameter::BooleanTemplateParameter {
+                name,
+                default_value,
+            } => {
+                result.push(format!(
+                    "{}: boolean (default: {})",
+                    name,
+                    default_value.unwrap_or_default()
+                ));
+            }
+            TemplateParameter::ArrayTemplateParameter {
+                name,
+                default_value,
+            } => {
+                result.push(format!(
+                    "{}: array (default: {})",
+                    name,
+                    serde_json::to_string(&default_value).unwrap()
+                ));
+            }
+            TemplateParameter::ObjectTemplateParameter {
+                name,
+                default_value,
+            } => {
+                result.push(format!(
+                    "{}: object (default: {})",
+                    name,
+                    serde_json::to_string(&default_value).unwrap()
+                ));
+            }
+            TemplateParameter::UnknownTemplateParameter { name } => {
+                result.push(format!("{}: (type unknown)", name));
+            }
+        };
+    }
+
+    result.join("\n")
 }

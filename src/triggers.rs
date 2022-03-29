@@ -226,3 +226,23 @@ impl From<Trigger> for TriggerRow {
         }
     }
 }
+
+impl GenericKeyValue {
+    pub fn from_trigger(trigger: Trigger, base_url: Url) -> Vec<GenericKeyValue> {
+        let invoke_url = format!(
+            "{}api/triggers/{}/{}",
+            base_url,
+            trigger.id,
+            trigger
+                .secret_key
+                .unwrap_or_else(|| String::from("<secret_key>"))
+        );
+
+        vec![
+            GenericKeyValue::new("Title:", trigger.title),
+            GenericKeyValue::new("ID:", trigger.id),
+            GenericKeyValue::new("Invoke URL:", invoke_url),
+            GenericKeyValue::new("Template ID:", trigger.template_id),
+        ]
+    }
+}

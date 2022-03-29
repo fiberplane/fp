@@ -1,3 +1,4 @@
+use crate::output::GenericKeyValue;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -30,5 +31,23 @@ impl Manifest {
             cargo_target_triple: env!("VERGEN_CARGO_TARGET_TRIPLE").to_owned(),
             cargo_profile: env!("VERGEN_CARGO_PROFILE").to_owned(),
         }
+    }
+}
+
+impl GenericKeyValue {
+    pub fn from_manifest(manifest: Manifest) -> Vec<GenericKeyValue> {
+        vec![
+            GenericKeyValue::new("Build Timestamp:", manifest.build_timestamp),
+            GenericKeyValue::new("Build Version:", manifest.build_version),
+            GenericKeyValue::new("Commit Date:", manifest.commit_date),
+            GenericKeyValue::new("Commit SHA:", manifest.commit_sha),
+            GenericKeyValue::new("Commit Branch:", manifest.commit_branch),
+            GenericKeyValue::new("rustc Version:", manifest.rustc_version),
+            GenericKeyValue::new("rustc Channel:", manifest.rustc_channel),
+            GenericKeyValue::new("rustc Host Triple:", manifest.rustc_host_triple),
+            GenericKeyValue::new("rustc Commit SHA:", manifest.rustc_commit_sha),
+            GenericKeyValue::new("cargo Target Triple:", manifest.cargo_target_triple),
+            GenericKeyValue::new("cargo Profile:", manifest.cargo_profile),
+        ]
     }
 }
