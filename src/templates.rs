@@ -3,7 +3,6 @@ use crate::output::{output_details, output_list, GenericKeyValue, TemplateRow};
 use anyhow::{anyhow, Context, Error, Result};
 use base64uuid::Base64Uuid;
 use clap::{Parser, ValueHint};
-use cli_table::Table;
 use fiberplane::protocols::core::{self, Cell, HeadingCell, HeadingType, TextCell, TimeRange};
 use fiberplane_templates::{notebook_to_template, TemplateExpander};
 use fp_api_client::apis::configuration::Configuration;
@@ -12,9 +11,7 @@ use fp_api_client::apis::default_api::{
     template_example_expand, template_example_list, template_expand, template_get, template_list,
     template_update,
 };
-use fp_api_client::models::{
-    NewNotebook, NewTemplate, Notebook, Template, TemplateParameter, TemplateSummary,
-};
+use fp_api_client::models::{NewNotebook, NewTemplate, Notebook, TemplateParameter};
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
