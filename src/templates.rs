@@ -1,7 +1,9 @@
 use crate::config::api_client_configuration;
+use crate::output::{output_details, output_list, GenericKeyValue};
 use anyhow::{anyhow, Context, Error, Result};
 use base64uuid::Base64Uuid;
-use clap::{Parser, ValueHint};
+use clap::{ArgEnum, Parser, ValueHint};
+use cli_table::Table;
 use fiberplane::protocols::core::{self, Cell, HeadingCell, HeadingType, TextCell, TimeRange};
 use fiberplane_templates::{notebook_to_template, TemplateExpander};
 use fp_api_client::apis::configuration::Configuration;
@@ -10,7 +12,9 @@ use fp_api_client::apis::default_api::{
     template_example_expand, template_example_list, template_expand, template_get, template_list,
     template_update,
 };
-use fp_api_client::models::{NewNotebook, NewTemplate, Notebook, TemplateParameter};
+use fp_api_client::models::{
+    NewNotebook, NewTemplate, Notebook, Template, TemplateParameter, TemplateSummary,
+};
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -77,6 +81,10 @@ enum ExamplesSubCommand {
     /// List the example templates
     #[clap()]
     List(ListArguments),
+
+    /// Get a single example templates
+    #[clap()]
+    Get(GetExampleArguments),
 }
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
@@ -92,6 +100,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
         Examples(args) => match args {
             ExamplesSubCommand::Expand(args) => handle_expand_example_command(args).await,
             ExamplesSubCommand::List(args) => handle_list_example_command(args).await,
+            ExamplesSubCommand::Get(args) => handle_get_example_command(args).await,
         },
     }
 }
@@ -214,11 +223,24 @@ struct GetArguments {
     #[clap()]
     template_id: Base64Uuid,
 
+    /// Output of the template
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: TemplateOutput,
+
     #[clap(from_global)]
     base_url: Url,
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+}
+
+#[derive(ArgEnum, Clone)]
+enum TemplateOutput {
+    /// Output the details of the template as a table (excluding body)
+    Details,
+
+    /// Only output the body of the template
+    Body,
 }
 
 #[derive(Parser)]
@@ -256,6 +278,25 @@ struct ExpandExampleArguments {
     /// Can be passed as a JSON object or as a comma-separated list of key=value pairs
     #[clap()]
     template_arguments: Option<TemplateArguments>,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
+#[derive(Parser)]
+struct GetExampleArguments {
+    /// Title or ID of the example template to expand
+    ///
+    /// The title can be passed as a quoted string ("Incident Response") or as kebab-case ("root-cause-analysis")
+    #[clap()]
+    template: String,
+
+    /// Output of the template
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: TemplateOutput,
 
     #[clap(from_global)]
     base_url: Url,
@@ -525,14 +566,14 @@ async fn handle_get_command(args: GetArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
     let template = template_get(&config, &args.template_id.to_string()).await?;
-    info!("Title: {}", template.title);
-    info!("Description: {}", template.description);
-    info!("Parameters:");
-    print_template_parameters(template.parameters, 2);
-    info!("Body:\n");
-    println!("{}", template.body);
 
-    Ok(())
+    match args.output {
+        TemplateOutput::Details => output_details(GenericKeyValue::from_template(template)),
+        TemplateOutput::Body => {
+            println!("{}", template.body);
+            Ok(())
+        }
+    }
 }
 
 async fn handle_delete_command(args: RemoveArguments) -> Result<()> {
@@ -550,20 +591,16 @@ async fn handle_delete_command(args: RemoveArguments) -> Result<()> {
 async fn handle_list_command(args: ListArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
-    let mut templates = template_list(&config).await?;
+    let mut templates: Vec<TemplateRow> = template_list(&config)
+        .await?
+        .into_iter()
+        .map(Into::into)
+        .collect();
+
     // Sort by updated at so that the most recent is first
     templates.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
 
-    for template in templates {
-        info!("- {}", template.title);
-        info!("  Description: {}", template.description);
-        info!("  ID: {}", template.id);
-        info!(
-            "  Updated at: {}. Originally uploaded at: {}",
-            template.updated_at, template.created_at
-        );
-    }
-    Ok(())
+    output_list(templates)
 }
 
 async fn handle_expand_example_command(args: ExpandExampleArguments) -> Result<()> {
@@ -595,79 +632,155 @@ async fn handle_expand_example_command(args: ExpandExampleArguments) -> Result<(
 async fn handle_list_example_command(args: ListArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
-    let templates = template_example_list(&config).await?;
+    let mut templates: Vec<TemplateRow> = template_example_list(&config)
+        .await?
+        .into_iter()
+        .map(Into::into)
+        .collect();
 
-    for template in templates {
-        info!("- {} (ID: {})", template.title, template.id);
-        info!("  Description: {}", template.description);
-        info!("  Parameters:");
-        print_template_parameters(template.parameters, 4);
-    }
-    Ok(())
+    // Sort by updated at so that the most recent is first
+    templates.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+
+    output_list(templates)
 }
 
-fn print_template_parameters(parameters: Vec<TemplateParameter>, indent: usize) {
-    let indent = " ".repeat(indent);
+async fn handle_get_example_command(args: GetExampleArguments) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+
+    let template = {
+        let kebab_case_title = args.template.to_lowercase().replace(' ', "-");
+        let template_id = args.template;
+        template_example_list(&config)
+            .await?
+            .into_iter()
+            .find(|t| {
+                t.id == template_id || t.title.to_lowercase().replace(' ', "-") == kebab_case_title
+            })
+            .ok_or_else(|| anyhow!("example template not found"))?
+    };
+
+    match args.output {
+        TemplateOutput::Details => output_details(GenericKeyValue::from_template(template)),
+        TemplateOutput::Body => {
+            println!("{}", template.body);
+            Ok(())
+        }
+    }
+}
+
+#[derive(Table)]
+pub struct TemplateRow {
+    #[table(title = "Title")]
+    pub title: String,
+
+    #[table(title = "ID")]
+    pub id: String,
+
+    #[table(title = "Updated at")]
+    pub updated_at: String,
+
+    #[table(title = "Created at")]
+    pub created_at: String,
+}
+
+impl From<TemplateSummary> for TemplateRow {
+    fn from(template: TemplateSummary) -> Self {
+        Self {
+            id: template.id,
+            title: template.title,
+            updated_at: template.updated_at,
+            created_at: template.created_at,
+        }
+    }
+}
+
+impl From<Template> for TemplateRow {
+    fn from(template: Template) -> Self {
+        Self {
+            id: template.id,
+            title: template.title,
+            updated_at: template.updated_at,
+            created_at: template.created_at,
+        }
+    }
+}
+
+impl GenericKeyValue {
+    pub fn from_template(template: Template) -> Vec<GenericKeyValue> {
+        vec![
+            GenericKeyValue::new("Title:", template.title),
+            GenericKeyValue::new("ID:", template.id),
+            GenericKeyValue::new(
+                "Parameters:",
+                format_template_parameters(template.parameters),
+            ),
+        ]
+    }
+}
+
+fn format_template_parameters(parameters: Vec<TemplateParameter>) -> String {
+    if parameters.is_empty() {
+        return String::from("(none)");
+    }
+
+    let mut result: Vec<String> = vec![];
     for parameter in parameters {
         match parameter {
             TemplateParameter::StringTemplateParameter {
                 name,
                 default_value,
             } => {
-                info!(
-                    "{}- {}: string (default: \"{}\")",
-                    indent,
+                result.push(format!(
+                    "{}: string (default: \"{}\")",
                     name,
                     default_value.unwrap_or_default()
-                );
+                ));
             }
             TemplateParameter::NumberTemplateParameter {
                 name,
                 default_value,
             } => {
-                info!(
-                    "{}- {}: number (default: {})",
-                    indent,
+                result.push(format!(
+                    "{}: number (default: {})",
                     name,
                     default_value.unwrap_or_default()
-                );
+                ));
             }
             TemplateParameter::BooleanTemplateParameter {
                 name,
                 default_value,
             } => {
-                info!(
-                    "{}- {}: boolean (default: {})",
-                    indent,
+                result.push(format!(
+                    "{}: boolean (default: {})",
                     name,
                     default_value.unwrap_or_default()
-                );
+                ));
             }
             TemplateParameter::ArrayTemplateParameter {
                 name,
                 default_value,
             } => {
-                info!(
-                    "{}- {}: array (default: {})",
-                    indent,
+                result.push(format!(
+                    "{}: array (default: {})",
                     name,
                     serde_json::to_string(&default_value).unwrap()
-                );
+                ));
             }
             TemplateParameter::ObjectTemplateParameter {
                 name,
                 default_value,
             } => {
-                info!(
-                    "{}- {}: object (default: {})",
-                    indent,
+                result.push(format!(
+                    "{}: object (default: {})",
                     name,
                     serde_json::to_string(&default_value).unwrap()
-                );
+                ));
             }
             TemplateParameter::UnknownTemplateParameter { name } => {
-                info!("{}- {}: (type unknown)", indent, name,);
+                result.push(format!("{}: (type unknown)", name));
             }
-        }
+        };
     }
+
+    result.join("\n")
 }

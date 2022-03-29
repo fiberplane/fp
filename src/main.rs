@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Error, Result};
 use clap::{AppSettings, IntoApp, Parser};
 use clap_complete::{generate, Shell};
 use directories::ProjectDirs;
@@ -8,6 +8,7 @@ use std::fs::OpenOptions;
 use std::io::{stdout, Write};
 use std::path::PathBuf;
 use std::process;
+use std::str::FromStr;
 use std::time::{Duration, SystemTime};
 use std::{env, io};
 use tokio::time::timeout;
@@ -21,6 +22,7 @@ mod auth;
 mod config;
 mod manifest;
 mod notebooks;
+mod output;
 mod providers;
 mod proxies;
 mod templates;
@@ -331,5 +333,30 @@ pub async fn background_version_check() -> Result<Option<String>> {
         Ok(Some(remote_version))
     } else {
         Ok(None)
+    }
+}
+
+pub struct KeyValueArgument {
+    pub key: String,
+    pub value: String,
+}
+
+impl FromStr for KeyValueArgument {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        if s.is_empty() {
+            return Err(anyhow!("empty input"));
+        }
+
+        let (key, value) = match s.split_once('=') {
+            Some((key, value)) => (key, value),
+            None => (s, ""),
+        };
+
+        Ok(KeyValueArgument {
+            key: key.to_owned(),
+            value: value.to_owned(),
+        })
     }
 }
