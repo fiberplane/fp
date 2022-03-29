@@ -79,7 +79,6 @@ impl GenericKeyValue {
                 "Parameters:",
                 format_template_parameters(template.parameters),
             ),
-            GenericKeyValue::new("Body:", template.body),
         ]
     }
 

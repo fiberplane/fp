@@ -2,7 +2,7 @@ use crate::config::api_client_configuration;
 use crate::output::{output_details, output_list, GenericKeyValue, TemplateRow};
 use anyhow::{anyhow, Context, Error, Result};
 use base64uuid::Base64Uuid;
-use clap::{Parser, ValueHint};
+use clap::{ArgEnum, Parser, ValueHint};
 use fiberplane::protocols::core::{self, Cell, HeadingCell, HeadingType, TextCell, TimeRange};
 use fiberplane_templates::{notebook_to_template, TemplateExpander};
 use fp_api_client::apis::configuration::Configuration;
@@ -220,11 +220,24 @@ struct GetArguments {
     #[clap()]
     template_id: Base64Uuid,
 
+    /// Output of the template
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: TemplateOutput,
+
     #[clap(from_global)]
     base_url: Url,
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+}
+
+#[derive(ArgEnum, Clone)]
+enum TemplateOutput {
+    /// Output the details of the template as a table (excluding body)
+    Details,
+
+    /// Only output the body of the template
+    Body,
 }
 
 #[derive(Parser)]
@@ -277,6 +290,10 @@ struct GetExampleArguments {
     /// The title can be passed as a quoted string ("Incident Response") or as kebab-case ("root-cause-analysis")
     #[clap()]
     template: String,
+
+    /// Output of the template
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: TemplateOutput,
 
     #[clap(from_global)]
     base_url: Url,
@@ -547,7 +564,13 @@ async fn handle_get_command(args: GetArguments) -> Result<()> {
 
     let template = template_get(&config, &args.template_id.to_string()).await?;
 
-    output_details(GenericKeyValue::from_template(template))
+    match args.output {
+        TemplateOutput::Details => output_details(GenericKeyValue::from_template(template)),
+        TemplateOutput::Body => {
+            println!("{}", template.body);
+            Ok(())
+        }
+    }
 }
 
 async fn handle_delete_command(args: RemoveArguments) -> Result<()> {
@@ -634,5 +657,11 @@ async fn handle_get_example_command(args: GetExampleArguments) -> Result<()> {
             .ok_or_else(|| anyhow!("example template not found"))?
     };
 
-    output_details(GenericKeyValue::from_template(template))
+    match args.output {
+        TemplateOutput::Details => output_details(GenericKeyValue::from_template(template)),
+        TemplateOutput::Body => {
+            println!("{}", template.body);
+            Ok(())
+        }
+    }
 }
