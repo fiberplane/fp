@@ -182,6 +182,9 @@ struct DataSourceAndProxySummaryRow {
     #[table(title = "Type")]
     _type: String,
 
+    #[table(title = "Status")]
+    status: String,
+
     #[table(title = "Proxy name")]
     proxy_name: String,
 
@@ -197,6 +200,9 @@ impl From<DataSourceAndProxySummary> for DataSourceAndProxySummaryRow {
         Self {
             name: data_source_and_proxy_summary.name,
             _type: data_source_and_proxy_summary._type.to_string(),
+            status: data_source_and_proxy_summary
+                .error_message
+                .unwrap_or_else(|| "connected".to_string()),
             proxy_name: data_source_and_proxy_summary.proxy.name,
             proxy_id: data_source_and_proxy_summary.proxy.id,
             proxy_status: data_source_and_proxy_summary.proxy.status.to_string(),
