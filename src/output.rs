@@ -58,8 +58,7 @@ impl GenericKeyValue {
         } else {
             let mut datasources = String::new();
             for datasource in proxy.data_sources {
-                datasources
-                    .push_str(format!("{} ({:?})", datasource.name, datasource._type).as_str())
+                datasources.push_str(&format!("{} ({:?})\n", datasource.name, datasource._type))
             }
             datasources
         };
@@ -76,7 +75,10 @@ impl GenericKeyValue {
         vec![
             GenericKeyValue::new("Title:", template.title),
             GenericKeyValue::new("ID:", template.id),
-            GenericKeyValue::new("Parameters:", template.parameters.len().to_string()),
+            GenericKeyValue::new(
+                "Parameters:",
+                format_template_parameters(template.parameters),
+            ),
             GenericKeyValue::new("Body:", template.body),
         ]
     }
@@ -176,11 +178,11 @@ impl From<DataSourceAndProxySummary> for DataSourceAndProxySummaryRow {
 
 #[derive(Table)]
 pub struct TemplateRow {
-    #[table(title = "ID")]
-    pub id: String,
-
     #[table(title = "Title")]
     pub title: String,
+
+    #[table(title = "ID")]
+    pub id: String,
 
     #[table(title = "Updated at")]
     pub updated_at: String,
@@ -209,4 +211,71 @@ impl From<Template> for TemplateRow {
             created_at: template.created_at,
         }
     }
+}
+
+fn format_template_parameters(parameters: Vec<TemplateParameter>) -> String {
+    if parameters.is_empty() {
+        return String::from("(none)");
+    }
+
+    let mut result: Vec<String> = vec![];
+    for parameter in parameters {
+        match parameter {
+            TemplateParameter::StringTemplateParameter {
+                name,
+                default_value,
+            } => {
+                result.push(format!(
+                    "{}: string (default: \"{}\")",
+                    name,
+                    default_value.unwrap_or_default()
+                ));
+            }
+            TemplateParameter::NumberTemplateParameter {
+                name,
+                default_value,
+            } => {
+                result.push(format!(
+                    "{}: number (default: {})",
+                    name,
+                    default_value.unwrap_or_default()
+                ));
+            }
+            TemplateParameter::BooleanTemplateParameter {
+                name,
+                default_value,
+            } => {
+                result.push(format!(
+                    "{}: boolean (default: {})",
+                    name,
+                    default_value.unwrap_or_default()
+                ));
+            }
+            TemplateParameter::ArrayTemplateParameter {
+                name,
+                default_value,
+            } => {
+                result.push(format!(
+                    "{}: array (default: {})",
+                    name,
+                    serde_json::to_string(&default_value).unwrap()
+                ));
+            }
+            TemplateParameter::ObjectTemplateParameter {
+                name,
+                default_value,
+            } => {
+                result.push(format!(
+                    "{}: object (default: {})",
+                    name,
+                    serde_json::to_string(&default_value).unwrap()
+                ));
+            }
+            TemplateParameter::UnknownTemplateParameter { name } => {
+                result.push(format!("{}: (type unknown)", name));
+            }
+        };
+    }
+
+    result.join("\n")
 }

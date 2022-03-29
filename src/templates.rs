@@ -11,7 +11,7 @@ use fp_api_client::apis::default_api::{
     template_example_expand, template_example_list, template_expand, template_get, template_list,
     template_update,
 };
-use fp_api_client::models::{NewNotebook, NewTemplate, Notebook, TemplateParameter};
+use fp_api_client::models::{NewNotebook, NewTemplate, Notebook};
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -546,14 +546,8 @@ async fn handle_get_command(args: GetArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
     let template = template_get(&config, &args.template_id.to_string()).await?;
-    info!("Title: {}", template.title);
-    info!("Description: {}", template.description);
-    info!("Parameters:");
-    print_template_parameters(template.parameters, 2);
-    info!("Body:\n");
-    println!("{}", template.body);
 
-    Ok(())
+    output_details(GenericKeyValue::from_template(template))
 }
 
 async fn handle_delete_command(args: RemoveArguments) -> Result<()> {
@@ -640,73 +634,5 @@ async fn handle_get_example_command(args: GetExampleArguments) -> Result<()> {
             .ok_or_else(|| anyhow!("example template not found"))?
     };
 
-    let template = GenericKeyValue::from_template(template);
-
-    output_details(template)
-}
-
-fn print_template_parameters(parameters: Vec<TemplateParameter>, indent: usize) {
-    let indent = " ".repeat(indent);
-    for parameter in parameters {
-        match parameter {
-            TemplateParameter::StringTemplateParameter {
-                name,
-                default_value,
-            } => {
-                info!(
-                    "{}- {}: string (default: \"{}\")",
-                    indent,
-                    name,
-                    default_value.unwrap_or_default()
-                );
-            }
-            TemplateParameter::NumberTemplateParameter {
-                name,
-                default_value,
-            } => {
-                info!(
-                    "{}- {}: number (default: {})",
-                    indent,
-                    name,
-                    default_value.unwrap_or_default()
-                );
-            }
-            TemplateParameter::BooleanTemplateParameter {
-                name,
-                default_value,
-            } => {
-                info!(
-                    "{}- {}: boolean (default: {})",
-                    indent,
-                    name,
-                    default_value.unwrap_or_default()
-                );
-            }
-            TemplateParameter::ArrayTemplateParameter {
-                name,
-                default_value,
-            } => {
-                info!(
-                    "{}- {}: array (default: {})",
-                    indent,
-                    name,
-                    serde_json::to_string(&default_value).unwrap()
-                );
-            }
-            TemplateParameter::ObjectTemplateParameter {
-                name,
-                default_value,
-            } => {
-                info!(
-                    "{}- {}: object (default: {})",
-                    indent,
-                    name,
-                    serde_json::to_string(&default_value).unwrap()
-                );
-            }
-            TemplateParameter::UnknownTemplateParameter { name } => {
-                info!("{}- {}: (type unknown)", indent, name,);
-            }
-        }
-    }
+    output_details(GenericKeyValue::from_template(template))
 }
