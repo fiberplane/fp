@@ -154,11 +154,11 @@ async fn handle_remove_command(args: SingleProxyArgs) -> Result<()> {
 
 #[derive(Table)]
 pub struct ProxySummaryRow {
-    #[table(title = "ID")]
-    pub id: String,
-
     #[table(title = "Name")]
     pub name: String,
+
+    #[table(title = "ID")]
+    pub id: String,
 
     #[table(title = "Status")]
     pub status: String,
