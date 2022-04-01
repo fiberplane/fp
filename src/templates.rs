@@ -224,7 +224,7 @@ struct GetArguments {
     template_id: Base64Uuid,
 
     /// Output of the template
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "details", arg_enum)]
     output: TemplateOutput,
 
     #[clap(from_global)]
