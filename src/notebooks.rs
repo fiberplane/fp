@@ -1,8 +1,8 @@
 use crate::config::api_client_configuration;
 use crate::KeyValueArgument;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::Parser;
-use fp_api_client::apis::default_api::{get_notebook, notebook_create};
+use fp_api_client::apis::default_api::{delete_notebook, get_notebook, notebook_create};
 use fp_api_client::models::{Label, NewNotebook, TimeRange};
 use std::io::Write;
 use std::io::{self, BufWriter};
@@ -32,6 +32,10 @@ pub enum SubCommand {
 
     /// Open a notebook in the studio
     Open(OpenArgs),
+
+    /// Delete a single notebook
+    #[clap()]
+    Delete(DeleteArgs),
 }
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
@@ -40,6 +44,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
         Create(args) => handle_add_command(args).await,
         Get(args) => handle_get_command(args).await,
         Open(args) => handle_open_command(args).await,
+        Delete(args) => handle_delete_command(args).await,
     }
 }
 
@@ -137,6 +142,19 @@ pub struct OpenArgs {
     base_url: Url,
 }
 
+#[derive(Parser)]
+pub struct DeleteArgs {
+    /// ID of the notebook
+    #[clap()]
+    id: String,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
 async fn handle_get_command(args: GetArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
     trace!(id = ?args.id, "fetching notebook");
@@ -156,6 +174,18 @@ async fn handle_open_command(args: OpenArgs) -> Result<()> {
         info!("Please go to {} to view the notebook", url);
     }
 
+    Ok(())
+}
+
+async fn handle_delete_command(args: DeleteArgs) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let notebook_id = args.id;
+
+    delete_notebook(&config, &notebook_id.to_string())
+        .await
+        .with_context(|| format!("Error deleting notebook {}", notebook_id))?;
+
+    info!(%notebook_id, "Deleted notebook");
     Ok(())
 }
 
