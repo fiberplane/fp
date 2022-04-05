@@ -29,22 +29,18 @@ pub struct Arguments {
 #[derive(Parser)]
 pub enum SubCommand {
     /// Create a new notebook
-    #[clap()]
     Create(CreateArgs),
 
     /// Retrieve a single notebook
-    #[clap()]
     Get(GetArgs),
 
     /// List all notebooks
-    #[clap()]
     List(ListArgs),
 
     /// Open a notebook in the studio
     Open(OpenArgs),
 
     /// Delete a single notebook
-    #[clap()]
     Delete(DeleteArgs),
 }
 
