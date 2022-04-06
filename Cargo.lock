@@ -674,7 +674,7 @@ dependencies = [
 [[package]]
 name = "fiberplane"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#e8c3dd3b8dcb97aa488f83654908e238f6a8c788"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#db719fd317422be1dc7130662a780ae6112a9bbc"
 dependencies = [
  "fp-bindgen",
  "lazy_static",
@@ -689,7 +689,7 @@ dependencies = [
 [[package]]
 name = "fiberplane-templates"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/templates.git?branch=main#cdee060aaee9d627926f2fd853ba88c5c0518695"
+source = "git+ssh://git@github.com/fiberplane/templates.git?branch=main#40faa75247d095354065abf08986f5767f26cb19"
 dependencies = [
  "fiberplane",
  "jrsonnet-evaluator",
@@ -2469,7 +2469,7 @@ dependencies = [
 [[package]]
 name = "time_util"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#e8c3dd3b8dcb97aa488f83654908e238f6a8c788"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#db719fd317422be1dc7130662a780ae6112a9bbc"
 dependencies = [
  "anyhow",
  "serde",
