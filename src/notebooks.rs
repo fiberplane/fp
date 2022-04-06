@@ -1,9 +1,15 @@
 use crate::config::api_client_configuration;
+use crate::output::{output_details, output_list, GenericKeyValue};
 use crate::KeyValueArgument;
-use anyhow::Result;
-use clap::Parser;
-use fp_api_client::apis::default_api::{get_notebook, notebook_create};
-use fp_api_client::models::{Label, NewNotebook, TimeRange};
+use anyhow::{Context, Result};
+use clap::{ArgEnum, Parser};
+use cli_table::Table;
+use fp_api_client::apis::default_api::{
+    delete_notebook, get_notebook, notebook_create, notebook_list,
+};
+use fp_api_client::models::{
+    Label, NewNotebook, Notebook, NotebookSummary, NotebookVisibility, TimeRange,
+};
 use std::io::Write;
 use std::io::{self, BufWriter};
 use std::path::PathBuf;
@@ -23,15 +29,19 @@ pub struct Arguments {
 #[derive(Parser)]
 pub enum SubCommand {
     /// Create a new notebook
-    #[clap()]
     Create(CreateArgs),
 
     /// Retrieve a single notebook
-    #[clap()]
     Get(GetArgs),
+
+    /// List all notebooks
+    List(ListArgs),
 
     /// Open a notebook in the studio
     Open(OpenArgs),
+
+    /// Delete a single notebook
+    Delete(DeleteArgs),
 }
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
@@ -39,7 +49,9 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
     match args.sub_command {
         Create(args) => handle_add_command(args).await,
         Get(args) => handle_get_command(args).await,
+        List(args) => handle_list_command(args).await,
         Open(args) => handle_open_command(args).await,
+        Delete(args) => handle_delete_command(args).await,
     }
 }
 
@@ -120,11 +132,46 @@ pub struct GetArgs {
     #[clap()]
     id: String,
 
+    /// Output of the notebook
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: NotebookGetOutput,
+
     #[clap(from_global)]
     base_url: Url,
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+}
+
+#[derive(ArgEnum, Clone)]
+enum NotebookGetOutput {
+    /// Output the details of the notebook as a table
+    Table,
+
+    /// Output the result as a JSON encoded object
+    Json,
+}
+
+#[derive(Parser)]
+pub struct ListArgs {
+    /// Output of the notebook
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: NotebookListOutput,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
+#[derive(ArgEnum, Clone)]
+enum NotebookListOutput {
+    /// Output the details of the notebook as a table
+    Table,
+
+    /// Output the result as a JSON encoded object
+    Json,
 }
 
 #[derive(Parser)]
@@ -137,17 +184,61 @@ pub struct OpenArgs {
     base_url: Url,
 }
 
+#[derive(Parser)]
+pub struct DeleteArgs {
+    /// ID of the notebook
+    #[clap()]
+    id: String,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
 async fn handle_get_command(args: GetArgs) -> Result<()> {
+    use NotebookGetOutput::*;
+
     let config = api_client_configuration(args.config, &args.base_url).await?;
     trace!(id = ?args.id, "fetching notebook");
 
     let notebook = get_notebook(&config, &args.id).await?;
 
-    let mut writer = BufWriter::new(io::stdout());
-    serde_json::to_writer_pretty(&mut writer, &notebook)?;
-    writeln!(writer)?;
+    match args.output {
+        Table => output_details(GenericKeyValue::from_notebook(notebook)),
+        Json => {
+            let mut writer = BufWriter::new(io::stdout());
+            serde_json::to_writer_pretty(&mut writer, &notebook)?;
+            writeln!(writer)?;
+            Ok(())
+        }
+    }
+}
 
-    Ok(())
+async fn handle_list_command(args: ListArgs) -> Result<()> {
+    use NotebookListOutput::*;
+
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let notebooks = notebook_list(&config).await?;
+
+    match args.output {
+        Table => {
+            let mut notebooks: Vec<NotebookSummaryRow> =
+                notebooks.into_iter().map(Into::into).collect();
+
+            // Sort by updated at so that the most recent is first
+            notebooks.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+
+            output_list(notebooks)
+        }
+        Json => {
+            let mut writer = BufWriter::new(io::stdout());
+            serde_json::to_writer_pretty(&mut writer, &notebooks)?;
+            writeln!(writer)?;
+            Ok(())
+        }
+    }
 }
 
 async fn handle_open_command(args: OpenArgs) -> Result<()> {
@@ -159,6 +250,93 @@ async fn handle_open_command(args: OpenArgs) -> Result<()> {
     Ok(())
 }
 
+async fn handle_delete_command(args: DeleteArgs) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let notebook_id = args.id;
+
+    delete_notebook(&config, &notebook_id.to_string())
+        .await
+        .with_context(|| format!("Error deleting notebook {}", notebook_id))?;
+
+    info!(%notebook_id, "Deleted notebook");
+    Ok(())
+}
+
 fn notebook_url(base_url: Url, id: String) -> String {
     format!("{}notebook/{}", base_url, id)
+}
+
+impl GenericKeyValue {
+    pub fn from_notebook(notebook: Notebook) -> Vec<GenericKeyValue> {
+        let visibility = notebook
+            .visibility
+            .unwrap_or(NotebookVisibility::Private)
+            .to_string();
+
+        let labels = if notebook.labels.is_empty() {
+            String::from("(none)")
+        } else {
+            let labels: Vec<_> = notebook
+                .labels
+                .into_iter()
+                .map(|label| {
+                    if label.value.is_empty() {
+                        label.key
+                    } else {
+                        format!("{}={}", label.key, label.value)
+                    }
+                })
+                .collect();
+            labels.join("\n")
+        };
+
+        vec![
+            GenericKeyValue::new("Title:", notebook.title),
+            GenericKeyValue::new("ID:", notebook.id),
+            GenericKeyValue::new("Created by:", notebook.created_by.name),
+            GenericKeyValue::new("Visibility:", visibility),
+            GenericKeyValue::new("Updated at:", notebook.updated_at),
+            GenericKeyValue::new("Created at:", notebook.created_at),
+            GenericKeyValue::new("Current revision:", notebook.revision.to_string()),
+            GenericKeyValue::new("Label:", labels),
+        ]
+    }
+}
+
+#[derive(Table)]
+pub struct NotebookSummaryRow {
+    #[table(title = "Title")]
+    pub title: String,
+
+    #[table(title = "ID")]
+    pub id: String,
+
+    #[table(title = "Created by")]
+    pub created_by: String,
+
+    #[table(title = "Visibility")]
+    pub visibility: String,
+
+    #[table(title = "Updated at")]
+    pub updated_at: String,
+
+    #[table(title = "Created at")]
+    pub created_at: String,
+}
+
+impl From<NotebookSummary> for NotebookSummaryRow {
+    fn from(notebook: NotebookSummary) -> Self {
+        let visibility = notebook
+            .visibility
+            .unwrap_or(NotebookVisibility::Private)
+            .to_string();
+        Self {
+            id: notebook.id,
+            title: notebook.title,
+            created_by: notebook.created_by.name,
+            visibility,
+            updated_at: notebook.updated_at,
+            created_at: notebook.created_at,
+        }
+    }
 }

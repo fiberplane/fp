@@ -224,7 +224,7 @@ struct GetArguments {
     template_id: Base64Uuid,
 
     /// Output of the template
-    #[clap(long, short, default_value = "details", arg_enum)]
+    #[clap(long, short, default_value = "table", arg_enum)]
     output: TemplateOutput,
 
     #[clap(from_global)]
@@ -237,7 +237,7 @@ struct GetArguments {
 #[derive(ArgEnum, Clone)]
 enum TemplateOutput {
     /// Output the details of the template as a table (excluding body)
-    Details,
+    Table,
 
     /// Only output the body of the template
     Body,
@@ -568,7 +568,7 @@ async fn handle_get_command(args: GetArguments) -> Result<()> {
     let template = template_get(&config, &args.template_id.to_string()).await?;
 
     match args.output {
-        TemplateOutput::Details => output_details(GenericKeyValue::from_template(template)),
+        TemplateOutput::Table => output_details(GenericKeyValue::from_template(template)),
         TemplateOutput::Body => {
             println!("{}", template.body);
             Ok(())
@@ -660,7 +660,7 @@ async fn handle_get_example_command(args: GetExampleArguments) -> Result<()> {
     };
 
     match args.output {
-        TemplateOutput::Details => output_details(GenericKeyValue::from_template(template)),
+        TemplateOutput::Table => output_details(GenericKeyValue::from_template(template)),
         TemplateOutput::Body => {
             println!("{}", template.body);
             Ok(())
