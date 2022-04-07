@@ -180,7 +180,6 @@ struct ConvertArguments {
         long,
         conflicts_with = "title",
         conflicts_with = "description",
-        conflicts_with = "public",
         conflicts_with = "template-id"
     )]
     out: Option<String>,
