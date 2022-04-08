@@ -56,8 +56,8 @@ where
 {
     let mut writer = LineWriter::new(std::io::stdout());
     for line in input.into_iter() {
-        writer.write(line.as_bytes())?;
-        writer.write(b"\n")?;
+        writer.write_all(line.as_bytes())?;
+        writer.write_all(b"\n")?;
     }
     Ok(())
 }
