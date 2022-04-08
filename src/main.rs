@@ -20,6 +20,7 @@ use url::Url;
 
 mod auth;
 mod config;
+mod labels;
 mod manifest;
 mod notebooks;
 mod output;
@@ -80,6 +81,12 @@ enum SubCommand {
     /// Logout from Fiberplane
     #[clap()]
     Logout,
+
+    /// Interact with labels
+    ///
+    /// Labels allow you to organize your notebooks.
+    #[clap(alias = "label")]
+    Labels(labels::Arguments),
 
     /// Interact with notebooks
     ///
@@ -175,6 +182,7 @@ async fn main() {
     let result = match args.sub_command {
         Login => auth::handle_login_command(args).await,
         Logout => auth::handle_logout_command(args).await,
+        Labels(args) => labels::handle_command(args).await,
         Notebooks(args) => notebooks::handle_command(args).await,
         Providers(args) => providers::handle_command(args).await,
         Proxies(args) => proxies::handle_command(args).await,
