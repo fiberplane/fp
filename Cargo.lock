@@ -113,7 +113,7 @@ checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 [[package]]
 name = "base64uuid"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#e8c3dd3b8dcb97aa488f83654908e238f6a8c788"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#7acd04e31bd394d71cc4df5cb3e77b0e5b198c6f"
 dependencies = [
  "base64",
  "serde",
@@ -674,7 +674,7 @@ dependencies = [
 [[package]]
 name = "fiberplane"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#db719fd317422be1dc7130662a780ae6112a9bbc"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#7acd04e31bd394d71cc4df5cb3e77b0e5b198c6f"
 dependencies = [
  "fp-bindgen",
  "lazy_static",
@@ -717,7 +717,7 @@ dependencies = [
 
 [[package]]
 name = "fp"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "anyhow",
  "base64uuid",
@@ -757,7 +757,7 @@ dependencies = [
 [[package]]
 name = "fp-api-client"
 version = "1.0.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#e8c3dd3b8dcb97aa488f83654908e238f6a8c788"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#7acd04e31bd394d71cc4df5cb3e77b0e5b198c6f"
 dependencies = [
  "reqwest",
  "serde",
@@ -2469,7 +2469,7 @@ dependencies = [
 [[package]]
 name = "time_util"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#db719fd317422be1dc7130662a780ae6112a9bbc"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#7acd04e31bd394d71cc4df5cb3e77b0e5b198c6f"
 dependencies = [
  "anyhow",
  "serde",
