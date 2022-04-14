@@ -26,10 +26,10 @@ pub struct Arguments {
 
 #[derive(Parser)]
 pub enum SubCommand {
-    /// Create a new notebook
+    /// Create a notebook
     Create(CreateArgs),
 
-    /// Retrieve a single notebook
+    /// Retrieve a notebook
     Get(GetArgs),
 
     /// List all notebooks
@@ -38,14 +38,14 @@ pub enum SubCommand {
     /// Open a notebook in the studio
     Open(OpenArgs),
 
-    /// Delete a single notebook
+    /// Delete a notebook
     Delete(DeleteArgs),
 }
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
     use SubCommand::*;
     match args.sub_command {
-        Create(args) => handle_add_command(args).await,
+        Create(args) => handle_create_command(args).await,
         Get(args) => handle_get_command(args).await,
         List(args) => handle_list_command(args).await,
         Open(args) => handle_open_command(args).await,
@@ -71,6 +71,10 @@ pub struct CreateArgs {
     #[clap(long, parse(try_from_str = clap_rfc3339::parse_rfc3339))]
     to: Option<OffsetDateTime>,
 
+    /// Output of the notebook
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: NotebookOutput,
+
     #[clap(from_global)]
     base_url: Url,
 
@@ -78,7 +82,67 @@ pub struct CreateArgs {
     config: Option<PathBuf>,
 }
 
-async fn handle_add_command(args: CreateArgs) -> Result<()> {
+#[derive(Parser)]
+pub struct GetArgs {
+    /// ID of the notebook
+    id: String,
+
+    /// Output of the notebook
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: NotebookOutput,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
+#[derive(Parser)]
+pub struct ListArgs {
+    /// Output of the notebook
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: NotebookOutput,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
+#[derive(Parser)]
+pub struct OpenArgs {
+    /// ID of the notebook
+    id: String,
+
+    #[clap(from_global)]
+    base_url: Url,
+}
+
+#[derive(Parser)]
+pub struct DeleteArgs {
+    /// ID of the notebook
+    id: String,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
+/// A generic output for notebook related commands.
+#[derive(ArgEnum, Clone)]
+enum NotebookOutput {
+    /// Output the result as a table
+    Table,
+
+    /// Output the result as a JSON encoded object
+    Json,
+}
+
+async fn handle_create_command(args: CreateArgs) -> Result<()> {
     let title = args.title.unwrap_or_else(|| String::from("new title"));
 
     let labels = match args.labels.len() {
@@ -118,105 +182,34 @@ async fn handle_add_command(args: CreateArgs) -> Result<()> {
     debug!(?notebook, "creating new notebook");
     let notebook = notebook_create(&config, Some(notebook)).await?;
 
-    info!("Successfully created new notebook");
-    println!("{}", notebook_url(args.base_url, notebook.id));
-
-    Ok(())
-}
-
-#[derive(Parser)]
-pub struct GetArgs {
-    /// ID of the notebook
-    #[clap()]
-    id: String,
-
-    /// Output of the notebook
-    #[clap(long, short, default_value = "table", arg_enum)]
-    output: NotebookGetOutput,
-
-    #[clap(from_global)]
-    base_url: Url,
-
-    #[clap(from_global)]
-    config: Option<PathBuf>,
-}
-
-#[derive(ArgEnum, Clone)]
-enum NotebookGetOutput {
-    /// Output the details of the notebook as a table
-    Table,
-
-    /// Output the result as a JSON encoded object
-    Json,
-}
-
-#[derive(Parser)]
-pub struct ListArgs {
-    /// Output of the notebook
-    #[clap(long, short, default_value = "table", arg_enum)]
-    output: NotebookListOutput,
-
-    #[clap(from_global)]
-    base_url: Url,
-
-    #[clap(from_global)]
-    config: Option<PathBuf>,
-}
-
-#[derive(ArgEnum, Clone)]
-enum NotebookListOutput {
-    /// Output the details of the notebook as a table
-    Table,
-
-    /// Output the result as a JSON encoded object
-    Json,
-}
-
-#[derive(Parser)]
-pub struct OpenArgs {
-    /// ID of the notebook
-    #[clap()]
-    id: String,
-
-    #[clap(from_global)]
-    base_url: Url,
-}
-
-#[derive(Parser)]
-pub struct DeleteArgs {
-    /// ID of the notebook
-    #[clap()]
-    id: String,
-
-    #[clap(from_global)]
-    base_url: Url,
-
-    #[clap(from_global)]
-    config: Option<PathBuf>,
+    match args.output {
+        NotebookOutput::Table => {
+            info!("Successfully created new notebook");
+            println!("{}", notebook_url(args.base_url, notebook.id));
+            Ok(())
+        }
+        NotebookOutput::Json => output_json(&notebook),
+    }
 }
 
 async fn handle_get_command(args: GetArgs) -> Result<()> {
-    use NotebookGetOutput::*;
-
     let config = api_client_configuration(args.config, &args.base_url).await?;
     trace!(id = ?args.id, "fetching notebook");
 
     let notebook = get_notebook(&config, &args.id).await?;
 
     match args.output {
-        Table => output_details(GenericKeyValue::from_notebook(notebook)),
-        Json => output_json(&notebook),
+        NotebookOutput::Table => output_details(GenericKeyValue::from_notebook(notebook)),
+        NotebookOutput::Json => output_json(&notebook),
     }
 }
 
 async fn handle_list_command(args: ListArgs) -> Result<()> {
-    use NotebookListOutput::*;
-
     let config = api_client_configuration(args.config, &args.base_url).await?;
     let notebooks = notebook_list(&config).await?;
 
     match args.output {
-        Table => {
+        NotebookOutput::Table => {
             let mut notebooks: Vec<NotebookSummaryRow> =
                 notebooks.into_iter().map(Into::into).collect();
 
@@ -225,7 +218,7 @@ async fn handle_list_command(args: ListArgs) -> Result<()> {
 
             output_list(notebooks)
         }
-        Json => output_json(&notebooks),
+        NotebookOutput::Json => output_json(&notebooks),
     }
 }
 
