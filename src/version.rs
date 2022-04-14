@@ -5,7 +5,6 @@ use crate::{
 };
 use anyhow::Result;
 use clap::{ArgEnum, Parser};
-use std::io::prelude::*;
 use tracing::{debug, error, info};
 
 #[derive(Parser)]
@@ -74,7 +73,5 @@ async fn output_verbose() -> Result<()> {
 }
 
 async fn output_json() -> Result<()> {
-    serde_json::to_writer(std::io::stdout(), &*MANIFEST)?;
-    writeln!(std::io::stdout())?;
-    Ok(())
+    crate::output::output_json(&*MANIFEST)
 }

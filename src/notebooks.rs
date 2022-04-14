@@ -1,5 +1,5 @@
 use crate::config::api_client_configuration;
-use crate::output::{output_details, output_list, GenericKeyValue};
+use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use crate::KeyValueArgument;
 use anyhow::{Context, Result};
 use clap::{ArgEnum, Parser};
@@ -10,8 +10,6 @@ use fp_api_client::apis::default_api::{
 use fp_api_client::models::{
     Label, NewNotebook, Notebook, NotebookSummary, NotebookVisibility, TimeRange,
 };
-use std::io::Write;
-use std::io::{self, BufWriter};
 use std::path::PathBuf;
 use std::time::Duration;
 use time::OffsetDateTime;
@@ -207,12 +205,7 @@ async fn handle_get_command(args: GetArgs) -> Result<()> {
 
     match args.output {
         Table => output_details(GenericKeyValue::from_notebook(notebook)),
-        Json => {
-            let mut writer = BufWriter::new(io::stdout());
-            serde_json::to_writer_pretty(&mut writer, &notebook)?;
-            writeln!(writer)?;
-            Ok(())
-        }
+        Json => output_json(&notebook),
     }
 }
 
@@ -232,12 +225,7 @@ async fn handle_list_command(args: ListArgs) -> Result<()> {
 
             output_list(notebooks)
         }
-        Json => {
-            let mut writer = BufWriter::new(io::stdout());
-            serde_json::to_writer_pretty(&mut writer, &notebooks)?;
-            writeln!(writer)?;
-            Ok(())
-        }
+        Json => output_json(&notebooks),
     }
 }
 
