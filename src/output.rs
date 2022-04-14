@@ -2,7 +2,7 @@ use anyhow::Result;
 use cli_table::format::*;
 use cli_table::{print_stdout, Row, Table, Title};
 use serde::Serialize;
-use std::io::{self, BufWriter, LineWriter, Write};
+use std::io::{LineWriter, Write};
 
 pub fn output_list<T, R>(input: T) -> Result<()>
 where
@@ -67,7 +67,7 @@ pub fn output_json<T>(input: &T) -> Result<()>
 where
     T: ?Sized + Serialize,
 {
-    let mut writer = BufWriter::new(io::stdout());
+    let mut writer = LineWriter::new(std::io::stdout());
     serde_json::to_writer_pretty(&mut writer, input)?;
     writeln!(writer)?;
     Ok(())
