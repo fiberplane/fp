@@ -1,7 +1,8 @@
 use anyhow::Result;
 use cli_table::format::*;
 use cli_table::{print_stdout, Row, Table, Title};
-use std::io::{LineWriter, Write};
+use serde::Serialize;
+use std::io::{self, BufWriter, LineWriter, Write};
 
 pub fn output_list<T, R>(input: T) -> Result<()>
 where
@@ -59,5 +60,15 @@ where
         writer.write_all(line.as_bytes())?;
         writer.write_all(b"\n")?;
     }
+    Ok(())
+}
+
+pub fn output_json<T>(input: &T) -> Result<()>
+where
+    T: ?Sized + Serialize,
+{
+    let mut writer = BufWriter::new(io::stdout());
+    serde_json::to_writer_pretty(&mut writer, input)?;
+    writeln!(writer)?;
     Ok(())
 }
