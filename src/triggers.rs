@@ -1,9 +1,9 @@
 use crate::config::api_client_configuration;
-use crate::output::{output_details, output_list, GenericKeyValue};
+use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use crate::templates::TemplateArguments;
 use anyhow::{Context, Result};
 use base64uuid::Base64Uuid;
-use clap::Parser;
+use clap::{ArgEnum, Parser};
 use cli_table::Table;
 use fp_api_client::apis::configuration::Configuration;
 use fp_api_client::apis::default_api::{
@@ -39,24 +39,19 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 
 #[derive(Parser)]
 enum SubCommand {
-    /// Create a Trigger
-    #[clap(alias = "new")]
+    /// Create a trigger
     Create(CreateArguments),
 
-    /// Print info about a trigger
-    #[clap(alias = "info")]
-    Get(IndividualTriggerArguments),
+    /// Retrieve a trigger
+    Get(GetArguments),
 
     /// Delete a trigger
-    #[clap(alias = "remove")]
-    Delete(IndividualTriggerArguments),
+    Delete(DeleteArguments),
 
     /// List all triggers
-    #[clap()]
     List(ListArguments),
 
     /// Invoke a trigger webhook to create a notebook from the template
-    #[clap()]
     Invoke(InvokeArguments),
 }
 
@@ -75,6 +70,10 @@ struct CreateArguments {
     #[clap(long)]
     default_arguments: Option<TemplateArguments>,
 
+    /// Output of the trigger
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: TriggerOutput,
+
     #[clap(from_global)]
     base_url: Url,
 
@@ -83,7 +82,24 @@ struct CreateArguments {
 }
 
 #[derive(Parser)]
-struct IndividualTriggerArguments {
+struct GetArguments {
+    /// Trigger ID or URL
+    #[clap(name = "trigger")]
+    trigger: String,
+
+    /// Output of the trigger
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: TriggerOutput,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
+#[derive(Parser)]
+struct DeleteArguments {
     /// Trigger ID or URL
     #[clap(name = "trigger")]
     trigger: String,
@@ -97,6 +113,10 @@ struct IndividualTriggerArguments {
 
 #[derive(Parser)]
 struct ListArguments {
+    /// Output of the triggers
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: TriggerOutput,
+
     #[clap(from_global)]
     base_url: Url,
 
@@ -123,6 +143,16 @@ struct InvokeArguments {
     base_url: Url,
 }
 
+/// A generic output for trigger related commands.
+#[derive(ArgEnum, Clone)]
+enum TriggerOutput {
+    /// Output the result as a table
+    Table,
+
+    /// Output the result as a JSON encoded object
+    Json,
+}
+
 async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
     let default_arguments = if let Some(default_arguments) = args.default_arguments {
@@ -139,12 +169,16 @@ async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {
         .await
         .with_context(|| "Error creating trigger")?;
 
-    let trigger = GenericKeyValue::from_trigger(trigger, args.base_url);
-
-    output_details(trigger)
+    match args.output {
+        TriggerOutput::Table => {
+            let trigger = GenericKeyValue::from_trigger(trigger, args.base_url);
+            output_details(trigger)
+        }
+        TriggerOutput::Json => output_json(&trigger),
+    }
 }
 
-async fn handle_trigger_get_command(args: IndividualTriggerArguments) -> Result<()> {
+async fn handle_trigger_get_command(args: GetArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
     let trigger_id = &TRIGGER_ID_REGEX
         .captures(&args.trigger)
@@ -153,12 +187,15 @@ async fn handle_trigger_get_command(args: IndividualTriggerArguments) -> Result<
         .await
         .with_context(|| "Error getting trigger details")?;
 
-    let trigger = GenericKeyValue::from_trigger(trigger, args.base_url);
-
-    output_details(trigger)
+    match args.output {
+        TriggerOutput::Table => {
+            output_details(GenericKeyValue::from_trigger(trigger, args.base_url))
+        }
+        TriggerOutput::Json => output_json(&trigger),
+    }
 }
 
-async fn handle_trigger_delete_command(args: IndividualTriggerArguments) -> Result<()> {
+async fn handle_trigger_delete_command(args: DeleteArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
     let trigger_id = &TRIGGER_ID_REGEX
         .captures(&args.trigger)
@@ -180,9 +217,14 @@ async fn handle_trigger_list_command(args: ListArguments) -> Result<()> {
 
     triggers.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
 
-    let triggers: Vec<TriggerRow> = triggers.into_iter().map(Into::into).collect();
+    match args.output {
+        TriggerOutput::Table => {
+            let triggers: Vec<TriggerRow> = triggers.into_iter().map(Into::into).collect();
 
-    output_list(triggers)
+            output_list(triggers)
+        }
+        TriggerOutput::Json => output_json(&triggers),
+    }
 }
 
 async fn handle_trigger_invoke_command(args: InvokeArguments) -> Result<()> {

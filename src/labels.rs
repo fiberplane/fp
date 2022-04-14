@@ -1,9 +1,8 @@
 use crate::config::api_client_configuration;
-use crate::output::output_string_list;
+use crate::output::{output_json, output_string_list};
 use anyhow::Result;
 use clap::{ArgEnum, Parser};
 use fp_api_client::apis::default_api::{label_keys_list, label_values_list};
-use std::io::{self, BufWriter, Write};
 use std::path::PathBuf;
 use url::Url;
 
@@ -70,12 +69,7 @@ async fn handle_list_keys_command(args: ListKeysArgs) -> Result<()> {
                 output_string_list(keys)
             }
         }
-        Json => {
-            let mut writer = BufWriter::new(io::stdout());
-            serde_json::to_writer_pretty(&mut writer, &keys)?;
-            writeln!(writer)?;
-            Ok(())
-        }
+        Json => output_json(&keys),
     }
 }
 
@@ -121,11 +115,6 @@ async fn handle_list_values_command(args: ListValuesArgs) -> Result<()> {
                 output_string_list(values)
             }
         }
-        Json => {
-            let mut writer = BufWriter::new(io::stdout());
-            serde_json::to_writer_pretty(&mut writer, &values)?;
-            writeln!(writer)?;
-            Ok(())
-        }
+        Json => output_json(&values),
     }
 }
