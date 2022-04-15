@@ -14,6 +14,7 @@ use fp_api_client::apis::default_api::{
 };
 use fp_api_client::models::{
     NewNotebook, NewTemplate, Notebook, Template, TemplateParameter, TemplateSummary,
+    UpdateTemplate,
 };
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -66,6 +67,10 @@ enum SubCommand {
     #[clap()]
     List(ListArguments),
 
+    /// Update an existing template
+    #[clap()]
+    Update(UpdateArguments),
+
     /// Interact with the official example templates
     #[clap(subcommand)]
     Examples(ExamplesSubCommand),
@@ -97,6 +102,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
         Remove(args) => handle_delete_command(args).await,
         Get(args) => handle_get_command(args).await,
         List(args) => handle_list_command(args).await,
+        Update(args) => handle_update_command(args).await,
         Examples(args) => match args {
             ExamplesSubCommand::Expand(args) => handle_expand_example_command(args).await,
             ExamplesSubCommand::List(args) => handle_list_example_command(args).await,
@@ -257,6 +263,34 @@ struct RemoveArguments {
 
 #[derive(Parser)]
 struct ListArguments {
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
+#[derive(Parser)]
+struct UpdateArguments {
+    /// ID of the template to update
+    template_id: Base64Uuid,
+
+    /// Title of the template
+    #[clap(long)]
+    title: Option<String>,
+
+    /// Description of the template
+    #[clap(long)]
+    description: Option<String>,
+
+    /// The body of the template
+    #[clap(long, conflicts_with = "template-path")]
+    template: Option<String>,
+
+    /// Path to the template body file
+    #[clap(long, conflicts_with = "template", value_hint = ValueHint::AnyPath)]
+    template_path: Option<PathBuf>,
+
     #[clap(from_global)]
     base_url: Url,
 
@@ -503,13 +537,29 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
     match &args.out {
         // Upload the template
         None => {
-            let template = NewTemplate {
-                title: args.title.unwrap_or(notebook_title),
-                description: args.description,
-                body: template,
-            };
             let config = api_client_configuration(args.config, &args.base_url).await?;
-            template_update_or_create(&config, args.template_id, template).await?;
+            match args.template_id {
+                Some(template_id) => {
+                    let template = UpdateTemplate {
+                        title: args.title,
+                        description: Some(args.description),
+                        body: Some(template),
+                    };
+                    template_update(&config, &template_id.to_string(), template)
+                        .await
+                        .with_context(|| format!("Error updating template {}", template_id))?;
+                }
+                None => {
+                    let template = NewTemplate {
+                        title: args.title.unwrap_or(notebook_title),
+                        description: args.description,
+                        body: template,
+                    };
+                    let template = template_create(&config, template)
+                        .await
+                        .with_context(|| "Error creating template")?;
+                }
+            }
         }
         // Write the template to stdout
         Some(path) if path == "-" => {
@@ -537,27 +587,13 @@ async fn handle_create_command(args: CreateArguments) -> Result<()> {
         description: args.description,
         body,
     };
-    template_update_or_create(&config, args.template_id, template).await?;
-    Ok(())
-}
 
-async fn template_update_or_create(
-    config: &Configuration,
-    template_id: Option<Base64Uuid>,
-    template: NewTemplate,
-) -> Result<()> {
-    if let Some(template_id) = template_id {
-        template_update(config, &template_id.to_string(), template)
-            .await
-            .with_context(|| format!("Error updating template {}", template_id))?;
-        info!("Updated template");
-    } else {
-        let template = template_create(config, template)
-            .await
-            .with_context(|| "Error creating template")?;
-        info!("Uploaded template:");
-        println!("{}", template.id);
-    }
+    let template = template_create(&config, template)
+        .await
+        .with_context(|| "Error creating template")?;
+    info!("Uploaded template:");
+    println!("{}", template.id);
+
     Ok(())
 }
 
@@ -600,6 +636,32 @@ async fn handle_list_command(args: ListArguments) -> Result<()> {
     templates.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
 
     output_list(templates)
+}
+
+async fn handle_update_command(args: UpdateArguments) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let template_id = &args.template_id.to_string();
+
+    let body = if let Some(template) = args.template {
+        Some(template)
+    } else if let Some(template_path) = args.template_path {
+        Some(std::fs::read_to_string(template_path)?)
+    } else {
+        None
+    };
+
+    let template = UpdateTemplate {
+        title: args.title,
+        description: args.description,
+        body,
+    };
+
+    template_update(&config, &template_id, template)
+        .await
+        .with_context(|| format!("Error updating template {}", template_id))?;
+    info!("Updated template");
+
+    Ok(())
 }
 
 async fn handle_expand_example_command(args: ExpandExampleArguments) -> Result<()> {
