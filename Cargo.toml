@@ -16,7 +16,7 @@ cli-table = "0.4"
 directories = "4.0.1"
 fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main" }
 fiberplane-templates = { git = "ssh://git@github.com/fiberplane/templates.git", branch = "main" }
-fp-api-client = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "update_template" }
+fp-api-client = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main" }
 fp-provider-runtime = { git = "ssh://git@github.com/fiberplane/providers.git", branch = "main" }
 hex = "0.4.3"
 hyper = { version = "0.14.13", features = [
