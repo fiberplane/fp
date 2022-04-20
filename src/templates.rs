@@ -1,12 +1,11 @@
 use crate::config::api_client_configuration;
-use crate::output::{output_details, output_list, GenericKeyValue};
+use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use anyhow::{anyhow, Context, Error, Result};
 use base64uuid::Base64Uuid;
 use clap::{ArgEnum, Parser, ValueHint};
 use cli_table::Table;
 use fiberplane::protocols::core::{self, Cell, HeadingCell, HeadingType, TextCell, TimeRange};
 use fiberplane_templates::{notebook_to_template, TemplateExpander};
-use fp_api_client::apis::configuration::Configuration;
 use fp_api_client::apis::default_api::{
     get_notebook, notebook_create, proxy_data_sources_list, template_create, template_delete,
     template_example_expand, template_example_list, template_expand, template_get, template_list,
@@ -14,6 +13,7 @@ use fp_api_client::apis::default_api::{
 };
 use fp_api_client::models::{
     NewNotebook, NewTemplate, Notebook, Template, TemplateParameter, TemplateSummary,
+    UpdateTemplate,
 };
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -66,6 +66,10 @@ enum SubCommand {
     #[clap()]
     List(ListArguments),
 
+    /// Update an existing template
+    #[clap()]
+    Update(UpdateArguments),
+
     /// Interact with the official example templates
     #[clap(subcommand)]
     Examples(ExamplesSubCommand),
@@ -97,6 +101,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
         Remove(args) => handle_delete_command(args).await,
         Get(args) => handle_get_command(args).await,
         List(args) => handle_list_command(args).await,
+        Update(args) => handle_update_command(args).await,
         Examples(args) => match args {
             ExamplesSubCommand::Expand(args) => handle_expand_example_command(args).await,
             ExamplesSubCommand::List(args) => handle_list_example_command(args).await,
@@ -209,6 +214,10 @@ struct CreateArguments {
     #[clap(value_hint = ValueHint::AnyPath)]
     template: String,
 
+    /// Output of the template
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: TemplateOutput,
+
     #[clap(from_global)]
     base_url: Url,
 
@@ -233,15 +242,6 @@ struct GetArguments {
     config: Option<PathBuf>,
 }
 
-#[derive(ArgEnum, Clone)]
-enum TemplateOutput {
-    /// Output the details of the template as a table (excluding body)
-    Table,
-
-    /// Only output the body of the template
-    Body,
-}
-
 #[derive(Parser)]
 struct RemoveArguments {
     /// The ID of the template
@@ -257,6 +257,42 @@ struct RemoveArguments {
 
 #[derive(Parser)]
 struct ListArguments {
+    /// Output of the templates
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: TemplateListOutput,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
+#[derive(Parser)]
+struct UpdateArguments {
+    /// ID of the template to update
+    template_id: Base64Uuid,
+
+    /// Title of the template
+    #[clap(long)]
+    title: Option<String>,
+
+    /// Description of the template
+    #[clap(long)]
+    description: Option<String>,
+
+    /// The body of the template
+    #[clap(long, conflicts_with = "template-path")]
+    template: Option<String>,
+
+    /// Path to the template body file
+    #[clap(long, conflicts_with = "template", value_hint = ValueHint::AnyPath)]
+    template_path: Option<PathBuf>,
+
+    /// Output of the template
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: TemplateOutput,
+
     #[clap(from_global)]
     base_url: Url,
 
@@ -302,6 +338,27 @@ struct GetExampleArguments {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+}
+
+#[derive(ArgEnum, Clone)]
+enum TemplateOutput {
+    /// Output the details of the template as a table (excluding body)
+    Table,
+
+    /// Only output the body of the template
+    Body,
+
+    /// Output the template as a JSON encoded file
+    Json,
+}
+
+#[derive(ArgEnum, Clone)]
+enum TemplateListOutput {
+    /// Output the values as a table
+    Table,
+
+    /// Output the result as a JSON encoded object
+    Json,
 }
 
 async fn handle_init_command() -> Result<()> {
@@ -503,13 +560,29 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
     match &args.out {
         // Upload the template
         None => {
-            let template = NewTemplate {
-                title: args.title.unwrap_or(notebook_title),
-                description: args.description,
-                body: template,
-            };
             let config = api_client_configuration(args.config, &args.base_url).await?;
-            template_update_or_create(&config, args.template_id, template).await?;
+            match args.template_id {
+                Some(template_id) => {
+                    let template = UpdateTemplate {
+                        title: args.title,
+                        description: Some(args.description),
+                        body: Some(template),
+                    };
+                    template_update(&config, &template_id.to_string(), template)
+                        .await
+                        .with_context(|| format!("Error updating template {}", template_id))?;
+                }
+                None => {
+                    let template = NewTemplate {
+                        title: args.title.unwrap_or(notebook_title),
+                        description: args.description,
+                        body: template,
+                    };
+                    template_create(&config, template)
+                        .await
+                        .with_context(|| "Error creating template")?;
+                }
+            }
         }
         // Write the template to stdout
         Some(path) if path == "-" => {
@@ -537,33 +610,24 @@ async fn handle_create_command(args: CreateArguments) -> Result<()> {
         description: args.description,
         body,
     };
-    template_update_or_create(&config, args.template_id, template).await?;
-    Ok(())
-}
 
-async fn template_update_or_create(
-    config: &Configuration,
-    template_id: Option<Base64Uuid>,
-    template: NewTemplate,
-) -> Result<()> {
-    if let Some(template_id) = template_id {
-        template_update(config, &template_id.to_string(), template)
-            .await
-            .with_context(|| format!("Error updating template {}", template_id))?;
-        info!("Updated template");
-    } else {
-        let template = template_create(config, template)
-            .await
-            .with_context(|| "Error creating template")?;
-        info!("Uploaded template:");
-        println!("{}", template.id);
+    let template = template_create(&config, template)
+        .await
+        .with_context(|| "Error creating template")?;
+    info!("Uploaded template");
+
+    match args.output {
+        TemplateOutput::Table => output_details(GenericKeyValue::from_template(template)),
+        TemplateOutput::Body => {
+            println!("{}", template.body);
+            Ok(())
+        }
+        TemplateOutput::Json => output_json(&template),
     }
-    Ok(())
 }
 
 async fn handle_get_command(args: GetArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
-
     let template = template_get(&config, &args.template_id.to_string()).await?;
 
     match args.output {
@@ -572,6 +636,7 @@ async fn handle_get_command(args: GetArguments) -> Result<()> {
             println!("{}", template.body);
             Ok(())
         }
+        TemplateOutput::Json => output_json(&template),
     }
 }
 
@@ -589,17 +654,56 @@ async fn handle_delete_command(args: RemoveArguments) -> Result<()> {
 
 async fn handle_list_command(args: ListArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
+    let templates = template_list(&config).await?;
 
-    let mut templates: Vec<TemplateRow> = template_list(&config)
-        .await?
-        .into_iter()
-        .map(Into::into)
-        .collect();
+    match args.output {
+        TemplateListOutput::Table => {
+            let mut templates: Vec<TemplateRow> = templates.into_iter().map(Into::into).collect();
 
-    // Sort by updated at so that the most recent is first
-    templates.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+            // Sort by updated at so that the most recent is first
+            templates.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
 
-    output_list(templates)
+            output_list(templates)
+        }
+        TemplateListOutput::Json => output_json(&templates),
+    }
+}
+
+async fn handle_update_command(args: UpdateArguments) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let template_id = &args.template_id.to_string();
+
+    let body = if let Some(template) = args.template {
+        Some(template)
+    } else if let Some(template_path) = args.template_path {
+        Some(
+            fs::read_to_string(&template_path)
+                .await
+                .with_context(|| format!("Unable to read template from: {:?}", template_path))?,
+        )
+    } else {
+        None
+    };
+
+    let template = UpdateTemplate {
+        title: args.title,
+        description: args.description,
+        body,
+    };
+
+    let template = template_update(&config, template_id, template)
+        .await
+        .with_context(|| format!("Error updating template {}", template_id))?;
+    info!("Updated template");
+
+    match args.output {
+        TemplateOutput::Table => output_details(GenericKeyValue::from_template(template)),
+        TemplateOutput::Body => {
+            println!("{}", template.body);
+            Ok(())
+        }
+        TemplateOutput::Json => output_json(&template),
+    }
 }
 
 async fn handle_expand_example_command(args: ExpandExampleArguments) -> Result<()> {
@@ -630,17 +734,19 @@ async fn handle_expand_example_command(args: ExpandExampleArguments) -> Result<(
 
 async fn handle_list_example_command(args: ListArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
+    let templates = template_example_list(&config).await?;
 
-    let mut templates: Vec<TemplateRow> = template_example_list(&config)
-        .await?
-        .into_iter()
-        .map(Into::into)
-        .collect();
+    match args.output {
+        TemplateListOutput::Table => {
+            let mut templates: Vec<TemplateRow> = templates.into_iter().map(Into::into).collect();
 
-    // Sort by updated at so that the most recent is first
-    templates.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+            // Sort by updated at so that the most recent is first
+            templates.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
 
-    output_list(templates)
+            output_list(templates)
+        }
+        TemplateListOutput::Json => output_json(&templates),
+    }
 }
 
 async fn handle_get_example_command(args: GetExampleArguments) -> Result<()> {
@@ -664,6 +770,7 @@ async fn handle_get_example_command(args: GetExampleArguments) -> Result<()> {
             println!("{}", template.body);
             Ok(())
         }
+        TemplateOutput::Json => output_json(&template),
     }
 }
 
