@@ -1,12 +1,11 @@
 use crate::config::api_client_configuration;
-use crate::output::{output_details, output_list, GenericKeyValue};
+use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use anyhow::{anyhow, Context, Error, Result};
 use base64uuid::Base64Uuid;
 use clap::{ArgEnum, Parser, ValueHint};
 use cli_table::Table;
 use fiberplane::protocols::core::{self, Cell, HeadingCell, HeadingType, TextCell, TimeRange};
 use fiberplane_templates::{notebook_to_template, TemplateExpander};
-use fp_api_client::apis::configuration::Configuration;
 use fp_api_client::apis::default_api::{
     get_notebook, notebook_create, proxy_data_sources_list, template_create, template_delete,
     template_example_expand, template_example_list, template_expand, template_get, template_list,
@@ -246,6 +245,9 @@ enum TemplateOutput {
 
     /// Only output the body of the template
     Body,
+
+    /// Output the template as a JSON encoded file
+    Json,
 }
 
 #[derive(Parser)]
@@ -290,6 +292,10 @@ struct UpdateArguments {
     /// Path to the template body file
     #[clap(long, conflicts_with = "template", value_hint = ValueHint::AnyPath)]
     template_path: Option<PathBuf>,
+
+    /// Output of the template
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: TemplateOutput,
 
     #[clap(from_global)]
     base_url: Url,
@@ -555,7 +561,7 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
                         description: args.description,
                         body: template,
                     };
-                    let template = template_create(&config, template)
+                    template_create(&config, template)
                         .await
                         .with_context(|| "Error creating template")?;
                 }
@@ -608,6 +614,7 @@ async fn handle_get_command(args: GetArguments) -> Result<()> {
             println!("{}", template.body);
             Ok(())
         }
+        TemplateOutput::Json => output_json(&template),
     }
 }
 
@@ -656,12 +663,19 @@ async fn handle_update_command(args: UpdateArguments) -> Result<()> {
         body,
     };
 
-    template_update(&config, &template_id, template)
+    let template = template_update(&config, template_id, template)
         .await
         .with_context(|| format!("Error updating template {}", template_id))?;
     info!("Updated template");
 
-    Ok(())
+    match args.output {
+        TemplateOutput::Table => output_details(GenericKeyValue::from_template(template)),
+        TemplateOutput::Body => {
+            println!("{}", template.body);
+            Ok(())
+        }
+        TemplateOutput::Json => output_json(&template),
+    }
 }
 
 async fn handle_expand_example_command(args: ExpandExampleArguments) -> Result<()> {
@@ -726,6 +740,7 @@ async fn handle_get_example_command(args: GetExampleArguments) -> Result<()> {
             println!("{}", template.body);
             Ok(())
         }
+        TemplateOutput::Json => output_json(&template),
     }
 }
 
