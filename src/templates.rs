@@ -485,13 +485,15 @@ async fn expand_template_file(args: ExpandArguments) -> Result<Notebook> {
         HashMap::new()
     };
     let notebook = expander
-        .expand_template_to_string(template, template_args, false)
+        .expand_template(template, template_args)
         .with_context(|| "expanding template")?;
+    // Convert to a string and back because the API client
+    // has a different model struct than the Rust core types
+    let notebook: NewNotebook = serde_json::to_string(&notebook)
+        .and_then(|s| serde_json::from_str(&s))
+        .with_context(|| "Error converting notebook to API client NewNotebook type")?;
 
     let config = config.ok_or_else(|| anyhow!("Must be logged in to create notebook"))?;
-
-    let notebook: NewNotebook = serde_json::from_str(&notebook)
-        .with_context(|| "Template did not produce a valid NewNotebook")?;
     let notebook = notebook_create(&config, Some(notebook))
         .await
         .with_context(|| "Error creating notebook")?;
