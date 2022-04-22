@@ -238,11 +238,11 @@ async fn handle_trigger_invoke_command(args: InvokeArguments) -> Result<()> {
         base_path: args.base_url.to_string(),
         ..Configuration::default()
     };
-    let notebook = trigger_invoke(&config, trigger_id, &args.secret_key, Some(body))
+    let response = trigger_invoke(&config, trigger_id, &args.secret_key, Some(body))
         .await
         .with_context(|| "Error invoking trigger")?;
     info!("Created notebook:");
-    println!("{}/notebook/{}", config.base_path, notebook.id);
+    println!("{}", response.notebook_url);
 
     Ok(())
 }
