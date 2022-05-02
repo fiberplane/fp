@@ -22,7 +22,7 @@ use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
 use std::{env::current_dir, ffi::OsStr, path::PathBuf, str::FromStr};
 use tokio::fs;
-use tokio::io::{self, AsyncReadExt, AsyncWriteExt};
+use tokio::io::{self, stdin, AsyncReadExt, AsyncWriteExt};
 use tracing::{info, warn};
 use url::Url;
 
@@ -148,7 +148,7 @@ struct ExpandArguments {
     #[clap(value_hint = ValueHint::AnyPath)]
     template: String,
 
-    /// Values to inject into the template
+    /// Values to inject into the template. If this is not provided as an argument, it can be read from stdin.
     ///
     /// Can be passed as a JSON object or as a comma-separated list of key=value pairs
     #[clap()]
@@ -308,7 +308,7 @@ struct ExpandExampleArguments {
     #[clap()]
     template: String,
 
-    /// Values to inject into the template
+    /// Values to inject into the template. If this is not provided as an argument, it can be read from stdin.
     ///
     /// Can be passed as a JSON object or as a comma-separated list of key=value pairs
     #[clap()]
@@ -424,9 +424,13 @@ async fn load_template(template_path: &str) -> Result<String> {
     }
 }
 
-async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
+async fn handle_expand_command(mut args: ExpandArguments) -> Result<()> {
     let base_url = args.base_url.clone();
     let template_url_base = base_url.join("templates/")?;
+
+    if args.template_arguments.is_none() {
+        args.template_arguments = read_template_args_from_stdin().await?;
+    }
 
     // First, check if the template is the ID of an uploaded template
     let notebook = if let Ok(template_id) = Base64Uuid::parse_str(&args.template) {
@@ -708,7 +712,7 @@ async fn handle_update_command(args: UpdateArguments) -> Result<()> {
     }
 }
 
-async fn handle_expand_example_command(args: ExpandExampleArguments) -> Result<()> {
+async fn handle_expand_example_command(mut args: ExpandExampleArguments) -> Result<()> {
     let template = args.template.clone();
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
@@ -727,6 +731,9 @@ async fn handle_expand_example_command(args: ExpandExampleArguments) -> Result<(
         template.id
     };
 
+    if args.template_arguments.is_none() {
+        args.template_arguments = read_template_args_from_stdin().await?;
+    }
     let template_arguments = serde_json::to_value(&args.template_arguments.unwrap_or_default())?;
     let notebook = template_example_expand(&config, &template_id, Some(template_arguments)).await?;
     let notebook_url = format!("{}notebook/{}", args.base_url, notebook.id);
@@ -773,6 +780,20 @@ async fn handle_get_example_command(args: GetExampleArguments) -> Result<()> {
             Ok(())
         }
         TemplateOutput::Json => output_json(&template),
+    }
+}
+
+pub(crate) async fn read_template_args_from_stdin() -> Result<Option<TemplateArguments>> {
+    // Try parsing arguments from stdin
+    let mut template_arguments = String::new();
+    stdin().read_to_string(&mut template_arguments).await?;
+    let template_arguments = template_arguments.trim();
+    if template_arguments.is_empty() {
+        Ok(None)
+    } else {
+        let template_arguments: TemplateArguments = serde_json::from_str(&template_arguments)
+            .with_context(|| "error parsing template arguments from stdin as JSON")?;
+        Ok(Some(template_arguments))
     }
 }
 
