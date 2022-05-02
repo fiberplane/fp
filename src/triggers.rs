@@ -9,7 +9,7 @@ use fp_api_client::apis::configuration::Configuration;
 use fp_api_client::apis::default_api::{
     trigger_create, trigger_delete, trigger_get, trigger_invoke, trigger_list,
 };
-use fp_api_client::models::{NewTrigger, Trigger};
+use fp_api_client::models::{NewTrigger, Trigger, TriggerInvokeResponse};
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::path::PathBuf;
@@ -126,6 +126,10 @@ struct ListArguments {
 
 #[derive(Parser)]
 struct InvokeArguments {
+    /// Output of the triggers
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: TriggerOutput,
+
     /// Trigger ID or URL
     #[clap()]
     trigger: String,
@@ -238,13 +242,17 @@ async fn handle_trigger_invoke_command(args: InvokeArguments) -> Result<()> {
         base_path: args.base_url.to_string(),
         ..Configuration::default()
     };
-    let notebook = trigger_invoke(&config, trigger_id, &args.secret_key, Some(body))
+    let response = trigger_invoke(&config, trigger_id, &args.secret_key, Some(body))
         .await
         .with_context(|| "Error invoking trigger")?;
-    info!("Created notebook:");
-    println!("{}/notebook/{}", config.base_path, notebook.id);
 
-    Ok(())
+    match args.output {
+        TriggerOutput::Table => {
+            let response = GenericKeyValue::from_trigger_invoke_response(response);
+            output_details(response)
+        }
+        TriggerOutput::Json => output_json(&response),
+    }
 }
 
 #[derive(Table)]
@@ -285,6 +293,14 @@ impl GenericKeyValue {
             GenericKeyValue::new("ID:", trigger.id),
             GenericKeyValue::new("Invoke URL:", invoke_url),
             GenericKeyValue::new("Template ID:", trigger.template_id),
+        ]
+    }
+
+    pub fn from_trigger_invoke_response(response: TriggerInvokeResponse) -> Vec<GenericKeyValue> {
+        vec![
+            GenericKeyValue::new("Notebook Title:", response.notebook_title),
+            GenericKeyValue::new("Notebook URL:", response.notebook_url),
+            GenericKeyValue::new("Notebook ID:", response.notebook_id),
         ]
     }
 }
