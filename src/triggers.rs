@@ -1,6 +1,6 @@
 use crate::config::api_client_configuration;
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
-use crate::templates::{read_template_args_from_stdin, TemplateArguments};
+use crate::templates::TemplateArguments;
 use anyhow::{Context, Result};
 use base64uuid::Base64Uuid;
 use clap::{ArgEnum, Parser};
@@ -138,8 +138,7 @@ struct InvokeArguments {
     #[clap()]
     secret_key: String,
 
-    /// Values to inject into the template. If this is not provided as an argument, it can be read from stdin.
-    ///
+    /// Values to inject into the template
     /// Can be passed as a JSON object or as a comma-separated list of key=value pairs
     #[clap()]
     template_arguments: Option<TemplateArguments>,
@@ -232,16 +231,12 @@ async fn handle_trigger_list_command(args: ListArguments) -> Result<()> {
     }
 }
 
-async fn handle_trigger_invoke_command(mut args: InvokeArguments) -> Result<()> {
+async fn handle_trigger_invoke_command(args: InvokeArguments) -> Result<()> {
     let trigger_id = &TRIGGER_ID_REGEX
         .captures(&args.trigger)
         .with_context(|| "Could not parse trigger. Expected a Trigger ID or URL")?[1];
 
-    // Try parsing arguments from stdin
-    let template_arguments = if args.template_arguments.is_none() {
-        args.template_arguments = read_template_args_from_stdin().await?;
-    };
-    let body = serde_json::to_value(&template_arguments)?;
+    let body = serde_json::to_value(&args.template_arguments)?;
 
     let config = Configuration {
         base_path: args.base_url.to_string(),
