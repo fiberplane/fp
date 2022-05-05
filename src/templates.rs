@@ -22,7 +22,6 @@ use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
 use std::{env::current_dir, ffi::OsStr, path::PathBuf, str::FromStr};
 use tokio::fs;
-use tokio::io::{self, AsyncReadExt, AsyncWriteExt};
 use tracing::{info, warn};
 use url::Url;
 
@@ -163,7 +162,7 @@ struct ExpandArguments {
 
 #[derive(Parser)]
 struct ConvertArguments {
-    /// Notebook ID or URL to convert. Pass - to read the Notebook JSON representation from stdin
+    /// Notebook ID or URL to convert
     #[clap()]
     notebook: String,
 
@@ -179,15 +178,9 @@ struct ConvertArguments {
     #[clap(long)]
     template_id: Option<Base64Uuid>,
 
-    /// By default (if this is not specified), the template will be uploaded to Fiberplane.
-    /// If this is specified, save the template to the given file. If specified as "-", print it to stdout.
-    #[clap(
-        long,
-        conflicts_with = "title",
-        conflicts_with = "description",
-        conflicts_with = "template-id"
-    )]
-    out: Option<String>,
+    /// Output of the template
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: TemplateOutput,
 
     #[clap(from_global)]
     base_url: Url,
@@ -501,37 +494,22 @@ async fn expand_template_file(args: ExpandArguments) -> Result<Notebook> {
 }
 
 async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
-    // Load the notebook from stdin or from the API
-    let (notebook, notebook_id, url) = if args.notebook == "-" {
-        let mut notebook_json = String::new();
-        io::stdin()
-            .read_to_string(&mut notebook_json)
-            .await
-            .with_context(|| "Error reading from stdin")?;
-        let notebook: Notebook =
-            serde_json::from_str(&notebook_json).with_context(|| "Notebook is invalid")?;
-        let url = format!("{}notebook/{}", args.base_url, &notebook.id);
-        (notebook_json, notebook.id, url)
-    } else {
-        let config = api_client_configuration(args.config.clone(), &args.base_url).await?;
-        let id = &NOTEBOOK_ID_REGEX
-            .captures(&args.notebook)
-            .ok_or_else(|| anyhow!("Notebook URL is invalid"))?[1];
-        let notebook = get_notebook(&config, id)
-            .await
-            .with_context(|| "Error fetching notebook")?;
-        let notebook = serde_json::to_string(&notebook)?;
-        (notebook, id.to_string(), args.notebook)
-    };
+    // Load the notebook
+    let config = api_client_configuration(args.config.clone(), &args.base_url).await?;
+    let id = &NOTEBOOK_ID_REGEX
+        .captures(&args.notebook)
+        .ok_or_else(|| anyhow!("Notebook URL is invalid"))?[1];
 
-    // TODO remove the extra (de)serialization when we unify the generated API client
-    // types with those in fiberplane-rs
-    let mut notebook: core::NewNotebook = serde_json::from_str(&notebook).with_context(|| {
-        format!(
-            "Error deserializing response as core::NewNotebook: {}",
-            notebook
-        )
-    })?;
+    let notebook = get_notebook(&config, id)
+        .await
+        .with_context(|| "Error fetching notebook")?;
+    let notebook_id = notebook.id.clone();
+
+    // Convert the notebook from the type returned by the API to the core type
+    let mut notebook: core::NewNotebook = serde_json::to_string(&notebook)
+        .and_then(|s| serde_json::from_str(&s))
+        .with_context(|| "Error converting from API client model to core model")?;
+    let title = notebook.title.clone();
 
     // Add image URLs to ImageCells that were uploaded to the Studio.
     //
@@ -549,59 +527,44 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
         }
     }
 
-    let notebook_title = notebook.title.clone();
+    // TODO we should use the API instead.
+    // However, the generated API client doesn't currently support routes that return
+    // plain strings (rather than JSON objects) so we'll convert it locally instead
     let template = notebook_to_template(notebook);
-    let template = format!(
-        "
-// This template was generated from the notebook: {}
 
-{}",
-        url, template
-    );
+    // Create or update the template
+    let template = if let Some(template_id) = args.template_id {
+        let template = UpdateTemplate {
+            title: args.title,
+            description: Some(args.description),
+            body: Some(template),
+        };
+        let template = template_update(&config, &template_id.to_string(), template)
+            .await
+            .with_context(|| format!("Error updating template {}", template_id))?;
+        info!("Updated template");
+        template
+    } else {
+        let template = NewTemplate {
+            title: args.title.unwrap_or(title),
+            description: args.description,
+            body: template,
+        };
+        let template = template_create(&config, template)
+            .await
+            .with_context(|| "Error creating template")?;
+        info!("Created template");
+        template
+    };
 
-    match &args.out {
-        // Upload the template
-        None => {
-            let config = api_client_configuration(args.config, &args.base_url).await?;
-            match args.template_id {
-                Some(template_id) => {
-                    let template = UpdateTemplate {
-                        title: args.title,
-                        description: Some(args.description),
-                        body: Some(template),
-                    };
-                    template_update(&config, &template_id.to_string(), template)
-                        .await
-                        .with_context(|| format!("Error updating template {}", template_id))?;
-                }
-                None => {
-                    let template = NewTemplate {
-                        title: args.title.unwrap_or(notebook_title),
-                        description: args.description,
-                        body: template,
-                    };
-                    template_create(&config, template)
-                        .await
-                        .with_context(|| "Error creating template")?;
-                }
-            }
+    match args.output {
+        TemplateOutput::Table => output_details(GenericKeyValue::from_template(template)),
+        TemplateOutput::Body => {
+            println!("{}", template.body);
+            Ok(())
         }
-        // Write the template to stdout
-        Some(path) if path == "-" => {
-            io::stdout().write_all(template.as_bytes()).await?;
-        }
-        // Write the template to a file
-        Some(path) => {
-            let mut path = PathBuf::from(path);
-            // If the given path is a directory, add the filename
-            if path.is_dir() {
-                path.push("template.jsonnet");
-            }
-            fs::write(&path, template).await?;
-        }
+        TemplateOutput::Json => output_json(&template),
     }
-
-    Ok(())
 }
 
 async fn handle_create_command(args: CreateArguments) -> Result<()> {

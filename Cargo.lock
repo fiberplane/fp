@@ -674,7 +674,7 @@ dependencies = [
 [[package]]
 name = "fiberplane"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#dde967706b31780ede5cdc4fc90415ab5b2fa12f"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#16be5c4e1ca057bb56f605c9f918424ded411fc0"
 dependencies = [
  "fp-bindgen",
  "lazy_static",
@@ -2471,7 +2471,7 @@ dependencies = [
 [[package]]
 name = "time_util"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#dde967706b31780ede5cdc4fc90415ab5b2fa12f"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#16be5c4e1ca057bb56f605c9f918424ded411fc0"
 dependencies = [
  "anyhow",
  "serde",
