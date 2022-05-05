@@ -503,9 +503,10 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
     let notebook = get_notebook(&config, id)
         .await
         .with_context(|| "Error fetching notebook")?;
+    let notebook_id = notebook.id.clone();
 
     // Convert the notebook from the type returned by the API to the core type
-    let notebook: core::NewNotebook = serde_json::to_string(&notebook)
+    let mut notebook: core::NewNotebook = serde_json::to_string(&notebook)
         .and_then(|s| serde_json::from_str(&s))
         .with_context(|| "Error converting from API client model to core model")?;
     let title = notebook.title.clone();
