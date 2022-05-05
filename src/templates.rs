@@ -510,6 +510,22 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
         .with_context(|| "Error converting from API client model to core model")?;
     let title = notebook.title.clone();
 
+    // Add image URLs to ImageCells that were uploaded to the Studio.
+    //
+    // Images will be loaded from the API when the notebook is created so
+    // that the images are stored as files associated with the new notebook.
+    for cell in &mut notebook.cells {
+        if let Cell::Image(cell) = cell {
+            if let (None, Some(file_id)) = (&cell.url, &cell.file_id) {
+                cell.url = Some(format!(
+                    "{}api/files/{}/{}",
+                    args.base_url, notebook_id, file_id
+                ));
+                cell.file_id = None;
+            }
+        }
+    }
+
     // TODO we should use the API instead.
     // However, the generated API client doesn't currently support routes that return
     // plain strings (rather than JSON objects) so we'll convert it locally instead
