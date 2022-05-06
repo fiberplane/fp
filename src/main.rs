@@ -29,6 +29,7 @@ mod proxies;
 mod templates;
 mod triggers;
 mod update;
+mod users;
 mod version;
 
 /// The current build manifest associated with this binary
@@ -125,6 +126,10 @@ enum SubCommand {
     #[clap()]
     Update(update::Arguments),
 
+    /// Interact with user details
+    #[clap(alias = "user")]
+    Users(users::Arguments),
+
     /// Display extra version information
     #[clap()]
     Version(version::Arguments),
@@ -189,6 +194,7 @@ async fn main() {
         Templates(args) => templates::handle_command(args).await,
         Triggers(args) => triggers::handle_command(args).await,
         Update(args) => update::handle_command(args).await,
+        Users(args) => users::handle_command(args).await,
         Version(args) => version::handle_command(args).await,
         Completions { shell } => {
             let output = generate_completions(shell);
