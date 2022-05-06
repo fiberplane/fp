@@ -5,10 +5,10 @@ use anyhow::{Context, Result};
 use clap::{ArgEnum, Parser};
 use cli_table::Table;
 use fp_api_client::apis::default_api::{
-    delete_notebook, get_notebook, notebook_create, notebook_list,
+    delete_notebook, get_notebook, notebook_cells_append, notebook_create, notebook_list,
 };
 use fp_api_client::models::{
-    Label, NewNotebook, Notebook, NotebookSummary, NotebookVisibility, TimeRange,
+    Cell, Label, NewNotebook, Notebook, NotebookSummary, NotebookVisibility, TimeRange,
 };
 use std::path::PathBuf;
 use std::time::Duration;
@@ -40,6 +40,9 @@ pub enum SubCommand {
 
     /// Delete a notebook
     Delete(DeleteArgs),
+
+    /// Append a cell to the notebook
+    AppendCell(AppendCellArgs),
 }
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
@@ -50,6 +53,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
         List(args) => handle_list_command(args).await,
         Open(args) => handle_open_command(args).await,
         Delete(args) => handle_delete_command(args).await,
+        AppendCell(args) => handle_append_cell_command(args).await,
     }
 }
 
@@ -130,6 +134,30 @@ pub struct DeleteArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+}
+
+#[derive(Parser)]
+pub struct AppendCellArgs {
+    /// ID of the notebook
+    id: String,
+
+    /// Append a text cell
+    #[clap(long)]
+    text: Option<String>,
+
+    /// Append a code cell
+    #[clap(long)]
+    code: Option<String>,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+
+    /// Output type to display
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: NotebookOutput,
 }
 
 /// A generic output for notebook related commands.
@@ -240,6 +268,32 @@ async fn handle_delete_command(args: DeleteArgs) -> Result<()> {
         .with_context(|| format!("Error deleting notebook {}", notebook_id))?;
 
     info!(%notebook_id, "Deleted notebook");
+    Ok(())
+}
+
+async fn handle_append_cell_command(args: AppendCellArgs) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+
+    let cell = if let Some(content) = args.text {
+        Cell::TextCell {
+            content,
+            id: String::new(),
+            formatting: None,
+            read_only: None,
+        }
+    } else if let Some(content) = args.code {
+        Cell::CodeCell {
+            content,
+            id: String::new(),
+            syntax: None,
+            read_only: None,
+        }
+    } else {
+        panic!("Must provide a cell type");
+    };
+
+    notebook_cells_append(&config, &args.id, Some(vec![cell])).await?;
+
     Ok(())
 }
 
