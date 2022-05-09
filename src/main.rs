@@ -20,6 +20,7 @@ use url::Url;
 
 mod auth;
 mod config;
+mod experiments;
 mod labels;
 mod manifest;
 mod notebooks;
@@ -74,6 +75,12 @@ enum SubCommand {
         #[clap(arg_enum)]
         shell: Shell,
     },
+
+    /// Experimental commands 🧪
+    ///
+    /// These commands are not stable and may change at any time.
+    #[clap(aliases = &["experiment", "x"])]
+    Experiments(experiments::Arguments),
 
     /// Login to Fiberplane and authorize the CLI to access your account
     #[clap()]
@@ -185,6 +192,7 @@ async fn main() {
 
     use SubCommand::*;
     let result = match args.sub_command {
+        Experiments(args) => experiments::handle_command(args).await,
         Login => auth::handle_login_command(args).await,
         Logout => auth::handle_logout_command(args).await,
         Labels(args) => labels::handle_command(args).await,
