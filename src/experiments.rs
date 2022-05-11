@@ -1,16 +1,18 @@
-use crate::config::{api_client_configuration, api_client_configuration_from_token, Config};
+use crate::config::api_client_configuration;
 use crate::output::{output_details, output_json, GenericKeyValue};
 use anyhow::{anyhow, Context, Result};
 use clap::{ArgEnum, Parser};
+use directories::ProjectDirs;
 use fp_api_client::apis::default_api::{get_profile, notebook_cells_append};
 use fp_api_client::models::{Annotation, Cell};
 use futures::StreamExt;
-use std::{env::current_dir, path::PathBuf, process::Stdio};
-use time::format_description::well_known::Rfc3339;
-use time::OffsetDateTime;
+use serde::{Deserialize, Serialize};
+use std::{env::current_dir, io::ErrorKind, path::PathBuf, process::Stdio};
+use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use tokio::io::{self, AsyncWriteExt};
-use tokio::process::Command;
+use tokio::{fs, process::Command};
 use tokio_util::io::ReaderStream;
+use tracing::debug;
 use url::Url;
 
 #[derive(Parser)]
@@ -88,22 +90,19 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 }
 
 async fn handle_message_command(args: MessageArgs) -> Result<()> {
-    let mut config = Config::load(args.config).await?;
-    let api_token = config.api_token.clone().ok_or_else(|| {
-        anyhow!("Must be logged in to run this command. Please run `fp login` first.")
-    })?;
-    let api_config = api_client_configuration_from_token(api_token, &args.base_url)?;
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let mut cache = Cache::load().await?;
 
     // If we don't already know the user name, load it from the API and save it
-    let (user_id, name) = match (config.user_id, config.user_name) {
+    let (user_id, name) = match (cache.user_id, cache.user_name) {
         (Some(user_id), Some(user_name)) => (user_id, user_name),
         _ => {
-            let user = get_profile(&api_config)
+            let user = get_profile(&config)
                 .await
                 .with_context(|| "Error getting user profile")?;
-            config.user_name = Some(user.name.clone());
-            config.user_id = Some(user.id.clone());
-            config.save().await.with_context(|| "Error saving config")?;
+            cache.user_name = Some(user.name.clone());
+            cache.user_id = Some(user.id.clone());
+            cache.save().await?;
             (user.id, user.name)
         }
     };
@@ -124,7 +123,7 @@ async fn handle_message_command(args: MessageArgs) -> Result<()> {
         }]),
         read_only: None,
     };
-    let cell = notebook_cells_append(&api_config, &args.notebook_id, Some(vec![cell]))
+    let cell = notebook_cells_append(&config, &args.notebook_id, Some(vec![cell]))
         .await
         .with_context(|| "Error appending cell to notebook")?
         .pop()
@@ -202,4 +201,50 @@ async fn handle_exec_command(args: ExecArgs) -> Result<()> {
         MessageOutput::Table => output_details(GenericKeyValue::from_cell(cell)),
         MessageOutput::Json => output_json(&cell),
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, Default)]
+struct Cache {
+    pub user_id: Option<String>,
+    pub user_name: Option<String>,
+}
+
+impl Cache {
+    async fn load() -> Result<Self> {
+        let path = cache_file_path();
+        match fs::read_to_string(&path).await {
+            Ok(string) => {
+                let cache = toml::from_str(&string).with_context(|| "Error parsing cache file")?;
+                debug!("Loaded cache from file: {:?}", path.display());
+                Ok(cache)
+            }
+            Err(err) if err.kind() == ErrorKind::NotFound => {
+                debug!("No cache file found");
+                Ok(Cache::default())
+            }
+            Err(err) => Err(err.into()),
+        }
+    }
+
+    async fn save(&self) -> Result<()> {
+        let string = toml::to_string_pretty(&self)?;
+        let path = cache_file_path();
+        if let Some(dir) = path.parent() {
+            fs::create_dir_all(dir)
+                .await
+                .with_context(|| format!("Error creating cache directory: {:?}", dir.display()))?;
+        }
+        fs::write(&path, string)
+            .await
+            .with_context(|| format!("Error saving cache to file: {:?}", path.display()))?;
+        debug!("saved config to: {}", path.display());
+        Ok(())
+    }
+}
+
+fn cache_file_path() -> PathBuf {
+    ProjectDirs::from("com", "Fiberplane", "fiberplane-cli")
+        .unwrap()
+        .cache_dir()
+        .join("cache.toml")
 }

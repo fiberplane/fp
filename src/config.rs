@@ -14,9 +14,6 @@ pub struct Config {
     pub path: PathBuf,
 
     pub api_token: Option<String>,
-
-    pub user_id: Option<String>,
-    pub user_name: Option<String>,
 }
 
 impl Config {
@@ -36,8 +33,6 @@ impl Config {
                 Ok(Config {
                     path,
                     api_token: None,
-                    user_id: None,
-                    user_name: None,
                 })
             }
             Err(err) => Err(err.into()),
