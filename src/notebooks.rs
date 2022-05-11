@@ -360,8 +360,8 @@ impl GenericKeyValue {
             _ => unimplemented!(),
         };
         vec![
-            GenericKeyValue::new("ID:", id),
-            GenericKeyValue::new("Type:", cell_type),
+            GenericKeyValue::new("Cell ID:", id),
+            GenericKeyValue::new("Cell Type:", cell_type),
             GenericKeyValue::new("Content:", content),
         ]
     }

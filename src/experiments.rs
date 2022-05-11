@@ -12,7 +12,7 @@ use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use tokio::io::{self, AsyncWriteExt};
 use tokio::{fs, process::Command};
 use tokio_util::io::ReaderStream;
-use tracing::debug;
+use tracing::{debug, info};
 use url::Url;
 
 #[derive(Parser)]
@@ -128,6 +128,7 @@ async fn handle_message_command(args: MessageArgs) -> Result<()> {
         .with_context(|| "Error appending cell to notebook")?
         .pop()
         .ok_or_else(|| anyhow!("No cells returned"))?;
+    info!("Created cell");
     match args.output {
         MessageOutput::Table => output_details(GenericKeyValue::from_cell(cell)),
         MessageOutput::Json => output_json(&cell),
@@ -197,6 +198,7 @@ async fn handle_exec_command(args: ExecArgs) -> Result<()> {
         .with_context(|| "Error appending cell to notebook")?
         .pop()
         .ok_or_else(|| anyhow!("No cells returned"))?;
+    info!("Created cell");
     match args.output {
         MessageOutput::Table => output_details(GenericKeyValue::from_cell(cell)),
         MessageOutput::Json => output_json(&cell),
