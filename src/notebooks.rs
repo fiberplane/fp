@@ -1,7 +1,7 @@
 use crate::config::api_client_configuration;
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use crate::KeyValueArgument;
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use clap::{ArgEnum, Parser};
 use cli_table::Table;
 use fp_api_client::apis::default_api::{
@@ -42,6 +42,7 @@ pub enum SubCommand {
     Delete(DeleteArgs),
 
     /// Append a cell to the notebook
+    #[clap(alias = "append")]
     AppendCell(AppendCellArgs),
 }
 
@@ -157,12 +158,22 @@ pub struct AppendCellArgs {
 
     /// Output type to display
     #[clap(long, short, default_value = "table", arg_enum)]
-    output: NotebookOutput,
+    output: CellOutput,
 }
 
 /// A generic output for notebook related commands.
 #[derive(ArgEnum, Clone)]
 enum NotebookOutput {
+    /// Output the result as a table
+    Table,
+
+    /// Output the result as a JSON encoded object
+    Json,
+}
+
+/// Output for cell related commands
+#[derive(ArgEnum, Clone)]
+enum CellOutput {
     /// Output the result as a table
     Table,
 
@@ -292,9 +303,14 @@ async fn handle_append_cell_command(args: AppendCellArgs) -> Result<()> {
         panic!("Must provide a cell type");
     };
 
-    notebook_cells_append(&config, &args.id, Some(vec![cell])).await?;
-
-    Ok(())
+    let cell = notebook_cells_append(&config, &args.id, Some(vec![cell]))
+        .await?
+        .pop()
+        .ok_or_else(|| anyhow!("Expected a single cell"))?;
+    match args.output {
+        CellOutput::Json => output_json(&cell),
+        CellOutput::Table => output_details(GenericKeyValue::from_cell(cell)),
+    }
 }
 
 fn notebook_url(base_url: Url, id: String) -> String {
@@ -334,6 +350,19 @@ impl GenericKeyValue {
             GenericKeyValue::new("Created at:", notebook.created_at),
             GenericKeyValue::new("Current revision:", notebook.revision.to_string()),
             GenericKeyValue::new("Label:", labels),
+        ]
+    }
+
+    pub fn from_cell(cell: Cell) -> Vec<GenericKeyValue> {
+        let (id, content, cell_type) = match cell {
+            Cell::TextCell { id, content, .. } => (id, content, "Text"),
+            Cell::CodeCell { id, content, .. } => (id, content, "Code"),
+            _ => unimplemented!(),
+        };
+        vec![
+            GenericKeyValue::new("ID:", id),
+            GenericKeyValue::new("Type:", cell_type),
+            GenericKeyValue::new("Content:", content),
         ]
     }
 }

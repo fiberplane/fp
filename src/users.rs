@@ -16,7 +16,6 @@ pub struct Arguments {
 #[derive(Parser)]
 enum SubCommand {
     /// Get the profile of the current user
-    #[clap()]
     Profile(GetArgs),
 }
 
@@ -44,9 +43,8 @@ struct GetArgs {
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
     match args.sub_command {
-        SubCommand::Profile(args) => handle_get_profile_command(args).await?,
-    };
-    Ok(())
+        SubCommand::Profile(args) => handle_get_profile_command(args).await,
+    }
 }
 
 async fn handle_get_profile_command(args: GetArgs) -> Result<()> {

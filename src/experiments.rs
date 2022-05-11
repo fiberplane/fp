@@ -1,6 +1,7 @@
 use crate::config::{api_client_configuration, api_client_configuration_from_token, Config};
+use crate::output::{output_details, output_json, GenericKeyValue};
 use anyhow::{anyhow, Context, Result};
-use clap::Parser;
+use clap::{ArgEnum, Parser};
 use fp_api_client::apis::default_api::{get_profile, notebook_cells_append};
 use fp_api_client::models::{Annotation, Cell};
 use futures::StreamExt;
@@ -21,7 +22,6 @@ pub struct Arguments {
 #[derive(Parser)]
 enum SubCommand {
     /// Append a message to the given notebook
-    #[clap()]
     Message(MessageArgs),
 
     /// Execute a shell command and pipe the output to a notebook
@@ -42,6 +42,10 @@ struct MessageArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    /// Output type to display
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: MessageOutput,
 }
 
 #[derive(Parser)]
@@ -61,14 +65,26 @@ struct ExecArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    /// Output type to display
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: MessageOutput,
+}
+
+#[derive(ArgEnum, Clone)]
+enum MessageOutput {
+    /// Output the result as a table
+    Table,
+
+    /// Output the result as a JSON encoded object
+    Json,
 }
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
     match args.sub_command {
-        SubCommand::Message(args) => handle_message_command(args).await?,
-        SubCommand::Exec(args) => handle_exec_command(args).await?,
+        SubCommand::Message(args) => handle_message_command(args).await,
+        SubCommand::Exec(args) => handle_exec_command(args).await,
     }
-    Ok(())
 }
 
 async fn handle_message_command(args: MessageArgs) -> Result<()> {
@@ -108,8 +124,15 @@ async fn handle_message_command(args: MessageArgs) -> Result<()> {
         }]),
         read_only: None,
     };
-    notebook_cells_append(&api_config, &args.notebook_id, Some(vec![cell])).await?;
-    Ok(())
+    let cell = notebook_cells_append(&api_config, &args.notebook_id, Some(vec![cell]))
+        .await
+        .with_context(|| "Error appending cell to notebook")?
+        .pop()
+        .ok_or_else(|| anyhow!("No cells returned"))?;
+    match args.output {
+        MessageOutput::Table => output_details(GenericKeyValue::from_cell(cell)),
+        MessageOutput::Json => output_json(&cell),
+    }
 }
 
 async fn handle_exec_command(args: ExecArgs) -> Result<()> {
@@ -169,9 +192,14 @@ async fn handle_exec_command(args: ExecArgs) -> Result<()> {
         syntax: None,
         read_only: None,
     };
-    notebook_cells_append(&config, &args.notebook_id, Some(vec![cell]))
-        .await
-        .with_context(|| "Error appending cell to notebook")?;
 
-    Ok(())
+    let cell = notebook_cells_append(&config, &args.notebook_id, Some(vec![cell]))
+        .await
+        .with_context(|| "Error appending cell to notebook")?
+        .pop()
+        .ok_or_else(|| anyhow!("No cells returned"))?;
+    match args.output {
+        MessageOutput::Table => output_details(GenericKeyValue::from_cell(cell)),
+        MessageOutput::Json => output_json(&cell),
+    }
 }
