@@ -354,15 +354,14 @@ impl GenericKeyValue {
     }
 
     pub fn from_cell(cell: Cell) -> Vec<GenericKeyValue> {
-        let (id, content, cell_type) = match cell {
-            Cell::TextCell { id, content, .. } => (id, content, "Text"),
-            Cell::CodeCell { id, content, .. } => (id, content, "Code"),
+        let (id, cell_type) = match cell {
+            Cell::TextCell { id, .. } => (id, "Text"),
+            Cell::CodeCell { id, .. } => (id, "Code"),
             _ => unimplemented!(),
         };
         vec![
             GenericKeyValue::new("Cell ID:", id),
             GenericKeyValue::new("Cell Type:", cell_type),
-            GenericKeyValue::new("Content:", content),
         ]
     }
 }
