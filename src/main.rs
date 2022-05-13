@@ -20,6 +20,7 @@ use url::Url;
 
 mod auth;
 mod config;
+mod experiments;
 mod labels;
 mod manifest;
 mod notebooks;
@@ -29,6 +30,7 @@ mod proxies;
 mod templates;
 mod triggers;
 mod update;
+mod users;
 mod version;
 
 /// The current build manifest associated with this binary
@@ -73,6 +75,12 @@ enum SubCommand {
         #[clap(arg_enum)]
         shell: Shell,
     },
+
+    /// Experimental commands 🧪
+    ///
+    /// These commands are not stable and may change at any time.
+    #[clap(aliases = &["experiment", "x"])]
+    Experiments(experiments::Arguments),
 
     /// Login to Fiberplane and authorize the CLI to access your account
     #[clap()]
@@ -124,6 +132,10 @@ enum SubCommand {
     /// Update the current FP binary
     #[clap()]
     Update(update::Arguments),
+
+    /// Interact with user details
+    #[clap(alias = "user")]
+    Users(users::Arguments),
 
     /// Display extra version information
     #[clap()]
@@ -180,6 +192,7 @@ async fn main() {
 
     use SubCommand::*;
     let result = match args.sub_command {
+        Experiments(args) => experiments::handle_command(args).await,
         Login => auth::handle_login_command(args).await,
         Logout => auth::handle_logout_command(args).await,
         Labels(args) => labels::handle_command(args).await,
@@ -189,6 +202,7 @@ async fn main() {
         Templates(args) => templates::handle_command(args).await,
         Triggers(args) => triggers::handle_command(args).await,
         Update(args) => update::handle_command(args).await,
+        Users(args) => users::handle_command(args).await,
         Version(args) => version::handle_command(args).await,
         Completions { shell } => {
             let output = generate_completions(shell);

@@ -1,15 +1,15 @@
 use crate::config::api_client_configuration;
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use crate::KeyValueArgument;
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use clap::{ArgEnum, Parser};
 use cli_table::Table;
 use fiberplane_markdown::markdown_to_notebook;
 use fp_api_client::apis::default_api::{
-    delete_notebook, get_notebook, notebook_create, notebook_list,
+    delete_notebook, get_notebook, notebook_cells_append, notebook_create, notebook_list,
 };
 use fp_api_client::models::{
-    Label, NewNotebook, Notebook, NotebookSummary, NotebookVisibility, TimeRange,
+    Cell, Label, NewNotebook, Notebook, NotebookSummary, NotebookVisibility, TimeRange,
 };
 use std::{path::PathBuf, time::Duration};
 use time::OffsetDateTime;
@@ -41,6 +41,10 @@ pub enum SubCommand {
 
     /// Delete a notebook
     Delete(DeleteArgs),
+
+    /// Append a cell to the notebook
+    #[clap(alias = "append")]
+    AppendCell(AppendCellArgs),
 }
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
@@ -51,6 +55,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
         List(args) => handle_list_command(args).await,
         Open(args) => handle_open_command(args).await,
         Delete(args) => handle_delete_command(args).await,
+        AppendCell(args) => handle_append_cell_command(args).await,
     }
 }
 
@@ -137,9 +142,43 @@ pub struct DeleteArgs {
     config: Option<PathBuf>,
 }
 
+#[derive(Parser)]
+pub struct AppendCellArgs {
+    /// ID of the notebook
+    id: String,
+
+    /// Append a text cell
+    #[clap(long)]
+    text: Option<String>,
+
+    /// Append a code cell
+    #[clap(long)]
+    code: Option<String>,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+
+    /// Output type to display
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: CellOutput,
+}
+
 /// A generic output for notebook related commands.
 #[derive(ArgEnum, Clone)]
 enum NotebookOutput {
+    /// Output the result as a table
+    Table,
+
+    /// Output the result as a JSON encoded object
+    Json,
+}
+
+/// Output for cell related commands
+#[derive(ArgEnum, Clone)]
+enum CellOutput {
     /// Output the result as a table
     Table,
 
@@ -207,7 +246,7 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
     debug!(?notebook, "creating new notebook");
-    let notebook = notebook_create(&config, Some(notebook)).await?;
+    let notebook = notebook_create(&config, notebook).await?;
 
     match args.output {
         NotebookOutput::Table => {
@@ -270,6 +309,37 @@ async fn handle_delete_command(args: DeleteArgs) -> Result<()> {
     Ok(())
 }
 
+async fn handle_append_cell_command(args: AppendCellArgs) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+
+    let cell = if let Some(content) = args.text {
+        Cell::TextCell {
+            content,
+            id: String::new(),
+            formatting: None,
+            read_only: None,
+        }
+    } else if let Some(content) = args.code {
+        Cell::CodeCell {
+            content,
+            id: String::new(),
+            syntax: None,
+            read_only: None,
+        }
+    } else {
+        panic!("Must provide a cell type");
+    };
+
+    let cell = notebook_cells_append(&config, &args.id, vec![cell])
+        .await?
+        .pop()
+        .ok_or_else(|| anyhow!("Expected a single cell"))?;
+    match args.output {
+        CellOutput::Json => output_json(&cell),
+        CellOutput::Table => output_details(GenericKeyValue::from_cell(cell)),
+    }
+}
+
 fn notebook_url(base_url: Url, id: String) -> String {
     format!("{}notebook/{}", base_url, id)
 }
@@ -307,6 +377,18 @@ impl GenericKeyValue {
             GenericKeyValue::new("Created at:", notebook.created_at),
             GenericKeyValue::new("Current revision:", notebook.revision.to_string()),
             GenericKeyValue::new("Label:", labels),
+        ]
+    }
+
+    pub fn from_cell(cell: Cell) -> Vec<GenericKeyValue> {
+        let (id, cell_type) = match cell {
+            Cell::TextCell { id, .. } => (id, "Text"),
+            Cell::CodeCell { id, .. } => (id, "Code"),
+            _ => unimplemented!(),
+        };
+        vec![
+            GenericKeyValue::new("Cell ID:", id),
+            GenericKeyValue::new("Cell Type:", cell_type),
         ]
     }
 }
