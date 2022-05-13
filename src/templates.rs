@@ -487,7 +487,7 @@ async fn expand_template_file(args: ExpandArguments) -> Result<Notebook> {
         .with_context(|| "Error converting notebook to API client NewNotebook type")?;
 
     let config = config.ok_or_else(|| anyhow!("Must be logged in to create notebook"))?;
-    let notebook = notebook_create(&config, Some(notebook))
+    let notebook = notebook_create(&config, notebook)
         .await
         .with_context(|| "Error creating notebook")?;
     Ok(notebook)

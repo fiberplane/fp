@@ -123,7 +123,7 @@ async fn handle_message_command(args: MessageArgs) -> Result<()> {
         }]),
         read_only: None,
     };
-    let cell = notebook_cells_append(&config, &args.notebook_id, Some(vec![cell]))
+    let cell = notebook_cells_append(&config, &args.notebook_id, vec![cell])
         .await
         .with_context(|| "Error appending cell to notebook")?
         .pop()
@@ -193,7 +193,7 @@ async fn handle_exec_command(args: ExecArgs) -> Result<()> {
         read_only: None,
     };
 
-    let cell = notebook_cells_append(&config, &args.notebook_id, Some(vec![cell]))
+    let cell = notebook_cells_append(&config, &args.notebook_id, vec![cell])
         .await
         .with_context(|| "Error appending cell to notebook")?
         .pop()

@@ -133,7 +133,7 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
     let name = args.name.unwrap_or_else(|| petname(2, "-"));
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
-    let proxy = proxy_create(&config, Some(NewProxy { name }))
+    let proxy = proxy_create(&config, NewProxy { name })
         .await
         .map_err(|e| anyhow!(format!("Error adding proxy: {:?}", e)))?;
 

@@ -219,7 +219,7 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
     debug!(?notebook, "creating new notebook");
-    let notebook = notebook_create(&config, Some(notebook)).await?;
+    let notebook = notebook_create(&config, notebook).await?;
 
     match args.output {
         NotebookOutput::Table => {
@@ -303,7 +303,7 @@ async fn handle_append_cell_command(args: AppendCellArgs) -> Result<()> {
         panic!("Must provide a cell type");
     };
 
-    let cell = notebook_cells_append(&config, &args.id, Some(vec![cell]))
+    let cell = notebook_cells_append(&config, &args.id, vec![cell])
         .await?
         .pop()
         .ok_or_else(|| anyhow!("Expected a single cell"))?;
