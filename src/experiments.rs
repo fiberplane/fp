@@ -128,9 +128,11 @@ async fn handle_message_command(args: MessageArgs) -> Result<()> {
         .with_context(|| "Error appending cell to notebook")?
         .pop()
         .ok_or_else(|| anyhow!("No cells returned"))?;
-    info!("Created cell");
     match args.output {
-        MessageOutput::Table => output_details(GenericKeyValue::from_cell(cell)),
+        MessageOutput::Table => {
+            info!("Created cell");
+            output_details(GenericKeyValue::from_cell(cell))
+        }
         MessageOutput::Json => output_json(&cell),
     }
 }
@@ -198,9 +200,11 @@ async fn handle_exec_command(args: ExecArgs) -> Result<()> {
         .with_context(|| "Error appending cell to notebook")?
         .pop()
         .ok_or_else(|| anyhow!("No cells returned"))?;
-    info!("Created cell");
     match args.output {
-        MessageOutput::Table => output_details(GenericKeyValue::from_cell(cell)),
+        MessageOutput::Table => {
+            info!("Created cell");
+            output_details(GenericKeyValue::from_cell(cell))
+        }
         MessageOutput::Json => output_json(&cell),
     }
 }
