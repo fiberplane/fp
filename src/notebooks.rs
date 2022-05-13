@@ -4,16 +4,17 @@ use crate::KeyValueArgument;
 use anyhow::{Context, Result};
 use clap::{ArgEnum, Parser};
 use cli_table::Table;
+use fiberplane_markdown::markdown_to_notebook;
 use fp_api_client::apis::default_api::{
     delete_notebook, get_notebook, notebook_create, notebook_list,
 };
 use fp_api_client::models::{
     Label, NewNotebook, Notebook, NotebookSummary, NotebookVisibility, TimeRange,
 };
-use std::path::PathBuf;
-use std::time::Duration;
+use std::{path::PathBuf, time::Duration};
 use time::OffsetDateTime;
 use time_util::clap_rfc3339;
+use tokio::fs;
 use tracing::{debug, info, trace};
 use url::Url;
 use webbrowser::open;
@@ -70,6 +71,10 @@ pub struct CreateArgs {
     /// End time to be passed into the new notebook (RFC3339). Leave empty to use the current time.
     #[clap(long, parse(try_from_str = clap_rfc3339::parse_rfc3339))]
     to: Option<OffsetDateTime>,
+
+    /// Create the notebook from the given Markdown file
+    #[clap(long, short)]
+    markdown: Option<PathBuf>,
 
     /// Output of the notebook
     #[clap(long, short, default_value = "table", arg_enum)]
@@ -143,8 +148,6 @@ enum NotebookOutput {
 }
 
 async fn handle_create_command(args: CreateArgs) -> Result<()> {
-    let title = args.title.unwrap_or_else(|| String::from("new title"));
-
     let labels = match args.labels.len() {
         0 => None,
         _ => Some(
@@ -169,12 +172,36 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
         .unwrap_or_else(OffsetDateTime::now_utc)
         .unix_timestamp() as f32;
 
+    // Optionally parse the notebook from Markdown
+    let notebook = match args.markdown {
+        Some(markdown_path) => {
+            let markdown = fs::read_to_string(markdown_path)
+                .await
+                .with_context(|| "Error reading markdown file")?;
+            let notebook = markdown_to_notebook(&markdown);
+            let notebook = serde_json::to_string(&notebook)?;
+            serde_json::from_str(&notebook).with_context(|| "Error parsing notebook struct (there is a mismatch between the API client model and the fiberplane core model)")?
+        }
+        None => NewNotebook {
+            title: String::new(),
+            time_range: Box::new(TimeRange { from, to }),
+            cells: Vec::new(),
+            data_sources: None,
+            labels: Default::default(),
+        },
+    };
+    let title = if let Some(title) = args.title {
+        title
+    } else if !notebook.title.is_empty() {
+        notebook.title
+    } else {
+        "New Notebook".to_string()
+    };
     let notebook = NewNotebook {
         title,
         time_range: Box::new(TimeRange { from, to }),
-        cells: vec![],
-        data_sources: None,
         labels,
+        ..notebook
     };
 
     let config = api_client_configuration(args.config, &args.base_url).await?;
