@@ -15,8 +15,6 @@ use fp_api_client::models::{
 use std::{path::PathBuf, time::Duration};
 use time::OffsetDateTime;
 use time_util::clap_rfc3339;
-use tokio::fs;
-use tokio::io::{self, AsyncReadExt};
 use tracing::{info, trace};
 use url::Url;
 use webbrowser::open;
@@ -79,9 +77,9 @@ pub struct CreateArgs {
     #[clap(long, parse(try_from_str = clap_rfc3339::parse_rfc3339))]
     to: Option<OffsetDateTime>,
 
-    /// Create the notebook from the given Markdown file
+    /// Create the notebook from the given Markdown
     ///
-    /// Pass - to read from stdin
+    /// To read the Markdown from a file use `--markdown=$(cat file.md)`
     #[clap(long, short, value_hint = ValueHint::FilePath)]
     markdown: Option<String>,
 
@@ -220,19 +218,7 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
 
     // Optionally parse the notebook from Markdown
     let notebook = match args.markdown {
-        Some(markdown_path) => {
-            let markdown = if markdown_path == "-" {
-                let mut markdown = String::new();
-                io::stdin()
-                    .read_to_string(&mut markdown)
-                    .await
-                    .with_context(|| "Error reading markdown from stdin")?;
-                markdown
-            } else {
-                fs::read_to_string(markdown_path)
-                    .await
-                    .with_context(|| "Error reading markdown file")?
-            };
+        Some(markdown) => {
             let notebook = markdown_to_notebook(&markdown);
             let notebook = serde_json::to_string(&notebook)?;
             serde_json::from_str(&notebook).with_context(|| "Error parsing notebook struct (there is a mismatch between the API client model and the fiberplane core model)")?
