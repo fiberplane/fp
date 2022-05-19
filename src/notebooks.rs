@@ -101,7 +101,7 @@ pub struct GetArgs {
 
     /// Output of the notebook
     #[clap(long, short, default_value = "table", arg_enum)]
-    output: NotebookOutput,
+    output: SingleNotebookOutput,
 
     #[clap(from_global)]
     base_url: Url,
@@ -170,7 +170,7 @@ pub struct AppendCellArgs {
 
 /// A generic output for notebook related commands.
 #[derive(ArgEnum, Clone)]
-enum NotebookOutput {
+enum SingleNotebookOutput {
     /// Output the result as a table
     Table,
 
@@ -179,6 +179,16 @@ enum NotebookOutput {
 
     /// Output the notebook as Markdown
     Markdown,
+}
+
+/// A generic output for notebook related commands.
+#[derive(ArgEnum, Clone)]
+enum NotebookOutput {
+    /// Output the result as a table
+    Table,
+
+    /// Output the result as a JSON encoded object
+    Json,
 }
 
 /// Output for cell related commands
@@ -255,7 +265,6 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
             Ok(())
         }
         NotebookOutput::Json => output_json(&notebook),
-        NotebookOutput::Markdown => unimplemented!(),
     }
 }
 
@@ -266,9 +275,9 @@ async fn handle_get_command(args: GetArgs) -> Result<()> {
     let notebook = get_notebook(&config, &args.id).await?;
 
     match args.output {
-        NotebookOutput::Table => output_details(GenericKeyValue::from_notebook(notebook)),
-        NotebookOutput::Json => output_json(&notebook),
-        NotebookOutput::Markdown => {
+        SingleNotebookOutput::Table => output_details(GenericKeyValue::from_notebook(notebook)),
+        SingleNotebookOutput::Json => output_json(&notebook),
+        SingleNotebookOutput::Markdown => {
             let notebook = serde_json::to_string(&notebook)?;
             let notebook: core::Notebook = serde_json::from_str(&notebook)?;
             let markdown = notebook_to_markdown_with_base_url(notebook, args.base_url);
@@ -293,7 +302,6 @@ async fn handle_list_command(args: ListArgs) -> Result<()> {
             output_list(notebooks)
         }
         NotebookOutput::Json => output_json(&notebooks),
-        NotebookOutput::Markdown => unimplemented!(),
     }
 }
 
