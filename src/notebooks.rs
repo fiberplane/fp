@@ -5,7 +5,7 @@ use anyhow::{anyhow, Context, Result};
 use clap::{ArgEnum, Parser, ValueHint};
 use cli_table::Table;
 use fiberplane::protocols::core;
-use fiberplane_markdown::{markdown_to_notebook, notebook_to_markdown};
+use fiberplane_markdown::{markdown_to_notebook, notebook_to_markdown_with_base_url};
 use fp_api_client::apis::default_api::{
     delete_notebook, get_notebook, notebook_cells_append, notebook_create, notebook_list,
 };
@@ -285,7 +285,7 @@ async fn handle_get_command(args: GetArgs) -> Result<()> {
         NotebookOutput::Markdown => {
             let notebook = serde_json::to_string(&notebook)?;
             let notebook: core::Notebook = serde_json::from_str(&notebook)?;
-            let markdown = notebook_to_markdown(notebook);
+            let markdown = notebook_to_markdown_with_base_url(notebook, args.base_url);
             println!("{}", markdown);
             Ok(())
         }
