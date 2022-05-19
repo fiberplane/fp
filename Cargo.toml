@@ -15,7 +15,7 @@ clap_complete = "3.0.6"
 cli-table = "0.4"
 directories = "4.0.1"
 fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main" }
-fiberplane-markdown = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main" }
+fiberplane-markdown = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "markdown" }
 fiberplane-templates = { git = "ssh://git@github.com/fiberplane/templates.git", branch = "main" }
 fp-api-client = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main" }
 fp-provider-runtime = { git = "ssh://git@github.com/fiberplane/providers.git", branch = "main" }
@@ -60,8 +60,8 @@ vergen = "6"
 # [patch."ssh://git@github.com/fiberplane/providers.git"]
 # fp-provider-runtime = { path = "../providers/runtimes/fp-provider-runtime/" }
 
-[patch."ssh://git@github.com/fiberplane/fiberplane-rs.git"]
-fiberplane = { path = "../fiberplane-rs/fiberplane" }
+# [patch."ssh://git@github.com/fiberplane/fiberplane-rs.git"]
+# fiberplane = { path = "../fiberplane-rs/fiberplane" }
 # time_util = { path = "../fiberplane-rs/time_util" }
 
 # [patch."ssh://git@github.com/fiberplane/templates.git"]
