@@ -2,9 +2,10 @@ use crate::config::api_client_configuration;
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use crate::KeyValueArgument;
 use anyhow::{anyhow, Context, Result};
-use clap::{ArgEnum, Parser};
+use clap::{ArgEnum, Parser, ValueHint};
 use cli_table::Table;
-use fiberplane_markdown::markdown_to_notebook;
+use fiberplane::protocols::core;
+use fiberplane_markdown::{markdown_to_notebook, notebook_to_markdown};
 use fp_api_client::apis::default_api::{
     delete_notebook, get_notebook, notebook_cells_append, notebook_create, notebook_list,
 };
@@ -15,7 +16,8 @@ use std::{path::PathBuf, time::Duration};
 use time::OffsetDateTime;
 use time_util::clap_rfc3339;
 use tokio::fs;
-use tracing::{debug, info, trace};
+use tokio::io::{self, AsyncReadExt};
+use tracing::{info, trace};
 use url::Url;
 use webbrowser::open;
 
@@ -78,8 +80,10 @@ pub struct CreateArgs {
     to: Option<OffsetDateTime>,
 
     /// Create the notebook from the given Markdown file
-    #[clap(long, short)]
-    markdown: Option<PathBuf>,
+    ///
+    /// Pass - to read from stdin
+    #[clap(long, short, value_hint = ValueHint::FilePath)]
+    markdown: Option<String>,
 
     /// Output of the notebook
     #[clap(long, short, default_value = "table", arg_enum)]
@@ -148,11 +152,11 @@ pub struct AppendCellArgs {
     id: String,
 
     /// Append a text cell
-    #[clap(long)]
+    #[clap(long, conflicts_with_all = &["code"])]
     text: Option<String>,
 
     /// Append a code cell
-    #[clap(long)]
+    #[clap(long, conflicts_with_all = &["text"])]
     code: Option<String>,
 
     #[clap(from_global)]
@@ -174,6 +178,9 @@ enum NotebookOutput {
 
     /// Output the result as a JSON encoded object
     Json,
+
+    /// Output the notebook as Markdown
+    Markdown,
 }
 
 /// Output for cell related commands
@@ -214,9 +221,18 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
     // Optionally parse the notebook from Markdown
     let notebook = match args.markdown {
         Some(markdown_path) => {
-            let markdown = fs::read_to_string(markdown_path)
-                .await
-                .with_context(|| "Error reading markdown file")?;
+            let markdown = if markdown_path == "-" {
+                let mut markdown = String::new();
+                io::stdin()
+                    .read_to_string(&mut markdown)
+                    .await
+                    .with_context(|| "Error reading markdown from stdin")?;
+                markdown
+            } else {
+                fs::read_to_string(markdown_path)
+                    .await
+                    .with_context(|| "Error reading markdown file")?
+            };
             let notebook = markdown_to_notebook(&markdown);
             let notebook = serde_json::to_string(&notebook)?;
             serde_json::from_str(&notebook).with_context(|| "Error parsing notebook struct (there is a mismatch between the API client model and the fiberplane core model)")?
@@ -244,8 +260,6 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
     };
 
     let config = api_client_configuration(args.config, &args.base_url).await?;
-
-    debug!(?notebook, "creating new notebook");
     let notebook = notebook_create(&config, notebook).await?;
 
     match args.output {
@@ -255,6 +269,7 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
             Ok(())
         }
         NotebookOutput::Json => output_json(&notebook),
+        NotebookOutput::Markdown => unimplemented!(),
     }
 }
 
@@ -267,6 +282,13 @@ async fn handle_get_command(args: GetArgs) -> Result<()> {
     match args.output {
         NotebookOutput::Table => output_details(GenericKeyValue::from_notebook(notebook)),
         NotebookOutput::Json => output_json(&notebook),
+        NotebookOutput::Markdown => {
+            let notebook = serde_json::to_string(&notebook)?;
+            let notebook: core::Notebook = serde_json::from_str(&notebook)?;
+            let markdown = notebook_to_markdown(notebook);
+            println!("{}", markdown);
+            Ok(())
+        }
     }
 }
 
@@ -285,6 +307,7 @@ async fn handle_list_command(args: ListArgs) -> Result<()> {
             output_list(notebooks)
         }
         NotebookOutput::Json => output_json(&notebooks),
+        NotebookOutput::Markdown => unimplemented!(),
     }
 }
 
