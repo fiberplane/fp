@@ -2,19 +2,20 @@ use crate::config::api_client_configuration;
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use crate::KeyValueArgument;
 use anyhow::{anyhow, Context, Result};
-use clap::{ArgEnum, Parser};
+use clap::{ArgEnum, Parser, ValueHint};
 use cli_table::Table;
+use fiberplane::protocols::core;
+use fiberplane_markdown::{markdown_to_notebook, notebook_to_markdown_with_base_url};
 use fp_api_client::apis::default_api::{
     delete_notebook, get_notebook, notebook_cells_append, notebook_create, notebook_list,
 };
 use fp_api_client::models::{
     Cell, Label, NewNotebook, Notebook, NotebookSummary, NotebookVisibility, TimeRange,
 };
-use std::path::PathBuf;
-use std::time::Duration;
+use std::{path::PathBuf, time::Duration};
 use time::OffsetDateTime;
 use time_util::clap_rfc3339;
-use tracing::{debug, info, trace};
+use tracing::{info, trace};
 use url::Url;
 use webbrowser::open;
 
@@ -76,6 +77,12 @@ pub struct CreateArgs {
     #[clap(long, parse(try_from_str = clap_rfc3339::parse_rfc3339))]
     to: Option<OffsetDateTime>,
 
+    /// Create the notebook from the given Markdown
+    ///
+    /// To read the Markdown from a file use `--markdown=$(cat file.md)`
+    #[clap(long, short, value_hint = ValueHint::FilePath)]
+    markdown: Option<String>,
+
     /// Output of the notebook
     #[clap(long, short, default_value = "table", arg_enum)]
     output: NotebookOutput,
@@ -94,7 +101,7 @@ pub struct GetArgs {
 
     /// Output of the notebook
     #[clap(long, short, default_value = "table", arg_enum)]
-    output: NotebookOutput,
+    output: SingleNotebookOutput,
 
     #[clap(from_global)]
     base_url: Url,
@@ -143,11 +150,11 @@ pub struct AppendCellArgs {
     id: String,
 
     /// Append a text cell
-    #[clap(long)]
+    #[clap(long, conflicts_with_all = &["code"])]
     text: Option<String>,
 
     /// Append a code cell
-    #[clap(long)]
+    #[clap(long, conflicts_with_all = &["text"])]
     code: Option<String>,
 
     #[clap(from_global)]
@@ -159,6 +166,19 @@ pub struct AppendCellArgs {
     /// Output type to display
     #[clap(long, short, default_value = "table", arg_enum)]
     output: CellOutput,
+}
+
+/// A generic output for notebook related commands.
+#[derive(ArgEnum, Clone)]
+enum SingleNotebookOutput {
+    /// Output the result as a table
+    Table,
+
+    /// Output the result as a JSON encoded object
+    Json,
+
+    /// Output the notebook as Markdown
+    Markdown,
 }
 
 /// A generic output for notebook related commands.
@@ -182,8 +202,6 @@ enum CellOutput {
 }
 
 async fn handle_create_command(args: CreateArgs) -> Result<()> {
-    let title = args.title.unwrap_or_else(|| String::from("new title"));
-
     let labels = match args.labels.len() {
         0 => None,
         _ => Some(
@@ -208,17 +226,36 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
         .unwrap_or_else(OffsetDateTime::now_utc)
         .unix_timestamp() as f32;
 
+    // Optionally parse the notebook from Markdown
+    let notebook = match args.markdown {
+        Some(markdown) => {
+            let notebook = markdown_to_notebook(&markdown);
+            let notebook = serde_json::to_string(&notebook)?;
+            serde_json::from_str(&notebook).with_context(|| "Error parsing notebook struct (there is a mismatch between the API client model and the fiberplane core model)")?
+        }
+        None => NewNotebook {
+            title: String::new(),
+            time_range: Box::new(TimeRange { from, to }),
+            cells: Vec::new(),
+            data_sources: None,
+            labels: Default::default(),
+        },
+    };
+    let title = if let Some(title) = args.title {
+        title
+    } else if !notebook.title.is_empty() {
+        notebook.title
+    } else {
+        "New Notebook".to_string()
+    };
     let notebook = NewNotebook {
         title,
         time_range: Box::new(TimeRange { from, to }),
-        cells: vec![],
-        data_sources: None,
         labels,
+        ..notebook
     };
 
     let config = api_client_configuration(args.config, &args.base_url).await?;
-
-    debug!(?notebook, "creating new notebook");
     let notebook = notebook_create(&config, notebook).await?;
 
     match args.output {
@@ -238,8 +275,15 @@ async fn handle_get_command(args: GetArgs) -> Result<()> {
     let notebook = get_notebook(&config, &args.id).await?;
 
     match args.output {
-        NotebookOutput::Table => output_details(GenericKeyValue::from_notebook(notebook)),
-        NotebookOutput::Json => output_json(&notebook),
+        SingleNotebookOutput::Table => output_details(GenericKeyValue::from_notebook(notebook)),
+        SingleNotebookOutput::Json => output_json(&notebook),
+        SingleNotebookOutput::Markdown => {
+            let notebook = serde_json::to_string(&notebook)?;
+            let notebook: core::Notebook = serde_json::from_str(&notebook)?;
+            let markdown = notebook_to_markdown_with_base_url(notebook, args.base_url);
+            println!("{}", markdown);
+            Ok(())
+        }
     }
 }
 

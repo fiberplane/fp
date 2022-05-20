@@ -113,7 +113,7 @@ checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 [[package]]
 name = "base64uuid"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#513c882d265be602b2c2b5c9a159b49dee988b44"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#67c2a3f753cb7dbea6cefc475f155b648b68e927"
 dependencies = [
  "base64",
  "serde",
@@ -674,7 +674,7 @@ dependencies = [
 [[package]]
 name = "fiberplane"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#513c882d265be602b2c2b5c9a159b49dee988b44"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#67c2a3f753cb7dbea6cefc475f155b648b68e927"
 dependencies = [
  "fp-bindgen",
  "lazy_static",
@@ -684,6 +684,18 @@ dependencies = [
  "thiserror",
  "time 0.3.7",
  "time_util",
+]
+
+[[package]]
+name = "fiberplane-markdown"
+version = "0.1.0"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#67c2a3f753cb7dbea6cefc475f155b648b68e927"
+dependencies = [
+ "fiberplane",
+ "pulldown-cmark",
+ "pulldown-cmark-to-cmark",
+ "tracing",
+ "url",
 ]
 
 [[package]]
@@ -728,6 +740,7 @@ dependencies = [
  "cli-table",
  "directories",
  "fiberplane",
+ "fiberplane-markdown",
  "fiberplane-templates",
  "fp-api-client",
  "fp-provider-runtime",
@@ -761,7 +774,7 @@ dependencies = [
 [[package]]
 name = "fp-api-client"
 version = "1.0.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#513c882d265be602b2c2b5c9a159b49dee988b44"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#67c2a3f753cb7dbea6cefc475f155b648b68e927"
 dependencies = [
  "reqwest",
  "serde",
@@ -943,6 +956,15 @@ checksum = "fd48d33ec7f05fbfa152300fdad764757cbded343c1aa1cff2fbaf4134851803"
 dependencies = [
  "typenum",
  "version_check",
+]
+
+[[package]]
+name = "getopts"
+version = "0.2.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14dbbfd5c71d70241ecf9e6f13737f7b5ce823821063188d7e46c41d371eebd5"
+dependencies = [
+ "unicode-width",
 ]
 
 [[package]]
@@ -1869,6 +1891,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "pulldown-cmark"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34f197a544b0c9ab3ae46c359a7ec9cbbb5c7bf97054266fecb7ead794a181d6"
+dependencies = [
+ "bitflags",
+ "getopts",
+ "memchr",
+ "unicase",
+]
+
+[[package]]
+name = "pulldown-cmark-to-cmark"
+version = "10.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3eafb76310f7dc895b5d83d24f2a00e244fc8a68ef94f4257eb4060984d0385f"
+dependencies = [
+ "pulldown-cmark",
+]
+
+[[package]]
 name = "qstring"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2523,7 +2566,7 @@ dependencies = [
 [[package]]
 name = "time_util"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#513c882d265be602b2c2b5c9a159b49dee988b44"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#67c2a3f753cb7dbea6cefc475f155b648b68e927"
 dependencies = [
  "anyhow",
  "serde",
@@ -2630,9 +2673,9 @@ checksum = "360dfd1d6d30e05fda32ace2c8c70e9c0a9da713275777f5a4dbb8a1893930c6"
 
 [[package]]
 name = "tracing"
-version = "0.1.30"
+version = "0.1.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d8d93354fe2a8e50d5953f5ae2e47a3fc2ef03292e7ea46e3cc38f549525fb9"
+checksum = "5d0ecdcb44a79f0fe9844f0c4f33a342cbcbb5117de8001e6ba0dc2351327d09"
 dependencies = [
  "cfg-if",
  "log",
@@ -2643,9 +2686,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-attributes"
-version = "0.1.19"
+version = "0.1.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8276d9a4a3a558d7b7ad5303ad50b53d58264641b82914b7ada36bd762e7a716"
+checksum = "cc6b8ad3567499f98a1db7a752b07a7c8c7c7c34c332ec00effb2b0027974b7c"
 dependencies = [
  "proc-macro2",
  "quote",
