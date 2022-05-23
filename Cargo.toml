@@ -62,6 +62,7 @@ vergen = "6"
 
 # [patch."ssh://git@github.com/fiberplane/fiberplane-rs.git"]
 # fiberplane = { path = "../fiberplane-rs/fiberplane" }
+# fiberplane-markdown = { path = "../fiberplane-rs/markdown" }
 # time_util = { path = "../fiberplane-rs/time_util" }
 
 # [patch."ssh://git@github.com/fiberplane/templates.git"]

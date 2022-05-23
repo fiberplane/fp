@@ -13,6 +13,7 @@ use lazy_static::lazy_static;
 use regex::{Regex, Replacer};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
+use std::fmt::Write;
 use std::{env::current_dir, io::ErrorKind, path::PathBuf, process::Stdio, str::FromStr};
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use tokio::io::{self, AsyncWriteExt};
@@ -234,27 +235,39 @@ async fn handle_exec_command(args: ExecArgs) -> Result<()> {
         .with_context(|| "Error appending cell to notebook")?
         .pop()
         .ok_or_else(|| anyhow!("No cells returned"))?;
-    match args.output {
-        MessageOutput::Table => {
-            info!("Created cell");
-            output_details(GenericKeyValue::from_cell(cell))
-        }
-        MessageOutput::Json => output_json(&cell),
+    let mut url = args
+        .base_url
+        .join("/notebook/")
+        .unwrap()
+        .join(&args.notebook_id)
+        .unwrap();
+    if let Cell::CodeCell { id, .. } = cell {
+        url.set_fragment(Some(&id));
     }
+
+    info!("\n(🎉 Created cell: {})", url);
+    Ok(())
 }
 
-struct NotebookUrlReplacer<'a>(&'a HashMap<String, String>);
+struct NotebookUrlReplacer<'a>(&'a HashMap<String, CrawledNotebook>);
 
 impl<'a> Replacer for NotebookUrlReplacer<'a> {
     fn replace_append(&mut self, caps: &regex::Captures<'_>, dst: &mut String) {
         let notebook_id = caps.get(1).unwrap().as_str();
-        if let Some(file_name) = self.0.get(notebook_id) {
+        if let Some(notebook) = self.0.get(notebook_id) {
             dst.push_str("./");
-            dst.push_str(file_name);
+            dst.push_str(&notebook.file_name);
         } else {
             dst.push_str(caps.get(0).unwrap().as_str());
         }
     }
+}
+
+struct CrawledNotebook {
+    title: String,
+    file_name: String,
+    file_path: PathBuf,
+    crawl_index: usize,
 }
 
 async fn handle_crawl_command(args: CrawlArgs) -> Result<()> {
@@ -273,10 +286,12 @@ async fn handle_crawl_command(args: CrawlArgs) -> Result<()> {
         .with_context(|| "Error creating output directory")?;
 
     notebooks_to_crawl.push_back(starting_notebook_id.to_string());
+    let mut crawl_index = 0;
     while let Some(notebook_id) = notebooks_to_crawl.pop_front() {
         if crawled_notebooks.contains_key(&notebook_id) {
             continue;
         }
+        crawl_index += 1;
         let notebook = match get_notebook(&config, &notebook_id).await {
             Ok(notebook) => notebook,
             Err(err) => {
@@ -304,31 +319,57 @@ async fn handle_crawl_command(args: CrawlArgs) -> Result<()> {
             }
         }
 
-        let file_name = if notebook.id == starting_notebook_id {
-            "index.md".to_string()
-        } else {
-            format!("{}.md", notebook.title.replace(" ", "_").to_lowercase())
-        };
-        let path = args.out_dir.join(&file_name).with_extension("md");
-        crawled_notebooks.insert(notebook_id.clone(), file_name);
+        let file_name = format!("{}.md", notebook.title.replace(" ", "_").to_lowercase());
+        let file_path = args.out_dir.join(&file_name).with_extension("md");
         info!(
             "Writing notebook \"{}\" (ID: {}) to {}",
             notebook.title,
             notebook.id,
-            path.display()
+            file_path.display()
+        );
+        crawled_notebooks.insert(
+            notebook_id.clone(),
+            CrawledNotebook {
+                title: notebook.title.clone(),
+                file_name,
+                file_path: file_path.clone(),
+                crawl_index,
+            },
         );
         let markdown = notebook_to_markdown(notebook);
-        fs::write(path, markdown.as_bytes()).await?;
+        fs::write(file_path, markdown.as_bytes())
+            .await
+            .with_context(|| "Error saving markdown file")?;
     }
 
-    for file_name in crawled_notebooks.values() {
-        info!("Replacing notebook URLs in {}", file_name);
-        let path = args.out_dir.join(file_name).with_extension("md");
-        let markdown = fs::read_to_string(&path).await?;
+    // Convert the notebook URLs to relative markdown links
+    for notebook in crawled_notebooks.values() {
+        info!("Replacing notebook URLs in {}", notebook.file_name);
+        let markdown = fs::read_to_string(&notebook.file_path)
+            .await
+            .with_context(|| "Error reading markdown file")?;
         let markdown =
             NOTEBOOK_URL_REGEX.replace_all(&markdown, NotebookUrlReplacer(&crawled_notebooks));
-        fs::write(path, markdown.as_bytes()).await?;
+        fs::write(&notebook.file_path, markdown.as_bytes())
+            .await
+            .with_context(|| "Error replacing markdown file")?;
     }
+
+    // Generate the SUMMARY.md file used by mdBook
+    // https://rust-lang.github.io/mdBook/format/summary.html
+    let mut notebooks = crawled_notebooks.values().collect::<Vec<_>>();
+    notebooks.sort_by_key(|notebook| notebook.crawl_index);
+    let mut summary = String::new();
+    for notebook in notebooks {
+        write!(
+            &mut summary,
+            "- [{}](./{})\n",
+            notebook.title, notebook.file_name
+        )?;
+    }
+    fs::write(args.out_dir.join("SUMMARY.md"), summary)
+        .await
+        .with_context(|| "Error writing SUMMARY.md")?;
 
     Ok(())
 }
