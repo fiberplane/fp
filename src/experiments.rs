@@ -318,7 +318,15 @@ async fn handle_crawl_command(args: CrawlArgs) -> Result<()> {
             }
         }
 
-        let file_name = format!("{}.md", notebook.title.replace(' ', "_").to_lowercase());
+        let file_name = format!(
+            "{}.md",
+            notebook
+                .title
+                .replace(' ', "_")
+                .replace('/', r"\/")
+                .replace(r"\", r"\\")
+                .to_lowercase()
+        );
         let file_path = args.out_dir.join(&file_name).with_extension("md");
         info!(
             "Writing notebook \"{}\" (ID: {}) to {}",
