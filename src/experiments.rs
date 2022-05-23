@@ -308,7 +308,7 @@ async fn handle_crawl_command(args: CrawlArgs) -> Result<()> {
                 for annotation in formatting {
                     if let formatting::Annotation::StartLink { url } = &mut annotation.annotation {
                         if url.starts_with(args.base_url.as_str()) {
-                            if let Some(captures) = NOTEBOOK_ID_REGEX.captures(&url) {
+                            if let Some(captures) = NOTEBOOK_ID_REGEX.captures(url) {
                                 if let Some(notebook_id) = captures.get(1) {
                                     notebooks_to_crawl.push_back(notebook_id.as_str().to_string());
                                 }
@@ -319,7 +319,7 @@ async fn handle_crawl_command(args: CrawlArgs) -> Result<()> {
             }
         }
 
-        let file_name = format!("{}.md", notebook.title.replace(" ", "_").to_lowercase());
+        let file_name = format!("{}.md", notebook.title.replace(' ', "_").to_lowercase());
         let file_path = args.out_dir.join(&file_name).with_extension("md");
         info!(
             "Writing notebook \"{}\" (ID: {}) to {}",
@@ -361,9 +361,9 @@ async fn handle_crawl_command(args: CrawlArgs) -> Result<()> {
     notebooks.sort_by_key(|notebook| notebook.crawl_index);
     let mut summary = String::new();
     for notebook in notebooks {
-        write!(
+        writeln!(
             &mut summary,
-            "- [{}](./{})\n",
+            "- [{}](./{})",
             notebook.title, notebook.file_name
         )?;
     }
