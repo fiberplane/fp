@@ -91,7 +91,6 @@ struct ExecArgs {
 
 #[derive(Parser)]
 struct CrawlArgs {
-    /// The notebook to append the message to
     notebook: String,
 
     #[clap(from_global)]
@@ -245,7 +244,7 @@ async fn handle_exec_command(args: ExecArgs) -> Result<()> {
         url.set_fragment(Some(&id));
     }
 
-    info!("\n(🎉 Created cell: {})", url);
+    info!("\n   --> Created cell: {}", url);
     Ok(())
 }
 
