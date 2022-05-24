@@ -271,6 +271,7 @@ struct CrawledNotebook {
 
 async fn handle_crawl_command(args: CrawlArgs) -> Result<()> {
     let mut crawled_notebooks = HashMap::new();
+    let mut notebook_titles: HashMap<String, usize> = HashMap::new();
     let mut notebooks_to_crawl = VecDeque::new();
     let starting_notebook_id = NOTEBOOK_ID_REGEX
         .captures(&args.notebook)
@@ -318,14 +319,23 @@ async fn handle_crawl_command(args: CrawlArgs) -> Result<()> {
             }
         }
 
+        // Ensure that multiple notebooks with the same title don't overwrite one another
+        let number_suffix = if let Some(number) = notebook_titles.get(&notebook.title) {
+            format!("_{}", number)
+        } else {
+            notebook_titles.insert(notebook.title.clone(), 1);
+            String::new()
+        };
+
         let file_name = format!(
-            "{}.md",
+            "{}{}.md",
             notebook
                 .title
                 .replace(' ', "_")
                 .replace('/', r"\/")
                 .replace(r"\", r"\\")
-                .to_lowercase()
+                .to_lowercase(),
+            number_suffix
         );
         let file_path = args.out_dir.join(&file_name).with_extension("md");
         info!(
