@@ -271,7 +271,8 @@ fn initialize_logger(args: &Arguments) -> Result<()> {
             .with_target(false)
             .with_writer(io::stderr)
             .with_env_filter(EnvFilter::from_default_env())
-            .init();
+            .try_init()
+            .expect("unable to initialize logging");
     }
 
     Ok(())
