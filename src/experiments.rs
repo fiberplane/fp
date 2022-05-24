@@ -85,8 +85,8 @@ struct ExecArgs {
     config: Option<PathBuf>,
 
     /// Output type to display
-    #[clap(long, short, default_value = "table", arg_enum)]
-    output: MessageOutput,
+    #[clap(long, short, default_value = "command", arg_enum)]
+    output: ExecOutput,
 }
 
 #[derive(Parser)]
@@ -112,6 +112,18 @@ enum MessageOutput {
     Table,
 
     /// Output the result as a JSON encoded object
+    Json,
+}
+
+#[derive(ArgEnum, Clone, PartialEq)]
+enum ExecOutput {
+    /// Output the result of the command
+    Command,
+
+    /// Output the cell details as a table
+    Table,
+
+    /// Output the cell details as a JSON encoded object
     Json,
 }
 
@@ -197,13 +209,17 @@ async fn handle_exec_command(args: ExecArgs) -> Result<()> {
             chunk = child_stdout.next() => {
                 if let Some(Ok(chunk)) = chunk {
                     output.extend(&chunk);
-                    stdout.write_all(&chunk).await?;
+                    if args.output == ExecOutput::Command {
+                        stdout.write_all(&chunk).await?;
+                    }
                 }
             }
             chunk = child_stderr.next() => {
                 if let Some(Ok(chunk)) = chunk {
                     output.extend(&chunk);
-                    stderr.write_all(&chunk).await?;
+                    if args.output == ExecOutput::Command {
+                        stderr.write_all(&chunk).await?;
+                    }
                 }
             }
         }
@@ -240,12 +256,21 @@ async fn handle_exec_command(args: ExecArgs) -> Result<()> {
         .unwrap()
         .join(&args.notebook_id)
         .unwrap();
-    if let Cell::CodeCell { id, .. } = cell {
-        url.set_fragment(Some(&id));
+    if let Cell::CodeCell { id, .. } = &cell {
+        url.set_fragment(Some(id));
     }
 
-    info!("\n   --> Created cell: {}", url);
-    Ok(())
+    match args.output {
+        ExecOutput::Command => {
+            info!("\n   --> Created cell: {}", url);
+            Ok(())
+        }
+        ExecOutput::Table => {
+            info!("Created cell");
+            output_details(GenericKeyValue::from_cell(cell))
+        }
+        ExecOutput::Json => output_json(&cell),
+    }
 }
 
 struct NotebookUrlReplacer<'a>(&'a HashMap<String, CrawledNotebook>);
