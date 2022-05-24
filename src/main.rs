@@ -238,10 +238,9 @@ fn initialize_logger(args: &Arguments) -> Result<()> {
         // If RUST_LOG is set, then use the directives from there, otherwise
         // info as the default level for everything, except for fp, which will
         // use debug.
-        let filter = if let Ok(env_var) = env::var(EnvFilter::DEFAULT_ENV) {
-            EnvFilter::try_new(env_var)
-        } else {
-            EnvFilter::try_new("info,fp=debug")
+        let filter = match env::var(EnvFilter::DEFAULT_ENV) {
+            Ok(env_var) => EnvFilter::try_new(env_var),
+            _ => EnvFilter::try_new("info,fp=debug"),
         }?;
 
         // Create a more verbose logger that show timestamp, level, and all the
@@ -253,6 +252,11 @@ fn initialize_logger(args: &Arguments) -> Result<()> {
             .try_init()
             .expect("unable to initialize logging");
     } else {
+        let filter = match env::var(EnvFilter::DEFAULT_ENV) {
+            Ok(env_var) => EnvFilter::try_new(env_var),
+            _ => EnvFilter::try_new("fp=info"),
+        }?;
+
         // Create a custom field formatter, which only outputs the `message`
         // field, all other fields are ignored.
         let field_formatter = format::debug_fn(|writer, field, value| {
@@ -270,6 +274,7 @@ fn initialize_logger(args: &Arguments) -> Result<()> {
             .with_span_events(format::FmtSpan::NONE)
             .with_target(false)
             .with_writer(io::stderr)
+            .with_env_filter(filter)
             .try_init()
             .expect("unable to initialize logging");
     }
