@@ -270,8 +270,8 @@ fn initialize_logger(args: &Arguments) -> Result<()> {
             .with_span_events(format::FmtSpan::NONE)
             .with_target(false)
             .with_writer(io::stderr)
-            .try_init()
-            .expect("unable to initialize logging");
+            .with_env_filter(EnvFilter::from_default_env())
+            .init();
     }
 
     Ok(())
