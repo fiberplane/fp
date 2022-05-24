@@ -26,7 +26,7 @@ use tracing::{info, warn};
 use url::Url;
 
 lazy_static! {
-    static ref NOTEBOOK_ID_REGEX: Regex = Regex::from_str("([a-zA-Z0-9_-]{22})$").unwrap();
+    pub static ref NOTEBOOK_ID_REGEX: Regex = Regex::from_str("([a-zA-Z0-9_-]{22})$").unwrap();
 }
 
 #[derive(Parser)]

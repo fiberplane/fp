@@ -1,19 +1,31 @@
 use crate::config::api_client_configuration;
 use crate::output::{output_details, output_json, GenericKeyValue};
+use crate::templates::NOTEBOOK_ID_REGEX;
 use anyhow::{anyhow, Context, Result};
 use clap::{ArgEnum, Parser};
 use directories::ProjectDirs;
-use fp_api_client::apis::default_api::{get_profile, notebook_cells_append};
+use fiberplane::protocols::{core, formatting};
+use fiberplane_markdown::notebook_to_markdown;
+use fp_api_client::apis::default_api::{get_notebook, get_profile, notebook_cells_append};
 use fp_api_client::models::{Annotation, Cell};
 use futures::StreamExt;
+use lazy_static::lazy_static;
+use regex::{Regex, Replacer};
 use serde::{Deserialize, Serialize};
-use std::{env::current_dir, io::ErrorKind, path::PathBuf, process::Stdio};
+use std::collections::{HashMap, VecDeque};
+use std::fmt::Write;
+use std::{env::current_dir, io::ErrorKind, path::PathBuf, process::Stdio, str::FromStr};
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use tokio::io::{self, AsyncWriteExt};
 use tokio::{fs, process::Command};
 use tokio_util::io::ReaderStream;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 use url::Url;
+
+lazy_static! {
+    pub static ref NOTEBOOK_URL_REGEX: Regex =
+        Regex::from_str(r"http\S+[/]notebooks?[/]\S*([a-zA-Z0-9_-]{22})\b").unwrap();
+}
 
 #[derive(Parser)]
 pub struct Arguments {
@@ -28,6 +40,10 @@ enum SubCommand {
 
     /// Execute a shell command and pipe the output to a notebook
     Exec(ExecArgs),
+
+    /// Starting with the given notebook, recursively crawl all linked notebooks
+    /// and save them to the given directory as Markdown
+    Crawl(CrawlArgs),
 }
 
 #[derive(Parser)]
@@ -69,8 +85,25 @@ struct ExecArgs {
     config: Option<PathBuf>,
 
     /// Output type to display
-    #[clap(long, short, default_value = "table", arg_enum)]
-    output: MessageOutput,
+    #[clap(long, short, default_value = "command", arg_enum)]
+    output: ExecOutput,
+}
+
+#[derive(Parser)]
+struct CrawlArgs {
+    notebook: String,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+
+    #[clap(long, default_value = "10")]
+    concurrent_downloads: u8,
+
+    #[clap(long, short)]
+    out_dir: PathBuf,
 }
 
 #[derive(ArgEnum, Clone)]
@@ -82,10 +115,23 @@ enum MessageOutput {
     Json,
 }
 
+#[derive(ArgEnum, Clone, PartialEq)]
+enum ExecOutput {
+    /// Output the result of the command
+    Command,
+
+    /// Output the cell details as a table
+    Table,
+
+    /// Output the cell details as a JSON encoded object
+    Json,
+}
+
 pub async fn handle_command(args: Arguments) -> Result<()> {
     match args.sub_command {
         SubCommand::Message(args) => handle_message_command(args).await,
         SubCommand::Exec(args) => handle_exec_command(args).await,
+        SubCommand::Crawl(args) => handle_crawl_command(args).await,
     }
 }
 
@@ -163,13 +209,17 @@ async fn handle_exec_command(args: ExecArgs) -> Result<()> {
             chunk = child_stdout.next() => {
                 if let Some(Ok(chunk)) = chunk {
                     output.extend(&chunk);
-                    stdout.write_all(&chunk).await?;
+                    if args.output == ExecOutput::Command {
+                        stdout.write_all(&chunk).await?;
+                    }
                 }
             }
             chunk = child_stderr.next() => {
                 if let Some(Ok(chunk)) = chunk {
                     output.extend(&chunk);
-                    stderr.write_all(&chunk).await?;
+                    if args.output == ExecOutput::Command {
+                        stderr.write_all(&chunk).await?;
+                    }
                 }
             }
         }
@@ -200,13 +250,170 @@ async fn handle_exec_command(args: ExecArgs) -> Result<()> {
         .with_context(|| "Error appending cell to notebook")?
         .pop()
         .ok_or_else(|| anyhow!("No cells returned"))?;
+    let mut url = args
+        .base_url
+        .join("/notebook/")
+        .unwrap()
+        .join(&args.notebook_id)
+        .unwrap();
+    if let Cell::CodeCell { id, .. } = &cell {
+        url.set_fragment(Some(id));
+    }
+
     match args.output {
-        MessageOutput::Table => {
+        ExecOutput::Command => {
+            info!("\n   --> Created cell: {}", url);
+            Ok(())
+        }
+        ExecOutput::Table => {
             info!("Created cell");
             output_details(GenericKeyValue::from_cell(cell))
         }
-        MessageOutput::Json => output_json(&cell),
+        ExecOutput::Json => output_json(&cell),
     }
+}
+
+struct NotebookUrlReplacer<'a>(&'a HashMap<String, CrawledNotebook>);
+
+impl<'a> Replacer for NotebookUrlReplacer<'a> {
+    fn replace_append(&mut self, caps: &regex::Captures<'_>, dst: &mut String) {
+        let notebook_id = caps.get(1).unwrap().as_str();
+        if let Some(notebook) = self.0.get(notebook_id) {
+            dst.push_str("./");
+            dst.push_str(&notebook.file_name);
+        } else {
+            dst.push_str(caps.get(0).unwrap().as_str());
+        }
+    }
+}
+
+struct CrawledNotebook {
+    title: String,
+    file_name: String,
+    file_path: PathBuf,
+    crawl_index: usize,
+}
+
+async fn handle_crawl_command(args: CrawlArgs) -> Result<()> {
+    let mut crawled_notebooks = HashMap::new();
+    let mut notebook_titles: HashMap<String, usize> = HashMap::new();
+    let mut notebooks_to_crawl = VecDeque::new();
+    let starting_notebook_id = NOTEBOOK_ID_REGEX
+        .captures(&args.notebook)
+        .and_then(|c| c.get(1))
+        .ok_or_else(|| anyhow!("Invalid notebook URL or ID"))?
+        .as_str();
+
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+
+    fs::create_dir_all(&args.out_dir)
+        .await
+        .with_context(|| "Error creating output directory")?;
+
+    notebooks_to_crawl.push_back(starting_notebook_id.to_string());
+    let mut crawl_index = 0;
+    while let Some(notebook_id) = notebooks_to_crawl.pop_front() {
+        if crawled_notebooks.contains_key(&notebook_id) {
+            continue;
+        }
+        crawl_index += 1;
+        let notebook = match get_notebook(&config, &notebook_id).await {
+            Ok(notebook) => notebook,
+            Err(err) => {
+                // TODO differentiate between 404 and other errors
+                warn!("Error getting notebook {}: {}", notebook_id, err);
+                continue;
+            }
+        };
+        let notebook = serde_json::to_string(&notebook)?;
+        let mut notebook: core::Notebook = serde_json::from_str(&notebook)?;
+
+        for cell in &mut notebook.cells {
+            if let Some(formatting) = cell.formatting_mut() {
+                for annotation in formatting {
+                    if let formatting::Annotation::StartLink { url } = &mut annotation.annotation {
+                        if url.starts_with(args.base_url.as_str()) {
+                            if let Some(captures) = NOTEBOOK_ID_REGEX.captures(url) {
+                                if let Some(notebook_id) = captures.get(1) {
+                                    notebooks_to_crawl.push_back(notebook_id.as_str().to_string());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Ensure that multiple notebooks with the same title don't overwrite one another
+        let number_suffix = if let Some(number) = notebook_titles.get(&notebook.title) {
+            format!("_{}", number)
+        } else {
+            notebook_titles.insert(notebook.title.clone(), 1);
+            String::new()
+        };
+
+        let file_name = format!(
+            "{}{}.md",
+            notebook
+                .title
+                .replace(' ', "_")
+                .replace('/', r"\/")
+                .replace(r"\", r"\\")
+                .to_lowercase(),
+            number_suffix
+        );
+        let file_path = args.out_dir.join(&file_name).with_extension("md");
+        info!(
+            "Writing notebook \"{}\" (ID: {}) to {}",
+            notebook.title,
+            notebook.id,
+            file_path.display()
+        );
+        crawled_notebooks.insert(
+            notebook_id.clone(),
+            CrawledNotebook {
+                title: notebook.title.clone(),
+                file_name,
+                file_path: file_path.clone(),
+                crawl_index,
+            },
+        );
+        let markdown = notebook_to_markdown(notebook);
+        fs::write(file_path, markdown.as_bytes())
+            .await
+            .with_context(|| "Error saving markdown file")?;
+    }
+
+    // Convert the notebook URLs to relative markdown links
+    for notebook in crawled_notebooks.values() {
+        info!("Replacing notebook URLs in {}", notebook.file_name);
+        let markdown = fs::read_to_string(&notebook.file_path)
+            .await
+            .with_context(|| "Error reading markdown file")?;
+        let markdown =
+            NOTEBOOK_URL_REGEX.replace_all(&markdown, NotebookUrlReplacer(&crawled_notebooks));
+        fs::write(&notebook.file_path, markdown.as_bytes())
+            .await
+            .with_context(|| "Error replacing markdown file")?;
+    }
+
+    // Generate the SUMMARY.md file used by mdBook
+    // https://rust-lang.github.io/mdBook/format/summary.html
+    let mut notebooks = crawled_notebooks.values().collect::<Vec<_>>();
+    notebooks.sort_by_key(|notebook| notebook.crawl_index);
+    let mut summary = String::new();
+    for notebook in notebooks {
+        writeln!(
+            &mut summary,
+            "- [{}](./{})",
+            notebook.title, notebook.file_name
+        )?;
+    }
+    fs::write(args.out_dir.join("SUMMARY.md"), summary)
+        .await
+        .with_context(|| "Error writing SUMMARY.md")?;
+
+    Ok(())
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
