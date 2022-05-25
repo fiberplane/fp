@@ -54,6 +54,9 @@ enum SubCommand {
     Create(CreateArguments),
 
     /// Retrieve a single template
+    ///
+    /// By default, this returns the template metadata.
+    /// To retrieve the full template body, use the --output=body flag
     #[clap()]
     Get(GetArguments),
 
@@ -785,6 +788,7 @@ impl GenericKeyValue {
                 "Parameters:",
                 format_template_parameters(template.parameters),
             ),
+            GenericKeyValue::new("Body:", "omitted (use --output=body)"),
         ]
     }
 }
