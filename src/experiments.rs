@@ -290,12 +290,7 @@ async fn handle_exec_command(args: ExecArgs) -> Result<()> {
     let mut stdout = io::stdout();
     let mut stderr = io::stderr();
 
-    // This is wrapped in a mutex so that we can pass a reference to it to the ctrl-c handler
     let mut cell_writer = CellWriter::new(args.clone(), config);
-
-    // Set up a ctrl-c handler so that the output will be written even if the process is killed
-    // (This is important when using this command with a long-running command that needs to be
-    // exited manually but where you still want to see the ouput)
 
     // Read from the child process' stdout/stderr and write the output to the notebook
     // cell every 250 milliseconds
@@ -303,6 +298,9 @@ async fn handle_exec_command(args: ExecArgs) -> Result<()> {
     loop {
         tokio::select! {
             biased;
+            // This sets up a ctrl-c handler so that the output will be written even if the process is killed
+            // (This is important when using this command with a long-running command that needs to be
+            // exited manually but where you still want to see the ouput)
             _ = signal::ctrl_c() => {
                 break;
             }
