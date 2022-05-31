@@ -397,7 +397,7 @@ async fn handle_crawl_command(args: CrawlArgs) -> Result<()> {
                 .title
                 .replace(' ', "_")
                 .replace('/', r"\/")
-                .replace(r"\", r"\\")
+                .replace('\\', r"\\")
                 .to_lowercase(),
             number_suffix
         );
