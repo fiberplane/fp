@@ -239,8 +239,7 @@ async fn handle_exec_command(args: ExecArgs) -> Result<()> {
     // If there is additional output, append the text to the created cell.
     let mut output_cell: Option<core::Cell> = None;
     while let Some(chunk) = rx.recv().await {
-        let chunk = String::from_utf8(chunk.to_vec())
-            .with_context(|| "Command output was not valid UTF-8")?;
+        let chunk = String::from_utf8_lossy(&chunk);
 
         match &mut output_cell {
             None => {
@@ -277,7 +276,7 @@ async fn handle_exec_command(args: ExecArgs) -> Result<()> {
                     &args.notebook_id,
                     cell.id(),
                     CellAppendText {
-                        content: chunk,
+                        content: chunk.to_string(),
                         formatting: None,
                     },
                 )
