@@ -17,6 +17,7 @@ use lazy_static::lazy_static;
 use regex::{Regex, Replacer};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
+use std::sync::{Arc, Mutex};
 use std::{env::current_dir, io::ErrorKind, path::PathBuf, process::Stdio, str::FromStr};
 use std::{fmt::Write, time::Duration};
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
@@ -209,6 +210,9 @@ impl CellWriter {
         self.buffer.push(data);
     }
 
+    /// Create a new cell and write the buffered text to it
+    /// or append the buffered text to the cell if one was
+    /// already created
     pub async fn write_to_cell(&mut self) -> Result<()> {
         if self.buffer.is_empty() {
             return Ok(());
@@ -266,8 +270,34 @@ impl CellWriter {
         Ok::<_, Error>(())
     }
 
-    pub fn into_output_cell(self) -> Option<core::Cell> {
-        self.cell
+    pub fn write_output(&self) -> Result<()> {
+        let mut url = self
+            .args
+            .base_url
+            .join("/notebook/")
+            .unwrap()
+            .join(&self.args.notebook_id)
+            .unwrap();
+        if let Some(cell) = &self.cell {
+            url.set_fragment(Some(cell.id()));
+        };
+
+        if let Some(cell) = &self.cell {
+            let cell: Cell = serde_json::from_value(serde_json::to_value(cell)?)?;
+            match self.args.output {
+                ExecOutput::Command => {
+                    info!("\n   --> Created cell: {}", url);
+                    Ok(())
+                }
+                ExecOutput::Table => {
+                    info!("Created cell");
+                    output_details(GenericKeyValue::from_cell(cell))
+                }
+                ExecOutput::Json => output_json(&cell),
+            }
+        } else {
+            Ok(())
+        }
     }
 }
 
@@ -287,27 +317,34 @@ async fn handle_exec_command(args: ExecArgs) -> Result<()> {
     let mut stdout = io::stdout();
     let mut stderr = io::stderr();
 
-    // Spawn a task to run the command.
-    // Send the output to the channel so we can pipe it to a notebook cell.
-    // If the output format is Command, also pipe the output to stdout/stderr
+    // This is wrapped in a mutex so that we can pass a reference to it to the ctrl-c handler
+    let cell_writer = Arc::new(Mutex::new(CellWriter::new(args.clone(), config)));
+
+    // Set up a ctrl-c handler so that the output will be written even if the process is killed
+    // (This is important when using this command with a long-running command that needs to be
+    // exited manually but where you still want to see the ouput)
+    let cell_writer_clone = cell_writer.clone();
+    ctrlc::set_handler(move || cell_writer_clone.lock().unwrap().write_output().unwrap()).unwrap();
+
+    // Read from the child process' stdout/stderr and write the output to the notebook
+    // cell every 250 milliseconds
     let mut send_interval = interval(Duration::from_millis(250));
-    let mut cell_writer = CellWriter::new(args.clone(), config);
     loop {
         tokio::select! {
             biased;
             _ = child.wait() => {
-                cell_writer.write_to_cell().await?;
+                cell_writer.lock().unwrap().write_to_cell().await?;
                 break;
             }
             _ = send_interval.tick() => {
-                cell_writer.write_to_cell().await?;
+                cell_writer.lock().unwrap().write_to_cell().await?;
             }
             chunk = child_stdout.next() => {
                 if let Some(Ok(chunk)) = chunk {
                     if args.output == ExecOutput::Command {
                         stdout.write_all(&chunk).await?;
                     }
-                    cell_writer.append(chunk);
+                    cell_writer.lock().unwrap().append(chunk);
                 }
             }
             chunk = child_stderr.next() => {
@@ -315,35 +352,14 @@ async fn handle_exec_command(args: ExecArgs) -> Result<()> {
                     if args.output == ExecOutput::Command {
                         stderr.write_all(&chunk).await?;
                     }
-                    cell_writer.append(chunk);
+                    cell_writer.lock().unwrap().append(chunk);
                 }
             }
         }
     }
 
-    let output_cell = cell_writer.into_output_cell();
-    let mut url = args
-        .base_url
-        .join("/notebook/")
-        .unwrap()
-        .join(&args.notebook_id)
-        .unwrap();
-    if let Some(cell) = &output_cell {
-        url.set_fragment(Some(cell.id()));
-    };
-
-    let cell: Cell = serde_json::from_value(serde_json::to_value(output_cell.unwrap())?)?;
-    match args.output {
-        ExecOutput::Command => {
-            info!("\n   --> Created cell: {}", url);
-            Ok(())
-        }
-        ExecOutput::Table => {
-            info!("Created cell");
-            output_details(GenericKeyValue::from_cell(cell))
-        }
-        ExecOutput::Json => output_json(&cell),
-    }
+    cell_writer.lock().unwrap().write_output()?;
+    Ok(())
 }
 
 struct NotebookUrlReplacer<'a>(&'a HashMap<String, CrawledNotebook>);
