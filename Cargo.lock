@@ -113,7 +113,7 @@ checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 [[package]]
 name = "base64uuid"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#4dd2ba0552529d65ca8a0b28881acf2355e5d3a9"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=paging_templates#fd1a3bd4abfa9a38b038970f0f8909f726492531"
 dependencies = [
  "base64",
  "serde",
@@ -674,13 +674,16 @@ dependencies = [
 [[package]]
 name = "fiberplane"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#4dd2ba0552529d65ca8a0b28881acf2355e5d3a9"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=paging_templates#fd1a3bd4abfa9a38b038970f0f8909f726492531"
 dependencies = [
+ "clap 3.0.14",
  "fp-bindgen",
  "lazy_static",
  "once_cell",
  "regex",
  "serde",
+ "strum",
+ "strum_macros",
  "thiserror",
  "time 0.3.7",
  "time_util",
@@ -689,7 +692,7 @@ dependencies = [
 [[package]]
 name = "fiberplane-markdown"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#4dd2ba0552529d65ca8a0b28881acf2355e5d3a9"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=paging_templates#fd1a3bd4abfa9a38b038970f0f8909f726492531"
 dependencies = [
  "fiberplane",
  "pulldown-cmark",
@@ -700,7 +703,7 @@ dependencies = [
 [[package]]
 name = "fiberplane-templates"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/templates.git?branch=main#528d499077a217fe705bc82f3582070f8795cc1a"
+source = "git+ssh://git@github.com/fiberplane/templates.git?branch=paging_templates#9018ce2c4dcee590654a46ac4de0f0d6eb9cad5f"
 dependencies = [
  "fiberplane",
  "jrsonnet-evaluator",
@@ -774,7 +777,7 @@ dependencies = [
 [[package]]
 name = "fp-api-client"
 version = "1.0.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#4dd2ba0552529d65ca8a0b28881acf2355e5d3a9"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=paging_templates#fd1a3bd4abfa9a38b038970f0f8909f726492531"
 dependencies = [
  "reqwest",
  "serde",
@@ -2419,6 +2422,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "strum"
+version = "0.24.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e96acfc1b70604b8b2f1ffa4c57e59176c7dbb05d556c71ecd2f5498a1dee7f8"
+
+[[package]]
+name = "strum_macros"
+version = "0.24.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6878079b17446e4d3eba6192bb0a2950d5b14f0ed8424b852310e5a94345d0ef"
+dependencies = [
+ "heck 0.4.0",
+ "proc-macro2",
+ "quote",
+ "rustversion",
+ "syn",
+]
+
+[[package]]
 name = "syn"
 version = "1.0.86"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2566,7 +2588,7 @@ dependencies = [
 [[package]]
 name = "time_util"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#4dd2ba0552529d65ca8a0b28881acf2355e5d3a9"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=paging_templates#fd1a3bd4abfa9a38b038970f0f8909f726492531"
 dependencies = [
  "anyhow",
  "serde",
