@@ -1,13 +1,15 @@
 use crate::config::api_client_configuration;
 use crate::output::{output_details, output_json, GenericKeyValue};
 use crate::templates::NOTEBOOK_ID_REGEX;
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Context, Error, Result};
 use clap::{ArgEnum, Parser};
 use directories::ProjectDirs;
 use fiberplane::protocols::{core, formatting};
 use fiberplane_markdown::notebook_to_markdown;
-use fp_api_client::apis::default_api::{get_notebook, get_profile, notebook_cells_append};
-use fp_api_client::models::{Annotation, Cell};
+use fp_api_client::apis::default_api::{
+    get_notebook, get_profile, notebook_cell_append_text, notebook_cells_append,
+};
+use fp_api_client::models::{Annotation, Cell, CellAppendText};
 use futures::StreamExt;
 use lazy_static::lazy_static;
 use regex::{Regex, Replacer};
@@ -17,7 +19,7 @@ use std::fmt::Write;
 use std::{env::current_dir, io::ErrorKind, path::PathBuf, process::Stdio, str::FromStr};
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use tokio::io::{self, AsyncWriteExt};
-use tokio::{fs, process::Command};
+use tokio::{fs, process::Command, sync::mpsc::unbounded_channel};
 use tokio_util::io::ReaderStream;
 use tracing::{debug, info, warn};
 use url::Url;
@@ -184,6 +186,7 @@ async fn handle_message_command(args: MessageArgs) -> Result<()> {
 }
 
 async fn handle_exec_command(args: ExecArgs) -> Result<()> {
+    debug!("Running command: \"{}\"", args.command);
     let config = api_client_configuration(args.config, &args.base_url).await?;
     let mut child = Command::new(&args.command)
         .args(&args.args)
@@ -193,73 +196,109 @@ async fn handle_exec_command(args: ExecArgs) -> Result<()> {
         .spawn()
         .with_context(|| "Error spawning child process to run command")?;
 
-    // Pipe stdout and stderr to the parent process AND merge them both
-    // into a single output buffer that we'll send to the notebook
     let mut child_stdout = ReaderStream::new(child.stdout.take().unwrap());
     let mut child_stderr = ReaderStream::new(child.stderr.take().unwrap());
     let mut stdout = io::stdout();
     let mut stderr = io::stderr();
-    let mut output: Vec<u8> = Vec::new();
-    loop {
-        tokio::select! {
-            biased;
-            _ = child.wait() => {
-                break;
-            }
-            chunk = child_stdout.next() => {
-                if let Some(Ok(chunk)) = chunk {
-                    output.extend(&chunk);
-                    if args.output == ExecOutput::Command {
-                        stdout.write_all(&chunk).await?;
+    let (tx, mut rx) = unbounded_channel();
+
+    // Spawn a task to run the command.
+    // Send the output to the channel so we can pipe it to a notebook cell.
+    // If the output format is Command, also pipe the output to stdout/stderr
+    let output = args.output.clone();
+    let join_handle = tokio::spawn(async move {
+        loop {
+            tokio::select! {
+                biased;
+                _ = child.wait() => {
+                    break;
+                }
+                chunk = child_stdout.next() => {
+                    if let Some(Ok(chunk)) = chunk {
+                        if output == ExecOutput::Command {
+                            stdout.write_all(&chunk).await?;
+                        }
+                        tx.send(chunk)?;
                     }
                 }
-            }
-            chunk = child_stderr.next() => {
-                if let Some(Ok(chunk)) = chunk {
-                    output.extend(&chunk);
-                    if args.output == ExecOutput::Command {
-                        stderr.write_all(&chunk).await?;
+                chunk = child_stderr.next() => {
+                    if let Some(Ok(chunk)) = chunk {
+                        if output == ExecOutput::Command {
+                            stderr.write_all(&chunk).await?;
+                        }
+                        tx.send(chunk)?;
                     }
                 }
             }
         }
+        Ok::<_, Error>(())
+    });
+
+    // Wait for the output.
+    // On the first chunk, create a new cell.
+    // If there is additional output, append the text to the created cell.
+    let mut output_cell: Option<core::Cell> = None;
+    while let Some(chunk) = rx.recv().await {
+        let chunk = String::from_utf8(chunk.to_vec())
+            .with_context(|| "Command output was not valid UTF-8")?;
+
+        match &mut output_cell {
+            None => {
+                let timestamp = OffsetDateTime::now_utc().format(&Rfc3339)?;
+                let cwd = current_dir()
+                    .map(|p| p.display().to_string())
+                    .unwrap_or_default();
+                let content = format!(
+                    "{}\n{} ❯ {} {}\n{}",
+                    timestamp,
+                    cwd,
+                    args.command,
+                    args.args.join(" "),
+                    chunk
+                );
+                let cell = Cell::CodeCell {
+                    id: String::new(),
+                    content,
+                    syntax: None,
+                    read_only: None,
+                };
+
+                let cell = notebook_cells_append(&config, &args.notebook_id, vec![cell])
+                    .await
+                    .with_context(|| "Error appending cell to notebook")?
+                    .pop()
+                    .ok_or_else(|| anyhow!("No cells returned"))?;
+                output_cell = Some(serde_json::from_value(serde_json::to_value(cell)?)?);
+            }
+            Some(cell) => {
+                cell.content_mut().unwrap().push_str(&chunk);
+                notebook_cell_append_text(
+                    &config,
+                    &args.notebook_id,
+                    cell.id(),
+                    CellAppendText {
+                        content: chunk,
+                        formatting: None,
+                    },
+                )
+                .await
+                .with_context(|| format!("Error appending text to cell {}", cell.id()))?;
+            }
+        }
     }
+    join_handle.await??;
 
-    let content = format!(
-        "{timestamp}\n{cwd} ❯ {command} {args}\n{output}",
-        timestamp = OffsetDateTime::now_utc().format(&Rfc3339)?,
-        cwd = current_dir()
-            .map(|p| p.display().to_string())
-            .unwrap_or_default(),
-        command = args.command,
-        args = args.args.join(" "),
-        output = String::from_utf8(output)
-            .with_context(|| "Command output was not valid UTF-8")?
-            .trim_end()
-    );
-
-    let cell = Cell::CodeCell {
-        id: String::new(),
-        content,
-        syntax: None,
-        read_only: None,
-    };
-
-    let cell = notebook_cells_append(&config, &args.notebook_id, vec![cell])
-        .await
-        .with_context(|| "Error appending cell to notebook")?
-        .pop()
-        .ok_or_else(|| anyhow!("No cells returned"))?;
     let mut url = args
         .base_url
         .join("/notebook/")
         .unwrap()
         .join(&args.notebook_id)
         .unwrap();
-    if let Cell::CodeCell { id, .. } = &cell {
-        url.set_fragment(Some(id));
-    }
+    if let Some(cell) = &output_cell {
+        url.set_fragment(Some(cell.id()));
+    };
 
+    let cell: Cell = serde_json::from_value(serde_json::to_value(output_cell.unwrap())?)?;
     match args.output {
         ExecOutput::Command => {
             info!("\n   --> Created cell: {}", url);
