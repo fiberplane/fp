@@ -56,15 +56,18 @@ impl GenericKeyValue {
     }
 }
 
-pub fn output_string_list<T>(input: T) -> Result<()>
-where
-    T: IntoIterator<Item = String>,
-{
-    let mut writer = LineWriter::new(std::io::stdout());
-    for line in input.into_iter() {
-        writer.write_all(line.as_bytes())?;
-        writer.write_all(b"\n")?;
+pub fn output_string_list(input: Vec<String>) -> Result<()> {
+    if input.is_empty() {
+        info!("No results found");
+    } else {
+        let mut writer = LineWriter::new(std::io::stdout());
+
+        for line in input.into_iter() {
+            writer.write_all(line.as_bytes())?;
+            writer.write_all(b"\n")?;
+        }
     }
+
     Ok(())
 }
 

@@ -61,14 +61,7 @@ async fn handle_list_keys_command(args: ListKeysArgs) -> Result<()> {
     let keys = label_keys_list(&config, args.prefix.as_deref()).await?;
 
     match args.output {
-        List => {
-            if keys.is_empty() {
-                println!("No keys found");
-                Ok(())
-            } else {
-                output_string_list(keys)
-            }
-        }
+        List => output_string_list(keys),
         Json => output_json(&keys),
     }
 }
