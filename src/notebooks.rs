@@ -332,7 +332,7 @@ async fn handle_list_command(args: ListArgs) -> Result<()> {
 async fn handle_search_command(args: SearchArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
-    let labels: Option<HashMap<String, String>> = if args.labels.len() != 0 {
+    let labels: Option<HashMap<String, String>> = if !args.labels.is_empty() {
         Some(
             args.labels
                 .into_iter()
