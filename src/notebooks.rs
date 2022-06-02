@@ -6,13 +6,9 @@ use clap::{ArgEnum, Parser, ValueHint};
 use cli_table::Table;
 use fiberplane::protocols::core;
 use fiberplane_markdown::{markdown_to_notebook, notebook_to_markdown};
-use fp_api_client::apis::default_api::{
-    delete_notebook, get_notebook, notebook_cells_append, notebook_create, notebook_list,
-};
-use fp_api_client::models::{
-    Cell, Label, NewNotebook, Notebook, NotebookSummary, NotebookVisibility, TimeRange,
-};
-use std::{path::PathBuf, time::Duration};
+use fp_api_client::apis::default_api::{delete_notebook, get_notebook, notebook_cells_append, notebook_create, notebook_list, notebook_search};
+use fp_api_client::models::{Cell, Label, NewNotebook, Notebook, NotebookSearch, NotebookSummary, NotebookVisibility, TimeRange};
+use std::{path::PathBuf, time::Duration, collections::HashMap};
 use time::OffsetDateTime;
 use time_util::clap_rfc3339;
 use tracing::{info, trace};
@@ -36,6 +32,10 @@ pub enum SubCommand {
     /// List all notebooks
     List(ListArgs),
 
+    /// Search for a specific notebook
+    /// This currently only supports label search
+    Search(SearchArgs),
+
     /// Open a notebook in the studio
     Open(OpenArgs),
 
@@ -53,6 +53,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
         Create(args) => handle_create_command(args).await,
         Get(args) => handle_get_command(args).await,
         List(args) => handle_list_command(args).await,
+        Search(args) => handle_search_command(args).await,
         Open(args) => handle_open_command(args).await,
         Delete(args) => handle_delete_command(args).await,
         AppendCell(args) => handle_append_cell_command(args).await,
@@ -113,6 +114,23 @@ pub struct GetArgs {
 #[derive(Parser)]
 pub struct ListArgs {
     /// Output of the notebook
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: NotebookOutput,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
+#[derive(Parser)]
+pub struct SearchArgs {
+    /// Labels to search notebooks for (you can specify multiple labels).
+    #[clap(name = "label", short, long)]
+    labels: Vec<KeyValueArgument>,
+
+    /// Output of the notebooks
     #[clap(long, short, default_value = "table", arg_enum)]
     output: NotebookOutput,
 
@@ -298,6 +316,32 @@ async fn handle_list_command(args: ListArgs) -> Result<()> {
 
             // Sort by updated at so that the most recent is first
             notebooks.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+
+            output_list(notebooks)
+        }
+        NotebookOutput::Json => output_json(&notebooks),
+    }
+}
+
+async fn handle_search_command(args: SearchArgs) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+
+    let labels: Option<HashMap<String, String>> = if args.labels.len() != 0 {
+        Some(args.labels
+            .into_iter()
+            .map(|kv| (kv.key, kv.value))
+            .collect())
+    } else {
+        None
+    };
+
+    let notebooks = notebook_search(&config, NotebookSearch {
+        labels
+    }).await?;
+
+    match args.output {
+        NotebookOutput::Table => {
+            let notebooks: Vec<NotebookSummaryRow> = notebooks.into_iter().map(Into::into).collect();
 
             output_list(notebooks)
         }
