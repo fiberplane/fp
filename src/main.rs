@@ -1,28 +1,37 @@
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Error, Result};
 use clap::{AppSettings, IntoApp, Parser};
 use clap_complete::generate;
 use directories::ProjectDirs;
 use manifest::Manifest;
 use once_cell::sync::Lazy;
 use std::fs::OpenOptions;
-use std::io;
 use std::io::{stdout, Write};
+use std::path::PathBuf;
 use std::process;
-use std::sync::Mutex;
+use std::str::FromStr;
 use std::time::{Duration, SystemTime};
+use std::{env, io};
 use tokio::time::timeout;
-use tracing::{trace, warn};
+use tracing::{error, info, trace, warn};
+use tracing_subscriber::filter::EnvFilter;
+use tracing_subscriber::fmt::format;
+use update::retrieve_latest_version;
+use url::Url;
 
 mod auth;
 mod config;
+mod experiments;
+mod labels;
 mod manifest;
 mod notebooks;
+mod output;
 mod providers;
 mod proxies;
 mod shell;
 mod templates;
 mod triggers;
-mod utils;
+mod update;
+mod users;
 mod version;
 
 /// The current build manifest associated with this binary
@@ -38,24 +47,26 @@ pub struct Arguments {
     #[clap(subcommand)]
     sub_command: SubCommand,
 
-    /// Base URL for requests to Fiberplane
+    /// Base URL to the Fiberplane API
     #[clap(
         long,
         default_value = "https://fiberplane.com",
         env = "API_BASE",
         global = true
     )]
-    // TODO parse as a URL
-    base_url: String,
+    base_url: Url,
 
-    /// Path to Fiberplane config.toml file
-    #[clap(long, global = true)]
-    // TODO parse this as a PathBuf
-    config: Option<String>,
+    /// Path to Fiberplane config file
+    #[clap(long, global = true, env)]
+    config: Option<PathBuf>,
 
     /// Disables the version check
     #[clap(long, global = true, env)]
     disable_version_check: bool,
+
+    /// Display verbose logs
+    #[clap(short, long, env)]
+    verbose: bool,
 }
 
 #[derive(Parser)]
@@ -66,6 +77,12 @@ enum SubCommand {
         shell: clap_complete::Shell,
     },
 
+    /// Experimental commands 🧪
+    ///
+    /// These commands are not stable and may change at any time.
+    #[clap(aliases = &["experiment", "x"])]
+    Experiments(experiments::Arguments),
+
     /// Login to Fiberplane and authorize the CLI to access your account
     #[clap()]
     Login,
@@ -74,38 +91,60 @@ enum SubCommand {
     #[clap()]
     Logout,
 
-    /// Commands related to Fiberplane Notebooks
-    #[clap(aliases = &["notebook", "n"])]
+    /// Interact with labels
+    ///
+    /// Labels allow you to organize your notebooks.
+    #[clap(alias = "label")]
+    Labels(labels::Arguments),
+
+    /// Interact with notebooks
+    ///
+    /// Notebooks are the main resource that Studio exposes.
+    #[clap(alias = "notebook")]
     Notebooks(notebooks::Arguments),
 
-    /// Interact with Fiberplane Providers
-    #[clap()]
+    /// Interact with providers
+    ///
+    /// Providers are wasm files that contain the logic to retrieve data based
+    /// on a query. This is being used by Studio and Proxy.
+    #[clap(alias = "provider")]
     Providers(providers::Arguments),
 
-    /// Commands related to Fiberplane Proxies
+    /// Interact with Fiberplane proxies
+    ///
+    /// The Fiberplane proxy allows you to expose services that are hosted
+    /// within your network without exposing them or sharing credentials.
     #[clap(alias = "proxy")]
     Proxies(proxies::Arguments),
 
-    /// Commands related to Fiberplane Templates
+    /// Interact with templates
+    ///
+    /// Templates allow you to create notebooks based on jsonnet.
     #[clap(alias = "template")]
     Templates(templates::Arguments),
 
-    /// Interact with Fiberplane Triggers
+    /// Interact with triggers
+    ///
+    /// Triggers allow you to expose webhooks that will expand templates.
+    /// This could be used for alertmanager, for example.
     #[clap(alias = "trigger")]
     Triggers(triggers::Arguments),
 
-    #[clap(alias = "sh")]
-    Shell(shell::Arguments),
+    /// Update the current FP binary
+    #[clap()]
+    Update(update::Arguments),
+
+    /// Interact with user details
+    #[clap(alias = "user")]
+    Users(users::Arguments),
 
     /// Display extra version information
-    #[clap(aliases = &["v"])]
+    #[clap()]
     Version(version::Arguments),
 }
 
 #[tokio::main]
 async fn main() {
-    initialize_logger();
-
     // We would like to override the builtin version display behavior, so we
     // will try to parse the arguments. If it failed, we will check if it was
     // the DisplayVersion error and show our version, otherwise just fallback to
@@ -113,14 +152,9 @@ async fn main() {
     let args = {
         match Arguments::try_parse() {
             Ok(arguments) => arguments,
-            Err(err) => match err.kind {
+            Err(err) => match err.kind() {
                 clap::ErrorKind::DisplayVersion => {
-                    use std::io::Write;
                     version::output_version().await;
-
-                    let _ = std::io::stdout().lock().flush();
-                    let _ = std::io::stderr().lock().flush();
-
                     process::exit(0);
                 }
                 _ => {
@@ -130,10 +164,18 @@ async fn main() {
         }
     };
 
+    if let Err(err) = initialize_logger(&args) {
+        eprintln!("unable to initialize logging: {:?}", err);
+        process::exit(1);
+    };
+
     // Start the background version check, but skip it when running the `Update`
     // or `Version` command, or if the disable_version_check is set to true.
-    let disable_version_check =
-        args.disable_version_check || matches!(args.sub_command, Version(_) | Completions { .. });
+    let disable_version_check = args.disable_version_check
+        || matches!(
+            args.sub_command,
+            Update(_) | Version(_) | Completions { .. }
+        );
 
     let version_check_result = if disable_version_check {
         tokio::spawn(async { None })
@@ -151,54 +193,35 @@ async fn main() {
 
     use SubCommand::*;
     let result = match args.sub_command {
+        Experiments(args) => experiments::handle_command(args).await,
         Login => auth::handle_login_command(args).await,
         Logout => auth::handle_logout_command(args).await,
+        Labels(args) => labels::handle_command(args).await,
         Notebooks(args) => notebooks::handle_command(args).await,
         Providers(args) => providers::handle_command(args).await,
         Proxies(args) => proxies::handle_command(args).await,
         Templates(args) => templates::handle_command(args).await,
         Triggers(args) => triggers::handle_command(args).await,
+        Update(args) => update::handle_command(args).await,
+        Users(args) => users::handle_command(args).await,
         Version(args) => version::handle_command(args).await,
         Shell(args) => shell::handle_command(args).await,
         Completions { shell } => {
-            let mut app = Arguments::into_app();
-            let app_name = app.get_name().to_string();
-            let mut output = Vec::new();
-            generate(shell, &mut app, app_name, &mut output);
-            let output = String::from_utf8(output).unwrap();
-            // There is some bug in the output generated by clap_complete that causes
-            // the error "_arguments:comparguments:325: can only be called from completion function"
-            // This solution fixes the problem: https://github.com/clap-rs/clap/issues/2488#issuecomment-999227749
-            let output = if shell == clap_complete::Shell::Zsh {
-                let mut lines = output.lines();
-                // Remove the first and last lines
-                lines.next();
-                lines.next_back();
-                let mut modified = String::with_capacity(output.len());
-                modified.push_str("#compdef _fp fp\n");
-                for line in lines {
-                    modified.push_str(line);
-                    modified.push('\n');
-                }
-                modified
-            } else {
-                output
-            };
+            let output = generate_completions(shell);
             stdout().lock().write_all(output.as_bytes()).unwrap();
-
             Ok(())
         }
     };
 
     if let Err(ref err) = result {
-        eprintln!("Command dit not finish successfully: {:?}", err);
+        error!("Command did not finish successfully: {:?}", err);
     }
 
     // Wait for an extra second for the background check to finish
     if let Ok(version_check_result) = timeout(Duration::from_secs(1), version_check_result).await {
         match version_check_result {
             Ok(Some(new_version)) => {
-                eprintln!("A new version of fp is available (version: {}). Use `fp update` to update your current fp binary", new_version);
+                info!("A new version of fp is available (version: {}). Use `fp update` to update your current fp binary", new_version);
             }
             Ok(None) => trace!("background version check skipped or no new version available"),
             Err(err) => warn!(%err, "background version check failed"),
@@ -206,23 +229,59 @@ async fn main() {
     }
 
     if result.is_err() {
-        use std::io::Write;
-
-        let _ = std::io::stdout().lock().flush();
-        let _ = std::io::stderr().lock().flush();
-
         process::exit(1);
     }
 }
 
-fn initialize_logger() {
-    // Initialize the builder with some defaults
-    tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .with_writer(io::stderr)
-        .with_writer(Mutex::new(std::fs::File::create("trace.log").unwrap()))
-        .try_init()
-        .expect("unable to initialize logging");
+/// If verbose is set, then we show debug log message from the `fp` target,
+/// using a more verbose format.
+fn initialize_logger(args: &Arguments) -> Result<()> {
+    if args.verbose {
+        // If RUST_LOG is set, then use the directives from there, otherwise
+        // info as the default level for everything, except for fp, which will
+        // use debug.
+        let filter = match env::var(EnvFilter::DEFAULT_ENV) {
+            Ok(env_var) => EnvFilter::try_new(env_var),
+            _ => EnvFilter::try_new("info,fp=debug"),
+        }?;
+
+        // Create a more verbose logger that show timestamp, level, and all the
+        // fields.
+        tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::TRACE)
+            .with_env_filter(filter)
+            .with_writer(io::stderr)
+            .try_init()
+            .expect("unable to initialize logging");
+    } else {
+        let filter = match env::var(EnvFilter::DEFAULT_ENV) {
+            Ok(env_var) => EnvFilter::try_new(env_var),
+            _ => EnvFilter::try_new("fp=info"),
+        }?;
+
+        // Create a custom field formatter, which only outputs the `message`
+        // field, all other fields are ignored.
+        let field_formatter = format::debug_fn(|writer, field, value| {
+            if field.name() == "message" {
+                write!(writer, "{:?}", value)
+            } else {
+                Ok(())
+            }
+        });
+        tracing_subscriber::fmt()
+            .fmt_fields(field_formatter)
+            .without_time()
+            .with_level(false)
+            .with_max_level(tracing::Level::INFO)
+            .with_span_events(format::FmtSpan::NONE)
+            .with_target(false)
+            .with_writer(io::stderr)
+            .with_env_filter(filter)
+            .try_init()
+            .expect("unable to initialize logging");
+    }
+
+    Ok(())
 }
 
 /// Fetches the latest remote version for fp and determines whether a new
@@ -283,14 +342,62 @@ pub async fn background_version_check() -> Result<Option<String>> {
     }
 }
 
-/// Retrieve the latest version available.
-pub async fn retrieve_latest_version() -> Result<String> {
-    let version_url = "https://fp.dev/fp/latest/version";
-    let latest_version = reqwest::get(version_url)
-        .await?
-        .error_for_status()?
-        .text()
-        .await?;
+pub struct KeyValueArgument {
+    pub key: String,
+    pub value: String,
+}
 
-    Ok(latest_version.trim().to_owned())
+impl FromStr for KeyValueArgument {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        if s.is_empty() {
+            return Err(anyhow!("empty input"));
+        }
+
+        let (key, value) = match s.split_once('=') {
+            Some((key, value)) => (key, value),
+            None => (s, ""),
+        };
+
+        Ok(KeyValueArgument {
+            key: key.to_owned(),
+            value: value.to_owned(),
+        })
+    }
+}
+
+fn generate_completions(shell: Shell) -> String {
+    let mut app = Arguments::into_app();
+    let app_name = app.get_name().to_string();
+    let mut output = Vec::new();
+    generate(shell, &mut app, app_name, &mut output);
+    let output = String::from_utf8(output).unwrap();
+    // There is some bug in the output generated by clap_complete that causes
+    // the error "_arguments:comparguments:325: can only be called from completion function"
+    // This solution fixes the problem: https://github.com/clap-rs/clap/issues/2488#issuecomment-999227749
+    if shell == Shell::Zsh {
+        let mut lines = output.lines();
+        // Remove the first and last lines
+        lines.next();
+        lines.next_back();
+        let mut modified = String::with_capacity(output.len());
+        modified.push_str("#compdef _fp fp\n");
+        for line in lines {
+            modified.push_str(line);
+            modified.push('\n');
+        }
+        modified
+    } else {
+        output
+    }
+}
+
+#[test]
+fn generating_completions() {
+    // Check that this works
+    generate_completions(Shell::Bash);
+
+    let zsh_completions = generate_completions(Shell::Zsh);
+    assert_eq!(zsh_completions.lines().next().unwrap(), "#compdef _fp fp");
 }
