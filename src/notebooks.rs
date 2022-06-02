@@ -6,9 +6,15 @@ use clap::{ArgEnum, Parser, ValueHint};
 use cli_table::Table;
 use fiberplane::protocols::core;
 use fiberplane_markdown::{markdown_to_notebook, notebook_to_markdown};
-use fp_api_client::apis::default_api::{delete_notebook, get_notebook, notebook_cells_append, notebook_create, notebook_list, notebook_search};
-use fp_api_client::models::{Cell, Label, NewNotebook, Notebook, NotebookSearch, NotebookSummary, NotebookVisibility, TimeRange};
-use std::{path::PathBuf, time::Duration, collections::HashMap};
+use fp_api_client::apis::default_api::{
+    delete_notebook, get_notebook, notebook_cells_append, notebook_create, notebook_list,
+    notebook_search,
+};
+use fp_api_client::models::{
+    Cell, Label, NewNotebook, Notebook, NotebookSearch, NotebookSummary, NotebookVisibility,
+    TimeRange,
+};
+use std::{collections::HashMap, path::PathBuf, time::Duration};
 use time::OffsetDateTime;
 use time_util::clap_rfc3339;
 use tracing::{info, trace};
@@ -327,21 +333,22 @@ async fn handle_search_command(args: SearchArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
     let labels: Option<HashMap<String, String>> = if args.labels.len() != 0 {
-        Some(args.labels
-            .into_iter()
-            .map(|kv| (kv.key, kv.value))
-            .collect())
+        Some(
+            args.labels
+                .into_iter()
+                .map(|kv| (kv.key, kv.value))
+                .collect(),
+        )
     } else {
         None
     };
 
-    let notebooks = notebook_search(&config, NotebookSearch {
-        labels
-    }).await?;
+    let notebooks = notebook_search(&config, NotebookSearch { labels }).await?;
 
     match args.output {
         NotebookOutput::Table => {
-            let notebooks: Vec<NotebookSummaryRow> = notebooks.into_iter().map(Into::into).collect();
+            let notebooks: Vec<NotebookSummaryRow> =
+                notebooks.into_iter().map(Into::into).collect();
 
             output_list(notebooks)
         }
