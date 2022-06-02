@@ -3,20 +3,25 @@ use cli_table::format::*;
 use cli_table::{print_stdout, Row, Table, Title};
 use serde::Serialize;
 use std::io::{LineWriter, Write};
+use tracing::info;
 
-pub fn output_list<T, R>(input: T) -> Result<()>
+pub fn output_list<R>(input: Vec<R>) -> Result<()>
 where
-    T: IntoIterator<Item = R>,
     R: Row + Title,
 {
-    print_stdout(
-        input
-            .table()
-            .title(R::title())
-            .border(Border::builder().build())
-            .separator(Separator::builder().build()),
-    )
-    .map_err(Into::into)
+    if input.is_empty() {
+        info!("No results found");
+        Ok(())
+    } else {
+        print_stdout(
+            input
+                .table()
+                .title(R::title())
+                .border(Border::builder().build())
+                .separator(Separator::builder().build()),
+        )
+        .map_err(Into::into)
+    }
 }
 
 pub fn output_details<T, R>(args: T) -> Result<()>
