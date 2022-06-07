@@ -3,9 +3,12 @@ use anyhow::{anyhow, Result};
 use clap::Parser;
 use indicatif::{ProgressBar, ProgressStyle};
 use sha2::{Digest, Sha256};
+use std::fs::OpenOptions;
 use std::io::{BufWriter, Write};
-use std::os::unix::prelude::OpenOptionsExt;
 use tracing::{debug, info};
+
+#[cfg(not(windows))]
+use std::os::unix::prelude::OpenOptionsExt;
 
 #[derive(Parser)]
 pub struct Arguments {}
@@ -22,8 +25,8 @@ pub async fn handle_command(_args: Arguments) -> Result<()> {
 
     // Create a temporary file to buffer the download.
     let temp_file_path = std::env::temp_dir().join("fp-tmp");
-    let temp_file = std::fs::OpenOptions::new()
-        .mode(0o755) // This will only work on Unix-like operating systems at the moment
+    let temp_file = OpenOptions::new()
+        .mode(0o755) // This call is a no-op on Windows
         .write(true)
         .create(true)
         .truncate(true)
@@ -117,4 +120,18 @@ pub async fn retrieve_sha256_hash(version: &str, arch: &str) -> Result<String> {
             _ => None,
         })
         .map_or_else(|| Err(anyhow!("version not found in checksum.sha256")), Ok)
+}
+
+#[cfg(windows)]
+trait DummyOpenOptionsExt {
+    /// Mirror of [unix fs' OpenOptionsExt::mode](std::os::unix::fs::OpenOptionsExt::mode).
+    /// This function is a no-op.
+    fn mode(&mut self, _: u32) -> &mut Self;
+}
+
+#[cfg(windows)]
+impl DummyOpenOptionsExt for OpenOptions {
+    fn mode(&mut self, _: u32) -> &mut Self {
+        self
+    }
 }
