@@ -133,7 +133,7 @@ impl MyTerminalState {
 pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
     let ts_format =
         time::format_description::parse("[year]-[month]-[day] [hour]:[minute]:[second]").unwrap();
-    let shell_exe = std::env::var("SHELL").unwrap_or(DEFAULT_SHELL.to_string());
+    let shell_exe = std::env::var("SHELL").unwrap_or_else(|_| DEFAULT_SHELL.to_string());
 
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
