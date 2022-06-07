@@ -51,16 +51,17 @@ pub struct Arguments {
         long,
         default_value = "https://fiberplane.com",
         env = "API_BASE",
-        global = true
+        global = true,
+        help_heading = "Global options"
     )]
     base_url: Url,
 
     /// Path to Fiberplane config file
-    #[clap(long, global = true, env)]
+    #[clap(long, global = true, env, help_heading = "Global options")]
     config: Option<PathBuf>,
 
     /// Disables the version check
-    #[clap(long, global = true, env)]
+    #[clap(long, global = true, env, help_heading = "Global options")]
     disable_version_check: bool,
 
     /// Display verbose logs
