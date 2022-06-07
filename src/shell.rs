@@ -1,26 +1,22 @@
-use crate::utils::ansi::Action;
-use crate::utils::notebook_worker::Worker;
+use crate::config::api_client_configuration;
 use anyhow::{anyhow, Result};
-use clap::Parser;
-use fiberplane::protocols::core::{Cell, CodeCell};
-use portable_pty::{native_pty_system, CommandBuilder, PtySize, PtySystem};
-//use pty_process::Command;
 use async_compat::CompatExt;
-use blocking::{unblock, Unblock};
-use std::ops::Range;
+use blocking::Unblock;
+use clap::Parser;
+use fp_api_client::apis::default_api::{
+    get_profile, notebook_cell_append_text, notebook_cells_append,
+};
+use fp_api_client::models::cell::HeadingType;
+use fp_api_client::models::{Annotation, Cell, CellAppendText};
+use portable_pty::{native_pty_system, CommandBuilder, PtySize};
+use std::path::PathBuf;
 use std::time::Duration;
-use std::{
-    io::{Read, Write},
-    process::Stdio,
-    sync::Arc,
-};
-use tokio::io::AsyncReadExt;
-use tokio::{
-    fs::File,
-    io::{AsyncReadExt as _, AsyncWriteExt as _},
-};
-use tracing::{error, info, instrument};
-use wezterm_term::{Line, Screen, TerminalConfiguration};
+use termwiz::escape::csi::{DecPrivateMode, DecPrivateModeCode, Mode};
+use termwiz::escape::{Action, ControlCode, CSI};
+use time::OffsetDateTime;
+use tokio::fs::File;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tracing::instrument;
 
 #[derive(Parser)]
 pub struct Arguments {
@@ -32,10 +28,10 @@ pub struct Arguments {
     nested: bool,
 
     #[clap(from_global)]
-    base_url: String,
+    base_url: url::Url,
 
     #[clap(from_global)]
-    config: Option<String>,
+    config: Option<PathBuf>,
 }
 
 #[cfg(target_os = "linux")]
@@ -69,48 +65,133 @@ impl Drop for RawGuard {
     }
 }
 
-#[derive(Debug)]
-struct TermSettings;
+struct MyTerminalState {
+    alternate_mode: bool,
+    buffer: String,
+    current_line: String,
+}
 
-impl TerminalConfiguration for TermSettings {
-    fn color_palette(&self) -> wezterm_term::color::ColorPalette {
-        wezterm_term::color::ColorPalette::default()
+impl MyTerminalState {
+    pub fn new() -> Self {
+        Self {
+            alternate_mode: false,
+            buffer: String::new(),
+            current_line: String::new(),
+        }
     }
-}
-fn scroll_back_lines(screen: &Screen) -> impl Iterator<Item = &Line> {
-    screen
-        .lines
-        .iter()
-        .take(screen.lines.len() - screen.physical_rows)
-}
 
-fn scroll_back_char_len(screen: &Screen) -> u32 {
-    scroll_back_lines(screen)
-        .map(|l| l.as_str().trim_end().len() as u32)
-        .sum()
-}
+    fn flush(&mut self) {
+        self.buffer
+            .insert_str(self.buffer.len(), &self.current_line);
+        self.current_line.clear();
+        self.current_line.push('\n');
+    }
 
-fn visible_lines(screen: &Screen) -> impl Iterator<Item = &Line> {
-    let line_idx = screen.lines.len() - screen.physical_rows;
-    screen
-        .lines
-        .iter()
-        .skip(line_idx)
-        .take(screen.physical_rows)
+    pub fn proccess(&mut self, action: Action) {
+        match action {
+            Action::Print(c) => {
+                if !self.alternate_mode {
+                    self.current_line.push(c);
+                }
+            }
+            Action::Control(ControlCode::LineFeed) => {
+                if !self.alternate_mode {
+                    self.flush()
+                }
+            }
+            Action::Control(ControlCode::Backspace) => {
+                if !self.alternate_mode {
+                    self.current_line.pop();
+                }
+            }
+            //CSI(Mode(SetDecPrivateMode(Code(ClearAndEnableAlternateScreen))))
+            Action::CSI(CSI::Mode(Mode::SetDecPrivateMode(DecPrivateMode::Code(code)))) => {
+                match code {
+                    DecPrivateModeCode::ClearAndEnableAlternateScreen => self.alternate_mode = true,
+                    DecPrivateModeCode::EnableAlternateScreen => self.alternate_mode = true,
+                    DecPrivateModeCode::OptEnableAlternateScreen => self.alternate_mode = true,
+                    _ => {}
+                }
+            }
+            //CSI(Mode(ResetDecPrivateMode(Code(ClearAndEnableAlternateScreen))))
+            Action::CSI(CSI::Mode(Mode::ResetDecPrivateMode(DecPrivateMode::Code(code)))) => {
+                match code {
+                    DecPrivateModeCode::ClearAndEnableAlternateScreen => {
+                        self.alternate_mode = false
+                    }
+                    DecPrivateModeCode::EnableAlternateScreen => self.alternate_mode = false,
+                    DecPrivateModeCode::OptEnableAlternateScreen => self.alternate_mode = false,
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
+    }
 }
 
 #[instrument(err, skip_all)]
 pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
+    let ts_format =
+        time::format_description::parse("[year]-[month]-[day] [hour]:[minute]:[second]").unwrap();
     let shell_exe = std::env::var("SHELL").unwrap_or(DEFAULT_SHELL.to_string());
 
-    let w = Arc::new(Worker::new(args.base_url.clone(), args.id.clone(), args.config).await?);
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+
+    let user = get_profile(&config).await?;
+
+    let header_cell = notebook_cells_append(
+        &config,
+        &args.id,
+        vec![Cell::HeadingCell {
+            id: String::new(),
+            heading_type: HeadingType::H3,
+            content: format!(
+                "@{}'s shell session\n🟢 Started at:\t{}",
+                user.name,
+                time::OffsetDateTime::now_utc().format(&ts_format).unwrap()
+            ),
+            formatting: Some(vec![Annotation::MentionAnnotation {
+                offset: 0,
+                name: user.name,
+                user_id: user.id,
+            }]),
+            read_only: Some(true),
+        }],
+    )
+    .await?
+    .pop()
+    .ok_or_else(|| anyhow!("No cells returned"))?;
+
+    let code_cell = notebook_cells_append(
+        &config,
+        &args.id,
+        vec![Cell::CodeCell {
+            id: String::new(),
+            content: String::new(),
+            read_only: Some(true),
+            syntax: None,
+        }],
+    )
+    .await?
+    .pop()
+    .ok_or_else(|| anyhow!("No cells returned"))?;
+
+    let code_cell_id = match code_cell {
+        Cell::CodeCell { id, .. } => id,
+        _ => unreachable!(),
+    };
+
+    let header_id = match header_cell {
+        Cell::HeadingCell { id, .. } => id,
+        _ => unreachable!(),
+    };
 
     let _raw = RawGuard::new();
 
     let mut in_buf = [0_u8; 4096];
     let mut out_buf = [0_u8; 4096];
 
-    let mut stdin = tokio::io::stdin();
+    let mut stdin = Unblock::new(std::io::stdin());
     let mut stdout = tokio::io::stdout();
 
     let mut f = File::create("./log.txt").await?;
@@ -118,21 +199,6 @@ pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
     let pty_system = native_pty_system();
 
     let (cols, rows) = crossterm::terminal::size()?;
-    let cols = cols.min(80);
-    let rows = rows.min(120);
-
-    let mut term = wezterm_term::Terminal::new(
-        wezterm_term::TerminalSize {
-            physical_rows: rows as usize,
-            physical_cols: cols as usize,
-            pixel_width: cols as usize * 4,
-            pixel_height: rows as usize * 8,
-        },
-        Arc::new(TermSettings {}),
-        &"xterm",
-        "",
-        Box::new(Vec::new()),
-    );
 
     let pair = pty_system.openpty(PtySize {
         rows,
@@ -159,27 +225,19 @@ pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
 
     let mut child_waiter = tokio::task::spawn_blocking(move || child.wait());
 
-    let id = w
-        .insert_cell(Cell::Code(CodeCell {
-            read_only: Some(true),
-            ..Default::default()
-        }))
-        .await?;
-
-    let mut buffer = String::new();
-    let mut line2range: Vec<Range<usize>> = vec![];
-
     let mut interval = tokio::time::interval(Duration::from_millis(250));
-    let mut seqno = term.current_seqno();
 
     let mut parser = termwiz::escape::parser::Parser::new();
 
-    let mut buf = String::with_capacity((rows * (cols + 1)) as usize);
+    let mut my_terminal = MyTerminalState::new();
 
     loop {
         tokio::select! {
-            _ = &mut child_waiter => break,
-            bytes = stdin.read(&mut in_buf) => match bytes {
+            biased;
+            _ = &mut child_waiter => {
+                break;
+            },
+            bytes = futures::AsyncReadExt::read(&mut stdin, &mut in_buf) => match bytes {
                 Ok(bytes) => {
                     let data = &in_buf[..bytes];
                     writer.write_all(data).await.unwrap();
@@ -189,7 +247,7 @@ pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
                     break;
                 }
             },
-            bytes = {reader.read(&mut out_buf)} => match bytes {
+            bytes = reader.read(&mut out_buf) => match bytes {
                 Ok(bytes) => {
                     let data = &out_buf[..bytes];
                     stdout.write_all(data).await.unwrap();
@@ -197,10 +255,9 @@ pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
 
                     for a in parser.parse_as_vec(data) {
                         f.write_all(format!("{:?}\n", a).as_bytes()).await?;
+
+                        my_terminal.proccess(a);
                     }
-
-                    term.advance_bytes(data);
-
                 }
                 Err(e) => {
                     eprintln!("pty read failed: {:?}", e);
@@ -208,32 +265,49 @@ pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
                 }
             },
             _ = interval.tick() => {
-                let screen = term.screen();
-                buf.clear();
-                for l in visible_lines(screen) {
-                    buf.push_str(l.as_str().trim_end());
-                    buf.push('\n');
+
+                let buffer = &mut my_terminal.buffer;
+
+                if buffer.is_empty() {
+                    continue;
                 }
 
-                let offset = scroll_back_char_len(screen);
+                notebook_cell_append_text(&config, &args.id, &code_cell_id, CellAppendText { content: buffer.clone(), formatting: None }).await.unwrap();
 
-                w.replace_cell_content(&id, &buf, offset).await;
-                seqno = term.current_seqno();
+                buffer.clear();
             },
             else => break,
         }
     }
 
-    /* f.write_all(
-        term.screen()
-            .lines
-            .iter()
-            .map(|l| l.as_str())
-            .collect::<Vec<_>>()
-            .join("\n")
-            .as_bytes(),
-    )
-    .await?; */
+    my_terminal.flush();
+
+    let (a, b) = tokio::join!(
+        notebook_cell_append_text(
+            &config,
+            &args.id,
+            &code_cell_id,
+            CellAppendText {
+                content: my_terminal.buffer,
+                formatting: None
+            }
+        ),
+        notebook_cell_append_text(
+            &config,
+            &args.id,
+            &header_id,
+            CellAppendText {
+                content: format!(
+                    "\n🔴 Ended at:\t{}",
+                    OffsetDateTime::now_utc().format(&ts_format).unwrap()
+                ),
+                formatting: None,
+            },
+        )
+    );
+
+    a.unwrap();
+    b.unwrap();
 
     Ok(())
 }

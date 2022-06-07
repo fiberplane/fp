@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Context, Error, Result};
 use clap::{AppSettings, IntoApp, Parser};
-use clap_complete::generate;
+use clap_complete::{generate, Shell};
 use directories::ProjectDirs;
 use manifest::Manifest;
 use once_cell::sync::Lazy;
@@ -129,6 +129,9 @@ enum SubCommand {
     /// This could be used for alertmanager, for example.
     #[clap(alias = "trigger")]
     Triggers(triggers::Arguments),
+
+    #[clap()]
+    Shell(shell::Arguments),
 
     /// Update the current FP binary
     #[clap()]
