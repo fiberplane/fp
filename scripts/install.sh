@@ -51,7 +51,9 @@ else
     echo "export PATH=\"$fiberplane_dir:\$PATH\"" >> "$shell_profile"
     echo "source $shell_completions" >> "$shell_profile"
 
-    echo "Fiberplane CLI (fp) successfully installed"
+    source "$shell_profile"
+
+    echo "Fiberplane CLI (fp) successfully installed. Run 'fp help' to see available commands."
   else
     echo "Fiberplane CLI installed to ${fiberplane_dir}/fp"
     echo ""
