@@ -9,16 +9,16 @@ build = "build.rs"
 
 [dependencies]
 anyhow = "1.0"
-base64uuid = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "paging_templates" }
+base64uuid = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main" }
 bytes = "1.1.0"
 clap = { version = "3.0.5", features = ["derive", "env", "wrap_help"] }
 clap_complete = "3.0.6"
 cli-table = "0.4"
 directories = "4.0.1"
-fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "paging_templates" }
-fiberplane-markdown = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "paging_templates" }
-fiberplane-templates = { git = "ssh://git@github.com/fiberplane/templates.git", branch = "paging_templates" }
-fp-api-client = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "paging_templates" }
+fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main" }
+fiberplane-markdown = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main" }
+fiberplane-templates = { git = "ssh://git@github.com/fiberplane/templates.git", branch = "main" }
+fp-api-client = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main" }
 fp-provider-runtime = { git = "ssh://git@github.com/fiberplane/providers.git", branch = "main" }
 futures = "0.3"
 hex = "0.4.3"
@@ -44,7 +44,7 @@ sha2 = "0.10.2"
 serde = { version = "1.0.123", features = ["derive"] }
 serde_json = "1.0"
 time = "0.3.5"
-time_util = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "paging_templates" }
+time_util = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main" }
 tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7.1", features = ["io"] }
 toml = "0.5.8"
