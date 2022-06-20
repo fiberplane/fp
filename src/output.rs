@@ -3,20 +3,25 @@ use cli_table::format::*;
 use cli_table::{print_stdout, Row, Table, Title};
 use serde::Serialize;
 use std::io::{LineWriter, Write};
+use tracing::info;
 
-pub fn output_list<T, R>(input: T) -> Result<()>
+pub fn output_list<R>(input: Vec<R>) -> Result<()>
 where
-    T: IntoIterator<Item = R>,
     R: Row + Title,
 {
-    print_stdout(
-        input
-            .table()
-            .title(R::title())
-            .border(Border::builder().build())
-            .separator(Separator::builder().build()),
-    )
-    .map_err(Into::into)
+    if input.is_empty() {
+        info!("No results found");
+        Ok(())
+    } else {
+        print_stdout(
+            input
+                .table()
+                .title(R::title())
+                .border(Border::builder().build())
+                .separator(Separator::builder().build()),
+        )
+        .map_err(Into::into)
+    }
 }
 
 pub fn output_details<T, R>(args: T) -> Result<()>
@@ -51,15 +56,18 @@ impl GenericKeyValue {
     }
 }
 
-pub fn output_string_list<T>(input: T) -> Result<()>
-where
-    T: IntoIterator<Item = String>,
-{
-    let mut writer = LineWriter::new(std::io::stdout());
-    for line in input.into_iter() {
-        writer.write_all(line.as_bytes())?;
-        writer.write_all(b"\n")?;
+pub fn output_string_list(input: Vec<String>) -> Result<()> {
+    if input.is_empty() {
+        info!("No results found");
+    } else {
+        let mut writer = LineWriter::new(std::io::stdout());
+
+        for line in input.into_iter() {
+            writer.write_all(line.as_bytes())?;
+            writer.write_all(b"\n")?;
+        }
     }
+
     Ok(())
 }
 

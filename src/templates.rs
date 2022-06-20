@@ -5,6 +5,7 @@ use base64uuid::Base64Uuid;
 use clap::{ArgEnum, Parser, ValueHint};
 use cli_table::Table;
 use fiberplane::protocols::core::{self, Cell, HeadingCell, HeadingType, TextCell, TimeRange};
+use fiberplane::sorting::{SortDirection, TemplateListSortFields};
 use fiberplane_templates::{notebook_to_template, TemplateExpander};
 use fp_api_client::apis::default_api::{
     get_notebook, notebook_create, proxy_data_sources_list, template_create, template_delete,
@@ -22,7 +23,7 @@ use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
 use std::{env::current_dir, ffi::OsStr, path::PathBuf, str::FromStr};
 use tokio::fs;
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 use url::Url;
 
 lazy_static! {
@@ -86,7 +87,7 @@ enum ExamplesSubCommand {
 
     /// List the example templates
     #[clap()]
-    List(ListArguments),
+    List(ListExampleArguments),
 
     /// Get a single example templates
     #[clap()]
@@ -251,8 +252,29 @@ struct RemoveArguments {
     config: Option<PathBuf>,
 }
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 struct ListArguments {
+    /// Output of the templates
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: TemplateListOutput,
+
+    /// Sort the result according to the following field
+    #[clap(long, arg_enum)]
+    sort_by: Option<TemplateListSortFields>,
+
+    /// Sort the result in the following direction
+    #[clap(long, arg_enum)]
+    sort_direction: Option<SortDirection>,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
+#[derive(Parser, Debug)]
+struct ListExampleArguments {
     /// Output of the templates
     #[clap(long, short, default_value = "table", arg_enum)]
     output: TemplateListOutput,
@@ -348,7 +370,7 @@ enum TemplateOutput {
     Json,
 }
 
-#[derive(ArgEnum, Clone)]
+#[derive(ArgEnum, Clone, Debug)]
 enum TemplateListOutput {
     /// Output the values as a table
     Table,
@@ -621,16 +643,19 @@ async fn handle_delete_command(args: RemoveArguments) -> Result<()> {
 }
 
 async fn handle_list_command(args: ListArguments) -> Result<()> {
+    debug!("handle list command");
+
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    let templates = template_list(&config).await?;
+    let templates = template_list(
+        &config,
+        args.sort_by.map(Into::into),
+        args.sort_direction.map(Into::into),
+    )
+    .await?;
 
     match args.output {
         TemplateListOutput::Table => {
-            let mut templates: Vec<TemplateRow> = templates.into_iter().map(Into::into).collect();
-
-            // Sort by updated at so that the most recent is first
-            templates.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
-
+            let templates: Vec<TemplateRow> = templates.into_iter().map(Into::into).collect();
             output_list(templates)
         }
         TemplateListOutput::Json => output_json(&templates),
@@ -700,7 +725,7 @@ async fn handle_expand_example_command(args: ExpandExampleArguments) -> Result<(
     Ok(())
 }
 
-async fn handle_list_example_command(args: ListArguments) -> Result<()> {
+async fn handle_list_example_command(args: ListExampleArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
     let templates = template_example_list(&config).await?;
 
