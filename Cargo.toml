@@ -4,10 +4,10 @@ version = "0.6.0"
 authors = ["Team Fiberplane"]
 edition = "2018"
 build = "build.rs"
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+abort-on-drop = "0.2.1"
 anyhow = "1.0"
 async-compat = "0.2.1"
 base64uuid = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main" }
@@ -16,7 +16,7 @@ bytes = "1.1.0"
 clap = { version = "3.0.5", features = ["derive", "env", "wrap_help"] }
 clap_complete = "3.0.6"
 cli-table = "0.4"
-crossterm = "0.23.0"
+crossterm = { version = "0.23.0", features = ["event-stream"] }
 difference = "2.0.0"
 directories = "4.0.1"
 fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main" }
@@ -35,9 +35,11 @@ hyper = { version = "0.14.13", features = [
 ] }
 indicatif = "0.16.2"
 lazy_static = "1.4.0"
+memchr = "2.5.0"
 nix = "0.23.1"
 once_cell = "1.8"
 petname = "1.1.1"
+pin-project = "1"
 portable-pty = "0.7.0"
 qstring = "0.7.2"
 rand = "0.8.5"
@@ -52,6 +54,7 @@ serde = { version = "1.0.123", features = ["derive"] }
 serde_json = "1.0"
 sha2 = "0.10.2"
 strip-ansi-escapes = "0.1.1"
+sysinfo = "0.24.3"
 term_size = "0.3.2"
 termwiz = { git = "ssh://git@github.com/wez/wezterm.git", tag = "20220101-133340-7edc5b5a" }
 time = "0.3.5"
@@ -66,10 +69,9 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 url = "2.2"
 uuid = { version = "0.8", features = ["serde", "v4"] }
+vmap = "0.5.1"
 vte = "0.10.1"
 webbrowser = "0.6.0"
-wezterm-term = { git = "ssh://git@github.com/wez/wezterm.git", tag = "20220101-133340-7edc5b5a" }
-
 
 [build-dependencies]
 anyhow = "1.0"

@@ -1,12 +1,15 @@
-use super::pty_terminal::PtyOutput;
+use super::terminal_extractor::PtyOutput;
 use anyhow::Result;
 use tokio::io::AsyncWriteExt;
 
-struct TerminalRender<W: AsyncWriteExt> {
+pub struct TerminalRender<W: AsyncWriteExt> {
     stdout: W,
 }
 
 impl<W: AsyncWriteExt + Unpin> TerminalRender<W> {
+    pub fn new(stdout: W) -> Self {
+        Self { stdout }
+    }
     pub async fn handle_pty_output<'a>(&mut self, output: &'a PtyOutput<'a>) -> Result<()> {
         match output {
             PtyOutput::Data(data) => {

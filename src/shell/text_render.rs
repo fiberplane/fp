@@ -1,4 +1,4 @@
-use super::{parser_iter::ParserIter, pty_terminal::PtyOutput};
+use super::{parser_iter::ParserIter, terminal_extractor::PtyOutput};
 use anyhow::Result;
 use termwiz::escape::{
     csi::{DecPrivateMode, DecPrivateModeCode, Mode},
@@ -26,14 +26,16 @@ impl<W: AsyncWriteExt + Unpin> TextRender<W> {
         }
     }
 
+    pub fn inner_mut(&mut self) -> &mut W {
+        &mut self.writer
+    }
+
     pub async fn flush(
         writer: &mut W,
         current_line: &mut String,
         position: &mut usize,
     ) -> Result<()> {
         writer.write_all(current_line.as_bytes()).await?;
-        writer.write_all(b"\n").await?;
-        writer.flush().await?;
         current_line.clear();
         *position = 0;
 
@@ -60,6 +62,7 @@ impl<W: AsyncWriteExt + Unpin> TextRender<W> {
                 }
                 Action::Control(ControlCode::LineFeed) => {
                     if !self.alternate_mode {
+                        self.current_line.push('\n');
                         Self::flush(&mut self.writer, &mut self.current_line, &mut self.position)
                             .await?;
                     }
