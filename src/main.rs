@@ -20,6 +20,7 @@ use url::Url;
 
 mod auth;
 mod config;
+mod events;
 mod experiments;
 mod labels;
 mod manifest;
@@ -130,6 +131,12 @@ enum SubCommand {
     #[clap(alias = "trigger")]
     Triggers(triggers::Arguments),
 
+    /// Interact with events
+    ///
+    /// Events allow you to mark a specific point in time when something occurred, such as a deployment.
+    #[clap(alias = "event")]
+    Events(events::Arguments),
+
     /// Update the current FP binary
     #[clap()]
     Update(update::Arguments),
@@ -202,6 +209,7 @@ async fn main() {
         Proxies(args) => proxies::handle_command(args).await,
         Templates(args) => templates::handle_command(args).await,
         Triggers(args) => triggers::handle_command(args).await,
+        Events(args) => events::handle_command(args).await,
         Update(args) => update::handle_command(args).await,
         Users(args) => users::handle_command(args).await,
         Version(args) => version::handle_command(args).await,
