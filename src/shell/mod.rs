@@ -51,11 +51,7 @@ pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
     let launcher = ShellLauncher::new(args.id.clone());
     let (_terminal, mut child, pty_reader) = PtyTerminal::new(launcher).await?;
 
-    // Move the slave to another thread to block and spawn a
-    // command.
-    // Note that this implicitly drops slave and closes out
-    // file handles which is important to avoid deadlock
-    // when waiting for the child process!
+    // Waiting for the child process to end is a blocking operation so move it to another thread
     let mut child_waiter = unblock(move || child.wait());
 
     let mut term_render = TerminalRender::new(tokio::io::stdout());
@@ -68,6 +64,10 @@ pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
 
     let mut interval = tokio::time::interval(Duration::from_millis(250));
 
+    // Worker loop that drives the reading of the shell output and forwards it to the
+    // terminal and text renders.
+    // The text render in turn writes its output to the notebook which internally buffers
+    // the text and gets sent to the server on each `flush` on a 250ms interval.
     loop {
         tokio::select! {
             biased;
