@@ -1,10 +1,7 @@
 use super::{parser_iter::ParserIter, terminal_extractor::PtyOutput};
 use anyhow::Result;
-use termwiz::escape::{
-    csi::{DecPrivateMode, DecPrivateModeCode, Mode},
-    parser::Parser,
-    Action, ControlCode, CSI,
-};
+use termwiz::escape::csi::{DecPrivateMode, DecPrivateModeCode, Mode};
+use termwiz::escape::{parser::Parser, Action, ControlCode, CSI};
 use tokio::io::AsyncWriteExt;
 
 pub struct TextRender<W: AsyncWriteExt> {
