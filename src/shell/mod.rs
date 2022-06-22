@@ -26,7 +26,7 @@ use tracing::instrument;
 #[derive(Parser)]
 pub struct Arguments {
     // ID of the notebook
-    #[clap(name = "id", env = "__FP_NOTEBOOK_ID")]
+    #[clap(name = "id", env = "NOTEBOOK_ID")]
     id: String,
 
     #[clap(parse(from_flag), env = "__FP_SHELL_SESSION")]
