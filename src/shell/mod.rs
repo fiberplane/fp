@@ -46,19 +46,18 @@ pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
     }
 
     let config = api_client_configuration(args.config, &args.base_url).await?;
-
     let launcher = ShellLauncher::new(args.id.clone());
-    let (mut terminal, pty_reader) = PtyTerminal::new(launcher).await?;
-
     let mut term_render = TerminalRender::new(tokio::io::stdout());
-    let mut term_extractor = TerminalExtractor::new(pty_reader)?;
-
-    let mut notebook_writer = NotebookWriter::new(config, args.id).await?;
-    let mut text_render = TextRender::new(&mut notebook_writer);
-
     let mut initialized = false;
-
     let mut interval = tokio::time::interval(Duration::from_millis(250));
+
+    let (mut notebook_writer, (mut terminal, pty_reader)) = tokio::try_join!(
+        NotebookWriter::new(config, args.id),
+        PtyTerminal::new(launcher)
+    )?;
+
+    let mut term_extractor = TerminalExtractor::new(pty_reader)?;
+    let mut text_render = TextRender::new(&mut notebook_writer);
 
     // Worker loop that drives the reading of the shell output and forwards it to the
     // terminal and text renders.
