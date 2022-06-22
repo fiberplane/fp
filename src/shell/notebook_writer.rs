@@ -10,6 +10,7 @@ use fp_api_client::{
     },
     models::{cell::HeadingType, Annotation, Cell, CellAppendText},
 };
+use once_cell::sync::OnceCell;
 use pin_project::pin_project;
 use std::{future::Future, pin::Pin, sync::Arc, task::Poll};
 use time::{format_description::FormatItem, OffsetDateTime};
@@ -30,10 +31,12 @@ pub struct NotebookWriter {
     future: Option<Pin<Box<dyn Future<Output = Result<Cell, Error<NotebookCellAppendTextError>>>>>>,
 }
 
-lazy_static::lazy_static! {
-    static ref TS_FORMAT : Vec<FormatItem<'static>> =
-        time::format_description::parse("[year]-[month]-[day] [hour]:[minute]:[second]").unwrap();
+static TS_FORMAT: OnceCell<Vec<FormatItem<'static>>> = OnceCell::new();
 
+fn get_ts_format() -> &'static (impl time::formatting::Formattable + ?Sized) {
+    TS_FORMAT.get_or_init(|| {
+        time::format_description::parse("[year]-[month]-[day] [hour]:[minute]:[second]").unwrap()
+    })
 }
 
 impl NotebookWriter {
@@ -48,7 +51,9 @@ impl NotebookWriter {
                 content: format!(
                     "@{}'s shell session\n🟢 Started at:\t{}",
                     user.name,
-                    time::OffsetDateTime::now_utc().format(&TS_FORMAT).unwrap()
+                    time::OffsetDateTime::now_utc()
+                        .format(get_ts_format())
+                        .unwrap()
                 ),
                 formatting: Some(vec![Annotation::MentionAnnotation {
                     offset: 0,
@@ -110,7 +115,7 @@ impl NotebookWriter {
             CellAppendText {
                 content: format!(
                     "\n🔴 Ended at:\t{}",
-                    OffsetDateTime::now_utc().format(&TS_FORMAT).unwrap()
+                    OffsetDateTime::now_utc().format(get_ts_format()).unwrap()
                 ),
                 formatting: None,
             },
