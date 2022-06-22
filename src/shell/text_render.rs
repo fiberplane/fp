@@ -69,6 +69,10 @@ impl<W: AsyncWriteExt + Unpin> TextRender<W> {
                         self.current_line.remove(self.position);
                     }
                 }
+                // This matches the magic incantation terminal programs output in order to enter alternate mode/screen:
+                // https://superuser.com/a/321233
+                // Since that mode is generally used for interactive programs like htop and vim we don't want
+                // to render them to text since that'd look really weird
                 Action::CSI(CSI::Mode(Mode::SetDecPrivateMode(DecPrivateMode::Code(code)))) => {
                     match code {
                         DecPrivateModeCode::ClearAndEnableAlternateScreen => {
