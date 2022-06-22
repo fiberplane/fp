@@ -34,9 +34,9 @@ impl Drop for RawGuard {
 }
 
 pub struct PtyTerminal {
-    guard: RawGuard,
-    stdin_task: ChildTask<Result<()>>,
-    resize_task: ChildTask<Result<()>>,
+    _guard: RawGuard,
+    _stdin_task: ChildTask<Result<()>>,
+    _resize_task: ChildTask<Result<()>>,
 }
 
 impl PtyTerminal {
@@ -57,12 +57,12 @@ impl PtyTerminal {
         let child = tokio::task::spawn_blocking(move || pty_slave.spawn_command(cmd)).await??;
         Ok((
             Self {
-                guard: RawGuard::new(),
-                stdin_task: ChildTask::from(tokio::spawn(Self::forward_stdin(
+                _guard: RawGuard::new(),
+                _stdin_task: ChildTask::from(tokio::spawn(Self::forward_stdin(
                     Unblock::new(pty.master.try_clone_writer()?),
                     launcher,
                 ))),
-                resize_task: ChildTask::from(tokio::spawn(Self::forward_resize(pty.master))),
+                _resize_task: ChildTask::from(tokio::spawn(Self::forward_resize(pty.master))),
             },
             child,
             pty_reader,
