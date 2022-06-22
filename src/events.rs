@@ -5,7 +5,7 @@ use anyhow::Result;
 use clap::Parser;
 use cli_table::Table;
 use fiberplane::sorting::{EventSortFields, SortDirection};
-use fp_api_client::apis::default_api::{event_create, event_list};
+use fp_api_client::apis::default_api::{event_create, event_delete, event_list};
 use fp_api_client::models::{Event, NewEvent};
 use std::collections::HashMap;
 use std::fmt::Display;
@@ -103,6 +103,10 @@ pub struct SearchArguments {
 
 #[derive(Parser)]
 pub struct DeleteArguments {
+    /// ID of the event that should be deleted
+    #[clap(long, short)]
+    id: String,
+
     #[clap(from_global)]
     base_url: Url,
 
@@ -163,6 +167,11 @@ async fn handle_event_search_command(args: SearchArguments) -> Result<()> {
 }
 
 async fn handle_event_delete_command(args: DeleteArguments) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+
+    event_delete(&config, &args.id).await?;
+
+    info!("Successfully deleted event");
     Ok(())
 }
 
