@@ -1,14 +1,13 @@
 use super::shell_launcher::ShellLauncher;
 use abort_on_drop::ChildTask;
 use anyhow::Result;
-use blocking::Unblock;
-use crossterm::{
-    event::{Event, EventStream},
-    terminal,
-};
-use futures::{AsyncReadExt, AsyncWriteExt, StreamExt};
-use portable_pty::{native_pty_system, Child, MasterPty, PtySize};
-use std::io::Read;
+use blocking::{unblock, Task, Unblock};
+use crossterm::event::{Event, EventStream};
+use crossterm::terminal;
+use futures::future::Fuse;
+use futures::{AsyncReadExt, AsyncWriteExt, FutureExt, StreamExt};
+use portable_pty::{native_pty_system, ExitStatus, MasterPty, PtySize};
+use tokio_util::compat::FuturesAsyncReadCompatExt;
 
 /// A helper that enters terminal raw mode when constructed
 /// and exits raw mode when dropped if it was enabled by the
@@ -44,15 +43,17 @@ impl Drop for RawGuard {
 /// https://en.wikipedia.org/wiki/Pseudoterminal
 /// And forwards resizing as well as stdin to the child process
 pub struct PtyTerminal {
+    child_waiter: Fuse<Task<Result<ExitStatus, std::io::Error>>>,
+    stdin_task: Fuse<ChildTask<Result<()>>>,
+    resize_task: Fuse<ChildTask<Result<()>>>,
     _guard: RawGuard,
-    _stdin_task: ChildTask<Result<()>>,
-    _resize_task: ChildTask<Result<()>>,
 }
 
 impl PtyTerminal {
     pub async fn new(
         launcher: ShellLauncher,
-    ) -> Result<(Self, Box<dyn Child + Send + Sync>, Box<dyn Read + Send>)> {
+    ) -> Result<(Self, impl tokio::io::AsyncReadExt + Send)> {
+        let guard = RawGuard::new();
         let (cols, rows) = terminal::size()?;
         let pty = native_pty_system().openpty(PtySize {
             rows,
@@ -62,20 +63,24 @@ impl PtyTerminal {
         })?;
 
         let cmd = launcher.build_command();
-        let pty_slave = pty.slave;
+        let pty_follower = pty.slave;
         let pty_reader = pty.master.try_clone_reader()?;
-        let child = tokio::task::spawn_blocking(move || pty_slave.spawn_command(cmd)).await??;
+        // Spawning and waiting for the child process to end is a blocking operation so move it to another thread
+        let mut child = unblock(move || pty_follower.spawn_command(cmd)).await?;
+        let child_waiter = unblock(move || child.wait()).fuse();
+
         Ok((
             Self {
-                _guard: RawGuard::new(),
-                _stdin_task: ChildTask::from(tokio::spawn(Self::forward_stdin(
+                child_waiter,
+                stdin_task: ChildTask::from(tokio::spawn(Self::forward_stdin(
                     Unblock::new(pty.master.try_clone_writer()?),
                     launcher,
-                ))),
-                _resize_task: ChildTask::from(tokio::spawn(Self::forward_resize(pty.master))),
+                )))
+                .fuse(),
+                resize_task: ChildTask::from(tokio::spawn(Self::forward_resize(pty.master))).fuse(),
+                _guard: guard,
             },
-            child,
-            pty_reader,
+            Unblock::new(pty_reader).compat(),
         ))
     }
 
@@ -109,5 +114,17 @@ impl PtyTerminal {
         }
 
         Ok(())
+    }
+
+    pub async fn wait_close(&mut self) -> Result<()> {
+        tokio::select! {
+            biased;
+            res = &mut self.child_waiter => {
+                res?;
+                Ok(())
+            }
+            res = &mut self.stdin_task => Ok(res??),
+            res = &mut self.resize_task => Ok(res??),
+        }
     }
 }

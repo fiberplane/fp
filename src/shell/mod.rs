@@ -17,11 +17,9 @@ use self::{
 };
 use crate::config::api_client_configuration;
 use anyhow::Result;
-use blocking::{unblock, Unblock};
 use clap::Parser;
 use std::{path::PathBuf, time::Duration};
 use tokio::io::AsyncWriteExt;
-use tokio_util::compat::FuturesAsyncReadCompatExt;
 use tracing::instrument;
 
 #[derive(Parser)]
@@ -50,13 +48,10 @@ pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
     let launcher = ShellLauncher::new(args.id.clone());
-    let (_terminal, mut child, pty_reader) = PtyTerminal::new(launcher).await?;
-
-    // Waiting for the child process to end is a blocking operation so move it to another thread
-    let mut child_waiter = unblock(move || child.wait());
+    let (mut terminal, pty_reader) = PtyTerminal::new(launcher).await?;
 
     let mut term_render = TerminalRender::new(tokio::io::stdout());
-    let mut term_extractor = TerminalExtractor::new(Unblock::new(pty_reader).compat())?;
+    let mut term_extractor = TerminalExtractor::new(pty_reader)?;
 
     let mut notebook_writer = NotebookWriter::new(config, args.id).await?;
     let mut text_render = TextRender::new(&mut notebook_writer);
@@ -72,7 +67,7 @@ pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
     loop {
         tokio::select! {
             biased;
-            _ = &mut child_waiter => {
+            _ = terminal.wait_close() => {
                 break;
             },
             Ok(output) = term_extractor.next() => {
