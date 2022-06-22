@@ -4,6 +4,7 @@ use crate::KeyValueArgument;
 use anyhow::Result;
 use clap::Parser;
 use cli_table::Table;
+use fiberplane::sorting::{EventSortFields, SortDirection};
 use fp_api_client::apis::default_api::{event_create, event_list};
 use fp_api_client::models::{Event, NewEvent};
 use std::collections::HashMap;
@@ -77,6 +78,14 @@ pub struct SearchArguments {
     #[clap(long, parse(try_from_str = clap_rfc3339::parse_rfc3339))]
     end: OffsetDateTime,
 
+    /// Sort the result according to the following field
+    #[clap(long, arg_enum)]
+    sort_by: Option<EventSortFields>,
+
+    /// Sort the result in the following direction
+    #[clap(long, arg_enum)]
+    sort_direction: Option<SortDirection>,
+
     /// Page to display
     #[clap(long)]
     page: Option<i32>,
@@ -142,8 +151,8 @@ async fn handle_event_search_command(args: SearchArguments) -> Result<()> {
                 .map(|kv| (kv.key, kv.value))
                 .collect(),
         ),
-        None,
-        None,
+        args.sort_by.map(Into::into),
+        args.sort_direction.map(Into::into),
         args.page,
         args.limit,
     )
