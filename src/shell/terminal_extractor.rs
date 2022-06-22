@@ -41,7 +41,6 @@ impl<R: tokio::io::AsyncReadExt + Unpin> TerminalExtractor<R> {
     #[instrument(skip_all)]
     pub async fn next<'a>(&'a mut self) -> Result<PtyOutput<'a>> {
         loop {
-            trace!(?self.state, read_len = ?self.buffer.read_len());
             match self.state {
                 State::Read => {
                     let buf = &mut self.buffer;
