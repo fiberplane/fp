@@ -16,10 +16,9 @@ pub enum PtyOutput<'a> {
     Data(&'a [u8]),
     PromptStart,
     PromptEnd,
-    PromptContinue,
 }
 
-pub struct TerminalExtractor<R: futures::io::AsyncReadExt> {
+pub struct TerminalExtractor<R: tokio::io::AsyncReadExt> {
     buffer: vmap::io::Ring,
     state: State,
     reader: R,
@@ -30,7 +29,7 @@ pub const START_PROMPT_BYTES: &[u8] = START_PROMPT.as_bytes();
 pub const END_PROMPT: &str = "\u{200e}\u{200e}";
 pub const END_PROMPT_BYTES: &[u8] = END_PROMPT.as_bytes();
 
-impl<R: futures::io::AsyncReadExt + Unpin> TerminalExtractor<R> {
+impl<R: tokio::io::AsyncReadExt + Unpin> TerminalExtractor<R> {
     pub fn new(reader: R) -> Result<Self> {
         Ok(Self {
             buffer: Ring::new(1024 * 16)?,
@@ -141,7 +140,6 @@ impl<R: futures::io::AsyncReadExt + Unpin> TerminalExtractor<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use async_compat::CompatExt;
     use tokio::io::AsyncWriteExt;
 
     #[tokio::test]
@@ -172,7 +170,7 @@ mod tests {
             .await
             .unwrap();
 
-        let mut extractor = TerminalExtractor::new(client.compat()).unwrap();
+        let mut extractor = TerminalExtractor::new(client).unwrap();
 
         assert_eq!(
             extractor.next().await.unwrap(),

@@ -21,6 +21,7 @@ use blocking::{unblock, Unblock};
 use clap::Parser;
 use std::{path::PathBuf, time::Duration};
 use tokio::io::AsyncWriteExt;
+use tokio_util::compat::FuturesAsyncReadCompatExt;
 use tracing::instrument;
 
 #[derive(Parser)]
@@ -55,7 +56,7 @@ pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
     let mut child_waiter = unblock(move || child.wait());
 
     let mut term_render = TerminalRender::new(tokio::io::stdout());
-    let mut term_extractor = TerminalExtractor::new(Unblock::new(pty_reader))?;
+    let mut term_extractor = TerminalExtractor::new(Unblock::new(pty_reader).compat())?;
 
     let mut notebook_writer = NotebookWriter::new(config, args.id).await?;
     let mut text_render = TextRender::new(&mut notebook_writer);
