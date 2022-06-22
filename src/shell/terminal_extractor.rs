@@ -24,8 +24,10 @@ pub struct TerminalExtractor<R: tokio::io::AsyncReadExt> {
     reader: R,
 }
 
+pub const START_PROMPT_CHAR: char = '\u{200b}';
 pub const START_PROMPT: &str = "\u{200b}\u{200b}";
 pub const START_PROMPT_BYTES: &[u8] = START_PROMPT.as_bytes();
+pub const END_PROMPT_CHAR: char = '\u{200e}';
 pub const END_PROMPT: &str = "\u{200e}\u{200e}";
 pub const END_PROMPT_BYTES: &[u8] = END_PROMPT.as_bytes();
 
