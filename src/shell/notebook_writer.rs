@@ -1,15 +1,9 @@
 use anyhow::{anyhow, Result};
-use fp_api_client::{
-    apis::{
-        configuration::Configuration,
-        default_api::{
-            get_profile, notebook_cell_append_text, notebook_cells_append,
-            NotebookCellAppendTextError,
-        },
-        Error,
-    },
-    models::{cell::HeadingType, Annotation, Cell, CellAppendText},
+use fp_api_client::apis::default_api::{
+    get_profile, notebook_cell_append_text, notebook_cells_append, NotebookCellAppendTextError,
 };
+use fp_api_client::apis::{configuration::Configuration, Error};
+use fp_api_client::models::{cell::HeadingType, Annotation, Cell, CellAppendText};
 use once_cell::sync::OnceCell;
 use pin_project::pin_project;
 use std::{future::Future, pin::Pin, sync::Arc, task::Poll};
