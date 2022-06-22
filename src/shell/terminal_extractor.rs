@@ -62,7 +62,13 @@ impl<R: futures::io::AsyncReadExt + Unpin> TerminalExtractor<R> {
 
                     trace!(?start_prompt_pos, ?end_prompt_pos);
 
+                    // This is the main work horse of the terminal extractor loop.
+                    // Basically it searches for our START and END markers of the terminal prompt in
+                    // the byte stream we read in.
                     return Ok(match (start_prompt_pos, end_prompt_pos) {
+                        // These first 2 cases where we've found a START or END marker at the very beginning
+                        // of the read buffer we simply output those markers and set the next state to consume
+                        // the full length of the markers.
                         (Some(0), _) => {
                             self.state = State::Consume(START_PROMPT_BYTES.len());
                             PtyOutput::PromptStart
@@ -71,16 +77,27 @@ impl<R: futures::io::AsyncReadExt + Unpin> TerminalExtractor<R> {
                             self.state = State::Consume(END_PROMPT_BYTES.len());
                             PtyOutput::PromptEnd
                         }
+                        // In the case where only one marker at non zero index was found we output and consume
+                        // the data up to the marker.
+                        // It should be noted that this approach means multiple `PtyOutput::Data()` may be output
+                        // in a row.
                         (Some(pos), None) | (None, Some(pos)) => {
                             self.state = State::Consume(pos);
                             PtyOutput::Data(&data[..pos])
                         }
+                        // In the case where we found both markers we should only consume data until the first one
+                        // that was found
                         (Some(start), Some(end)) => {
                             let valid_data_len = cmp::min(start, end);
                             self.state = State::Consume(valid_data_len);
                             PtyOutput::Data(&data[..valid_data_len])
                         }
+                        // The last case is where we didn't find any *full* markers.
                         (None, None) => {
+                            // Unfortunately there's no guarantee that we actually read all of a marker
+                            // since a full marker is 6 bytes long.
+                            // As such we need to check if the *last* 5,4,3,2 and 1 bytes of the read bytes
+                            // contains *first* 5,4,3,2 or 1 bytes of either marker.
                             let data_len = data.len();
                             let num_partial_start_bytes_match =
                                 (1..cmp::min(START_PROMPT_BYTES.len(), data_len))
@@ -98,6 +115,9 @@ impl<R: futures::io::AsyncReadExt + Unpin> TerminalExtractor<R> {
                                 num_partial_end_bytes_match,
                             );
 
+                            // We subtract the max number of matched bytes from the available data length
+                            // and consume that much. Then next round trip we can read more data and check
+                            // if the partial matching bytes fully match the marker bytes
                             let valid_data_len = data_len - max_bytes;
                             self.state = State::Consume(valid_data_len);
                             PtyOutput::Data(&data[..valid_data_len])
