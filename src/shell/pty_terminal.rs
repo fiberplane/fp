@@ -10,6 +10,13 @@ use futures::{AsyncReadExt, AsyncWriteExt, StreamExt};
 use portable_pty::{native_pty_system, Child, MasterPty, PtySize};
 use std::io::Read;
 
+/// A helper that enters terminal raw mode when constructed
+/// and exits raw mode when dropped if it was enabled by the
+/// helper
+/// Raw vs cooked mode is explained better than I can here:
+/// https://stackoverflow.com/a/13104585
+/// In short it enables us to forward ctrl+c and such to the
+/// child process
 pub struct RawGuard {
     was_enabled: bool,
 }
@@ -33,6 +40,9 @@ impl Drop for RawGuard {
     }
 }
 
+/// Helper that launches the child process under a pseudo terminal (PTY)
+/// https://en.wikipedia.org/wiki/Pseudoterminal
+/// And forwards resizing as well as stdin to the child process
 pub struct PtyTerminal {
     _guard: RawGuard,
     _stdin_task: ChildTask<Result<()>>,
