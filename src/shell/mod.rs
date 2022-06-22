@@ -42,7 +42,7 @@ pub struct Arguments {
 #[instrument(err, skip_all)]
 pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
     if args.nested {
-        println!("Can't start recording inside an existing recording session");
+        eprintln!("Can't start recording inside an existing recording session");
         return Ok(());
     }
 
