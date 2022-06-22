@@ -25,9 +25,8 @@ pub struct NotebookWriter {
     future: Option<Pin<Box<dyn Future<Output = Result<Cell, Error<NotebookCellAppendTextError>>>>>>,
 }
 
-static TS_FORMAT: OnceCell<Vec<FormatItem<'static>>> = OnceCell::new();
-
 fn get_ts_format() -> &'static (impl time::formatting::Formattable + ?Sized) {
+    static TS_FORMAT: OnceCell<Vec<FormatItem<'static>>> = OnceCell::new();
     TS_FORMAT.get_or_init(|| {
         time::format_description::parse("[year]-[month]-[day] [hour]:[minute]:[second]").unwrap()
     })
