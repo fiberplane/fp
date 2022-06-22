@@ -1,7 +1,8 @@
 use crate::config::api_client_configuration;
-use crate::output::output_details;
+use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use crate::KeyValueArgument;
 use anyhow::Result;
+use clap::ArgEnum;
 use clap::Parser;
 use cli_table::Table;
 use fiberplane::sorting::{EventSortFields, SortDirection};
@@ -43,6 +44,15 @@ enum SubCommand {
     Delete(DeleteArguments),
 }
 
+#[derive(ArgEnum, Clone)]
+enum EventOutput {
+    /// Output the details as a table
+    Table,
+
+    /// Output the details as JSON
+    Json,
+}
+
 #[derive(Parser)]
 struct CreateArguments {
     /// Name of the event
@@ -56,6 +66,10 @@ struct CreateArguments {
     /// Time at which the event occurred. Leave empty to use current time.
     #[clap(long, parse(try_from_str = clap_rfc3339::parse_rfc3339))]
     time: Option<OffsetDateTime>,
+
+    /// Output of the event
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: EventOutput,
 
     #[clap(from_global)]
     base_url: Url,
@@ -77,6 +91,10 @@ pub struct SearchArguments {
     /// End time to search for events for
     #[clap(long, parse(try_from_str = clap_rfc3339::parse_rfc3339))]
     end: OffsetDateTime,
+
+    /// Output of the event
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: EventOutput,
 
     /// Sort the result according to the following field
     #[clap(long, arg_enum)]
@@ -104,7 +122,7 @@ pub struct SearchArguments {
 #[derive(Parser)]
 pub struct DeleteArguments {
     /// ID of the event that should be deleted
-    #[clap(long, short)]
+    #[clap()]
     id: String,
 
     #[clap(from_global)]
@@ -117,13 +135,9 @@ pub struct DeleteArguments {
 async fn handle_event_create_command(args: CreateArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
-    let formatted = if let Some(time) = args.time {
-        Some(time.format(&Rfc3339)?)
-    } else {
-        None
-    };
+    let time = args.time.map(|input| input.format(&Rfc3339).unwrap());
 
-    event_create(
+    let event = event_create(
         &config,
         NewEvent {
             title: args.title,
@@ -133,13 +147,17 @@ async fn handle_event_create_command(args: CreateArguments) -> Result<()> {
                     .map(|kv| (kv.key, kv.value))
                     .collect(),
             ),
-            time: formatted,
+            time,
         },
     )
     .await?;
 
     info!("Successfully created new event");
-    Ok(())
+
+    match args.output {
+        EventOutput::Table => output_details(GenericKeyValue::from_event(event)),
+        EventOutput::Json => output_json(&event),
+    }
 }
 
 async fn handle_event_search_command(args: SearchArguments) -> Result<()> {
@@ -162,8 +180,13 @@ async fn handle_event_search_command(args: SearchArguments) -> Result<()> {
     )
     .await?;
 
-    let rows: Vec<EventRow> = events.into_iter().map(Into::into).collect();
-    output_details(rows)
+    match args.output {
+        EventOutput::Table => {
+            let rows: Vec<EventRow> = events.into_iter().map(Into::into).collect();
+            output_list(rows)
+        }
+        EventOutput::Json => output_json(&events),
+    }
 }
 
 async fn handle_event_delete_command(args: DeleteArguments) -> Result<()> {
@@ -216,4 +239,21 @@ fn print_labels(input: &HashMap<String, String>) -> impl Display {
     }
 
     output
+}
+
+impl GenericKeyValue {
+    fn from_event(event: Event) -> Vec<Self> {
+        vec![
+            GenericKeyValue::new("Title:", event.title.unwrap_or_default()),
+            GenericKeyValue::new(
+                "Labels:",
+                format!("{}", print_labels(&event.labels.unwrap_or_default())),
+            ),
+            GenericKeyValue::new(
+                "Occurrence Time:",
+                event.occurrence_time.unwrap_or_default(),
+            ),
+            GenericKeyValue::new("ID:", event.id.unwrap_or_default()),
+        ]
+    }
 }
