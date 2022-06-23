@@ -226,8 +226,9 @@ impl From<Event> for EventRow {
 
 fn print_labels(input: &HashMap<String, String>) -> impl Display {
     let mut output = String::new();
+    let mut iterator = input.iter().peekable();
 
-    for (key, value) in input {
+    while let Some((key, value)) = iterator.next() {
         output.push_str(key);
 
         if !value.is_empty() {
@@ -235,7 +236,9 @@ fn print_labels(input: &HashMap<String, String>) -> impl Display {
             output.push_str(value);
         }
 
-        output.push_str(", ");
+        if iterator.peek().is_some() {
+            output.push_str(", ");
+        }
     }
 
     output
