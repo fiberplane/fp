@@ -56,11 +56,11 @@ enum EventOutput {
 #[derive(Parser)]
 struct CreateArguments {
     /// Name of the event
-    #[clap(long, alias = "name")]
+    #[clap(long, alias = "name", required = true)]
     title: String,
 
     /// Labels to add to the events (you can specify multiple labels).
-    #[clap(name = "label", short, long)]
+    #[clap(name = "label", short, long, required = true)]
     labels: Vec<KeyValueArgument>,
 
     /// Time at which the event occurred. Leave empty to use current time.
@@ -81,15 +81,15 @@ struct CreateArguments {
 #[derive(Parser)]
 pub struct SearchArguments {
     /// Labels to search events for (you can specify multiple labels).
-    #[clap(name = "label", short, long)]
+    #[clap(name = "label", short, long, required = true)]
     labels: Vec<KeyValueArgument>,
 
     /// Start time to search for events for
-    #[clap(long, parse(try_from_str = clap_rfc3339::parse_rfc3339))]
+    #[clap(long, parse(try_from_str = clap_rfc3339::parse_rfc3339), required = true)]
     start: OffsetDateTime,
 
     /// End time to search for events for
-    #[clap(long, parse(try_from_str = clap_rfc3339::parse_rfc3339))]
+    #[clap(long, parse(try_from_str = clap_rfc3339::parse_rfc3339), required = true)]
     end: OffsetDateTime,
 
     /// Output of the event
@@ -122,7 +122,7 @@ pub struct SearchArguments {
 #[derive(Parser)]
 pub struct DeleteArguments {
     /// ID of the event that should be deleted
-    #[clap()]
+    #[clap(required = true)]
     id: String,
 
     #[clap(from_global)]
