@@ -245,14 +245,8 @@ impl GenericKeyValue {
     fn from_event(event: Event) -> Vec<Self> {
         vec![
             GenericKeyValue::new("Title:", event.title),
-            GenericKeyValue::new(
-                "Labels:",
-                format!("{}", print_labels(&event.labels)),
-            ),
-            GenericKeyValue::new(
-                "Occurrence Time:",
-                event.occurrence_time,
-            ),
+            GenericKeyValue::new("Labels:", format!("{}", print_labels(&event.labels))),
+            GenericKeyValue::new("Occurrence Time:", event.occurrence_time),
             GenericKeyValue::new("ID:", event.id),
         ]
     }
