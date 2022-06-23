@@ -216,10 +216,10 @@ struct EventRow {
 impl From<Event> for EventRow {
     fn from(event: Event) -> Self {
         EventRow {
-            id: event.id.unwrap_or_default(),
-            title: event.title.unwrap_or_default(),
-            labels: event.labels.unwrap_or_default(),
-            time: event.occurrence_time.unwrap_or_default(),
+            id: event.id,
+            title: event.title,
+            labels: event.labels,
+            time: event.occurrence_time,
         }
     }
 }
@@ -244,16 +244,16 @@ fn print_labels(input: &HashMap<String, String>) -> impl Display {
 impl GenericKeyValue {
     fn from_event(event: Event) -> Vec<Self> {
         vec![
-            GenericKeyValue::new("Title:", event.title.unwrap_or_default()),
+            GenericKeyValue::new("Title:", event.title),
             GenericKeyValue::new(
                 "Labels:",
-                format!("{}", print_labels(&event.labels.unwrap_or_default())),
+                format!("{}", print_labels(&event.labels)),
             ),
             GenericKeyValue::new(
                 "Occurrence Time:",
-                event.occurrence_time.unwrap_or_default(),
+                event.occurrence_time,
             ),
-            GenericKeyValue::new("ID:", event.id.unwrap_or_default()),
+            GenericKeyValue::new("ID:", event.id),
         ]
     }
 }
