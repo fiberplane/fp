@@ -56,7 +56,7 @@ enum EventOutput {
 #[derive(Parser)]
 struct CreateArguments {
     /// Name of the event
-    #[clap(long, alias = "name", required = true)]
+    #[clap(long, alias = "name")]
     title: String,
 
     /// Labels to add to the events (you can specify multiple labels).
@@ -122,7 +122,6 @@ pub struct SearchArguments {
 #[derive(Parser)]
 pub struct DeleteArguments {
     /// ID of the event that should be deleted
-    #[clap(required = true)]
     id: String,
 
     #[clap(from_global)]
