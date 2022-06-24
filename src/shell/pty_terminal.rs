@@ -5,9 +5,9 @@ use blocking::{unblock, Task, Unblock};
 use crossterm::event::{Event, EventStream};
 use crossterm::terminal;
 use futures::future::Fuse;
-use futures::{AsyncReadExt, AsyncWriteExt, FutureExt, StreamExt};
+use futures::{AsyncWriteExt, FutureExt, StreamExt};
 use portable_pty::{native_pty_system, ExitStatus, MasterPty, PtySize};
-use tokio_util::compat::FuturesAsyncReadCompatExt;
+use tokio_util::compat::{FuturesAsyncReadCompatExt, FuturesAsyncWriteCompatExt};
 
 /// A helper that enters terminal raw mode when constructed
 /// and exits raw mode when dropped if it was enabled by the
@@ -104,14 +104,12 @@ impl PtyTerminal {
         mut writer: impl AsyncWriteExt + Unpin,
         launcher: ShellLauncher,
     ) -> Result<()> {
-        let mut stdin = Unblock::new(std::io::stdin());
-        let mut buf = [0u8; 1024];
-
         launcher.initialize_shell(&mut writer).await?;
 
-        while let Ok(bytes) = stdin.read(&mut buf).await {
-            writer.write_all(&buf[0..bytes]).await?;
-        }
+        let mut stdin = Unblock::new(std::io::stdin()).compat();
+        let mut writer = writer.compat_write();
+
+        tokio::io::copy(&mut stdin, &mut writer).await?;
 
         Ok(())
     }
