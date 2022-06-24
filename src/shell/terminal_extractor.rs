@@ -1,5 +1,6 @@
 use anyhow::Result;
-use memchr::memmem;
+use memchr::memmem::Finder;
+use once_cell::sync::OnceCell;
 use std::{cmp, io::BufRead};
 use tracing::{instrument, trace};
 use vmap::io::{Ring, SeqRead, SeqWrite};
@@ -31,6 +32,15 @@ pub const END_PROMPT_CHAR: char = '\u{200e}';
 pub const END_PROMPT: &str = "\u{200e}\u{200e}";
 pub const END_PROMPT_BYTES: &[u8] = END_PROMPT.as_bytes();
 
+fn start_prompt_finder() -> &'static Finder<'static> {
+    static START_PROMPT_FINDER: OnceCell<Finder> = OnceCell::new();
+    START_PROMPT_FINDER.get_or_init(|| Finder::new(START_PROMPT_BYTES))
+}
+fn end_prompt_finder() -> &'static Finder<'static> {
+    static END_PROMPT_FINDER: OnceCell<Finder> = OnceCell::new();
+    END_PROMPT_FINDER.get_or_init(|| Finder::new(END_PROMPT_BYTES))
+}
+
 impl<R: tokio::io::AsyncReadExt + Unpin> TerminalExtractor<R> {
     pub fn new(reader: R) -> Result<Self> {
         Ok(Self {
@@ -40,7 +50,7 @@ impl<R: tokio::io::AsyncReadExt + Unpin> TerminalExtractor<R> {
         })
     }
 
-    #[instrument(skip_all)]
+    #[instrument(skip_all, ret)]
     pub async fn next<'a>(&'a mut self) -> Result<PtyOutput<'a>> {
         loop {
             match self.state {
@@ -57,8 +67,8 @@ impl<R: tokio::io::AsyncReadExt + Unpin> TerminalExtractor<R> {
                 State::Process => {
                     let data = self.buffer.as_read_slice(usize::MAX);
 
-                    let start_prompt_pos = memmem::find(data, START_PROMPT_BYTES);
-                    let end_prompt_pos = memmem::find(data, END_PROMPT_BYTES);
+                    let start_prompt_pos = start_prompt_finder().find(data);
+                    let end_prompt_pos = end_prompt_finder().find(data);
 
                     trace!(?start_prompt_pos, ?end_prompt_pos);
 
