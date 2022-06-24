@@ -47,6 +47,20 @@ jobs:
           # Start server
           /usr/bin/sccache --start-server
 
+      - name: setup mold
+        run: |
+          MOLD_VERSION="v1.3.0"
+          cd `mktemp -d`
+
+          # Install mold
+          curl -o mold.tar.gz -L https://github.com/rui314/mold/releases/download/v1.3.0/mold-1.3.0-x86_64-linux.tar.gz
+          tar zvxf mold.tar.gz
+          chmod u+x mold-1.3.0-x86_64-linux/bin/mold
+          sudo mv mold-1.3.0-x86_64-linux/bin/mold /usr/bin/mold
+
+          # Setup cargo config
+          echo -e '[target.x86_64-unknown-linux-gnu]\nlinker = "clang"\nrustflags = ["-C", "link-arg=-fuse-ld=/usr/bin/mold"]' >> "$HOME/.cargo/config.toml"
+
       # - uses: actions/cache@v2
       #   with:
       #     path: |
