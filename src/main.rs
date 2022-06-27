@@ -28,6 +28,7 @@ mod notebooks;
 mod output;
 mod providers;
 mod proxies;
+mod shell;
 mod templates;
 mod triggers;
 mod update;
@@ -68,6 +69,10 @@ pub struct Arguments {
     /// Display verbose logs
     #[clap(short, long, global = true, env, help_heading = "GLOBAL OPTIONS")]
     verbose: bool,
+
+    /// Path to log file
+    #[clap(long, global = true, env)]
+    log_file: Option<PathBuf>,
 }
 
 #[derive(Parser)]
@@ -75,7 +80,7 @@ enum SubCommand {
     /// Generate fp shell completions for your shell and print to stdout
     Completions {
         #[clap(arg_enum)]
-        shell: Shell,
+        shell: clap_complete::Shell,
     },
 
     /// Experimental commands 🧪
@@ -131,6 +136,9 @@ enum SubCommand {
     #[clap(alias = "trigger")]
     Triggers(triggers::Arguments),
 
+    /// Launch a recorded shell session that'll show up in the notebook
+    #[clap()]
+    Shell(shell::Arguments),
     /// Interact with events
     ///
     /// Events allow you to mark a specific point in time when something occurred, such as a deployment.
@@ -181,7 +189,7 @@ async fn main() {
     let disable_version_check = args.disable_version_check
         || matches!(
             args.sub_command,
-            Update(_) | Version(_) | Completions { .. }
+            Update(_) | Version(_) | Completions { .. } | Shell { .. }
         );
 
     let version_check_result = if disable_version_check {
@@ -213,6 +221,7 @@ async fn main() {
         Update(args) => update::handle_command(args).await,
         Users(args) => users::handle_command(args).await,
         Version(args) => version::handle_command(args).await,
+        Shell(args) => shell::handle_command(args).await,
         Completions { shell } => {
             let output = generate_completions(shell);
             stdout().lock().write_all(output.as_bytes()).unwrap();
@@ -254,12 +263,22 @@ fn initialize_logger(args: &Arguments) -> Result<()> {
 
         // Create a more verbose logger that show timestamp, level, and all the
         // fields.
-        tracing_subscriber::fmt()
+        let tracing = tracing_subscriber::fmt()
             .with_max_level(tracing::Level::TRACE)
-            .with_env_filter(filter)
-            .with_writer(io::stderr)
-            .try_init()
-            .expect("unable to initialize logging");
+            .with_env_filter(filter);
+
+        if let Some(path) = &args.log_file {
+            tracing
+                .with_ansi(false)
+                .with_writer(std::fs::File::create(path)?)
+                .try_init()
+                .expect("unable to initialize logging");
+        } else {
+            tracing
+                .with_writer(io::stderr)
+                .try_init()
+                .expect("unable to initialize logging");
+        }
     } else {
         let filter = match env::var(EnvFilter::DEFAULT_ENV) {
             Ok(env_var) => EnvFilter::try_new(env_var),
