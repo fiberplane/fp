@@ -96,7 +96,7 @@ pub(crate) fn api_client_configuration_from_token(
         base_path,
         bearer_access_token: Some(token),
         user_agent: Some(format!("fp {}", MANIFEST.build_version)),
-        ..Configuration::default(),
+        ..Configuration::default()
     };
 
     Ok(config)
