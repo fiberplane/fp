@@ -3,6 +3,7 @@ use anyhow::Result;
 use termwiz::escape::csi::{DecPrivateMode, DecPrivateModeCode, Mode};
 use termwiz::escape::{parser::Parser, Action, ControlCode, CSI};
 use tokio::io::AsyncWriteExt;
+use tracing::trace;
 
 pub struct TextRender<W: AsyncWriteExt> {
     parser: Parser,
@@ -27,7 +28,11 @@ impl<W: AsyncWriteExt + Unpin> TextRender<W> {
         &mut self.writer
     }
 
-    pub async fn flush(
+    pub async fn flush(&mut self) -> Result<()> {
+        Self::flush_impl(&mut self.writer, &mut self.current_line, &mut self.position).await
+    }
+
+    async fn flush_impl(
         writer: &mut W,
         current_line: &mut String,
         position: &mut usize,
@@ -51,22 +56,42 @@ impl<W: AsyncWriteExt + Unpin> TextRender<W> {
         let parser = &mut self.parser;
 
         for action in ParserIter::new(parser, data) {
+            trace!(?action);
             match action {
                 Action::Print(c) => {
                     if !self.alternate_mode {
                         self.current_line.push(c);
+                        self.position += c.len_utf8();
                     }
                 }
                 Action::Control(ControlCode::LineFeed) => {
                     if !self.alternate_mode {
                         self.current_line.push('\n');
-                        Self::flush(&mut self.writer, &mut self.current_line, &mut self.position)
-                            .await?;
+                        Self::flush_impl(
+                            &mut self.writer,
+                            &mut self.current_line,
+                            &mut self.position,
+                        )
+                        .await?;
                     }
                 }
                 Action::Control(ControlCode::Backspace) => {
                     if !self.alternate_mode {
-                        self.current_line.remove(self.position);
+                        trace!(
+                            "Removing char at position {}, from current_line with len {}",
+                            self.position,
+                            self.current_line.len()
+                        );
+                        let len = if self.position == self.current_line.len() {
+                            self.current_line
+                                .pop()
+                                .map(char::len_utf8)
+                                .unwrap_or_default()
+                        } else {
+                            self.current_line.remove(self.position).len_utf8()
+                        };
+
+                        self.position -= len;
                     }
                 }
                 // This matches the magic incantation terminal programs output in order to enter alternate mode/screen:
