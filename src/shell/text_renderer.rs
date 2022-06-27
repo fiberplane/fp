@@ -5,7 +5,7 @@ use termwiz::escape::{parser::Parser, Action, ControlCode, CSI};
 use tokio::io::AsyncWriteExt;
 use tracing::trace;
 
-pub struct TextRender<W: AsyncWriteExt> {
+pub struct TextRenderer<W: AsyncWriteExt> {
     parser: Parser,
     alternate_mode: bool,
     writer: W,
@@ -13,7 +13,7 @@ pub struct TextRender<W: AsyncWriteExt> {
     position: usize,
 }
 
-impl<W: AsyncWriteExt + Unpin> TextRender<W> {
+impl<W: AsyncWriteExt + Unpin> TextRenderer<W> {
     pub fn new(writer: W) -> Self {
         Self {
             parser: Parser::new(),
@@ -119,7 +119,7 @@ mod tests {
     #[tokio::test]
     async fn basic_test() {
         let mut buf = vec![];
-        let mut render = TextRender::new(&mut buf);
+        let mut render = TextRenderer::new(&mut buf);
         render.on_data("hello world\n".as_bytes()).await.unwrap();
         assert_eq!(&buf, "hello world\n".as_bytes());
     }
@@ -127,7 +127,7 @@ mod tests {
     #[tokio::test]
     async fn strips_alternate_mode() {
         let mut buf = vec![];
-        let mut render = TextRender::new(&mut buf);
+        let mut render = TextRenderer::new(&mut buf);
         render
             .on_data(
                 format!(

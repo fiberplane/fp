@@ -5,7 +5,7 @@ use once_cell::sync::OnceCell;
 use std::io::Write;
 use tokio::io::AsyncWriteExt;
 
-pub struct TerminalRender<W: AsyncWriteExt> {
+pub struct TerminalRenderer<W: AsyncWriteExt> {
     stdout: W,
 }
 
@@ -21,7 +21,7 @@ fn get_styled_bytes() -> &'static [u8] {
     })
 }
 
-impl<W: AsyncWriteExt + Unpin> TerminalRender<W> {
+impl<W: AsyncWriteExt + Unpin> TerminalRenderer<W> {
     pub fn new(stdout: W) -> Self {
         Self { stdout }
     }

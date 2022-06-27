@@ -3,16 +3,16 @@ mod pty_terminal;
 mod shell_launcher;
 mod shell_type;
 mod terminal_extractor;
-mod terminal_render;
-mod text_render;
+mod terminal_renderer;
+mod text_renderer;
 
 use self::{
     notebook_writer::NotebookWriter,
     pty_terminal::PtyTerminal,
     shell_launcher::ShellLauncher,
     terminal_extractor::{PtyOutput, TerminalExtractor},
-    terminal_render::TerminalRender,
-    text_render::TextRender,
+    terminal_renderer::TerminalRenderer,
+    text_renderer::TextRenderer,
 };
 use crate::config::api_client_configuration;
 use anyhow::Result;
@@ -47,7 +47,7 @@ pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
 
     let config = api_client_configuration(args.config, &args.base_url).await?;
     let launcher = ShellLauncher::new(args.id.clone());
-    let mut term_render = TerminalRender::new(tokio::io::stdout());
+    let mut term_renderer = TerminalRenderer::new(tokio::io::stdout());
     let mut initialized = false;
     let mut interval = tokio::time::interval(Duration::from_millis(250));
 
@@ -57,7 +57,7 @@ pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
     )?;
 
     let mut term_extractor = TerminalExtractor::new(pty_reader)?;
-    let mut text_render = TextRender::new(Vec::with_capacity(TEXT_BUF_SIZE));
+    let mut text_renderer = TextRenderer::new(Vec::with_capacity(TEXT_BUF_SIZE));
 
     // Worker loop that drives the reading of the shell output and forwards it to the
     // terminal and text renders.
@@ -81,12 +81,12 @@ pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
                 }
 
                 let _ = tokio::try_join!(
-                    term_render.handle_pty_output(&output),
-                    text_render.handle_pty_output(&output)
+                    term_renderer.handle_pty_output(&output),
+                    text_renderer.handle_pty_output(&output)
                 )?;
             }
             _ = interval.tick() => {
-                let inner = text_render.inner_mut();
+                let inner = text_renderer.inner_mut();
                 if inner.is_empty() {
                     continue;
                 }
@@ -97,10 +97,10 @@ pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
         }
     }
 
-    text_render.flush().await?;
+    text_renderer.flush().await?;
 
     notebook_writer
-        .write(std::mem::take(text_render.inner_mut()))
+        .write(std::mem::take(text_renderer.inner_mut()))
         .await?;
     notebook_writer.close().await?;
 
