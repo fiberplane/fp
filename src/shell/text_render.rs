@@ -1,4 +1,4 @@
-use super::{parser_iter::ParserIter, terminal_extractor::PtyOutput};
+use super::terminal_extractor::PtyOutput;
 use anyhow::Result;
 use termwiz::escape::csi::{DecPrivateMode, DecPrivateModeCode, Mode};
 use termwiz::escape::{parser::Parser, Action, ControlCode, CSI};
@@ -53,9 +53,9 @@ impl<W: AsyncWriteExt + Unpin> TextRender<W> {
     }
 
     pub async fn on_data(&mut self, data: &[u8]) -> Result<()> {
-        let parser = &mut self.parser;
-
-        for action in ParserIter::new(parser, data) {
+        let mut i = 0;
+        while let Some((action, consumed)) = self.parser.parse_first(&data[i..]) {
+            i += consumed;
             trace!(?action);
             match action {
                 Action::Print(c) => {
@@ -67,12 +67,7 @@ impl<W: AsyncWriteExt + Unpin> TextRender<W> {
                 Action::Control(ControlCode::LineFeed) => {
                     if !self.alternate_mode {
                         self.current_line.push('\n');
-                        Self::flush_impl(
-                            &mut self.writer,
-                            &mut self.current_line,
-                            &mut self.position,
-                        )
-                        .await?;
+                        self.flush().await?;
                     }
                 }
                 Action::Control(ControlCode::Backspace) => {

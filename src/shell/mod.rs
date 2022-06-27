@@ -1,5 +1,4 @@
 mod notebook_writer;
-mod parser_iter;
 mod pty_terminal;
 mod shell_launcher;
 mod shell_type;
@@ -19,7 +18,6 @@ use crate::config::api_client_configuration;
 use anyhow::Result;
 use clap::Parser;
 use std::{path::PathBuf, time::Duration};
-use tokio::io::AsyncWriteExt;
 use tracing::instrument;
 
 #[derive(Parser)]
