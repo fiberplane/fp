@@ -29,17 +29,9 @@ impl<W: AsyncWriteExt + Unpin> TextRender<W> {
     }
 
     pub async fn flush(&mut self) -> Result<()> {
-        Self::flush_impl(&mut self.writer, &mut self.current_line, &mut self.position).await
-    }
-
-    async fn flush_impl(
-        writer: &mut W,
-        current_line: &mut String,
-        position: &mut usize,
-    ) -> Result<()> {
-        writer.write_all(current_line.as_bytes()).await?;
-        current_line.clear();
-        *position = 0;
+        self.writer.write_all(self.current_line.as_bytes()).await?;
+        self.current_line.clear();
+        self.position = 0;
 
         Ok(())
     }
