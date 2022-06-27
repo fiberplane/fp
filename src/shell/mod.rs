@@ -100,7 +100,7 @@ pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
     text_render.flush().await?;
 
     notebook_writer
-        .write(std::mem::replace(text_render.inner_mut(), Vec::new()))
+        .write(std::mem::take(text_render.inner_mut()))
         .await?;
     notebook_writer.close().await?;
 

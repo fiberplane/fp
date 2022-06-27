@@ -37,9 +37,8 @@ impl<W: AsyncWriteExt + Unpin> TextRender<W> {
     }
 
     pub async fn handle_pty_output<'a>(&mut self, output: &'a PtyOutput<'a>) -> Result<()> {
-        match output {
-            PtyOutput::Data(data) => self.on_data(data).await?,
-            _ => {}
+        if let PtyOutput::Data(data) = output {
+            self.on_data(data).await?
         }
         Ok(())
     }
