@@ -8,6 +8,8 @@ use tokio::fs;
 use tracing::debug;
 use url::Url;
 
+use crate::MANIFEST;
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Config {
     #[serde(skip)]
@@ -93,7 +95,8 @@ pub(crate) fn api_client_configuration_from_token(
     let config = Configuration {
         base_path,
         bearer_access_token: Some(token),
-        ..Configuration::default()
+        user_agent: Some(format!("fp {}", MANIFEST.build_version)),
+        ..Configuration::default(),
     };
 
     Ok(config)
