@@ -12,7 +12,6 @@ pub struct NotebookWriter {
     notebook_id: String,
     code_cell_id: String,
     heading_cell_id: String,
-    buffer: Vec<u8>,
 }
 
 fn get_ts_format() -> &'static (impl time::formatting::Formattable + ?Sized) {
@@ -79,16 +78,11 @@ impl NotebookWriter {
             notebook_id,
             code_cell_id,
             heading_cell_id,
-            buffer: Vec::with_capacity(256),
         })
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.buffer.is_empty()
-    }
-
-    pub async fn flush(&mut self) -> Result<()> {
-        let content = String::from_utf8_lossy(&self.buffer).to_string();
+    pub async fn write(&self, buffer: Vec<u8>) -> Result<()> {
+        let content = String::from_utf8(buffer)?;
 
         notebook_cell_append_text(
             &self.config,
@@ -100,7 +94,7 @@ impl NotebookWriter {
             },
         )
         .await?;
-        self.buffer.clear();
+
         Ok(())
     }
 

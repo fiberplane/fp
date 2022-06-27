@@ -50,7 +50,7 @@ impl<R: tokio::io::AsyncReadExt + Unpin> TerminalExtractor<R> {
         })
     }
 
-    #[instrument(skip_all, ret)]
+    #[instrument(skip_all)]
     pub async fn next<'a>(&'a mut self) -> Result<PtyOutput<'a>> {
         loop {
             match self.state {

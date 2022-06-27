@@ -38,6 +38,8 @@ pub struct Arguments {
     config: Option<PathBuf>,
 }
 
+const TEXT_BUF_SIZE: usize = 256;
+
 #[instrument(err, skip_all)]
 pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
     if args.nested {
@@ -51,13 +53,13 @@ pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
     let mut initialized = false;
     let mut interval = tokio::time::interval(Duration::from_millis(250));
 
-    let (mut notebook_writer, (mut terminal, pty_reader)) = tokio::try_join!(
+    let (notebook_writer, (mut terminal, pty_reader)) = tokio::try_join!(
         NotebookWriter::new(config, args.id),
         PtyTerminal::new(launcher)
     )?;
 
     let mut term_extractor = TerminalExtractor::new(pty_reader)?;
-    let mut text_render = TextRender::new(&mut notebook_writer);
+    let mut text_render = TextRender::new(Vec::with_capacity(TEXT_BUF_SIZE));
 
     // Worker loop that drives the reading of the shell output and forwards it to the
     // terminal and text renders.
@@ -80,18 +82,28 @@ pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
                     initialized = true;
                 }
 
-                term_render.handle_pty_output(&output).await?;
-                text_render.handle_pty_output(&output).await?;
+                let _ = tokio::try_join!(
+                    term_render.handle_pty_output(&output),
+                    text_render.handle_pty_output(&output)
+                )?;
             }
             _ = interval.tick() => {
                 let inner = text_render.inner_mut();
-                if !inner.is_empty() {
-                    inner.flush().await?;
+                if inner.is_empty() {
+                    continue;
                 }
+
+                let buffer = std::mem::replace(inner, Vec::with_capacity(TEXT_BUF_SIZE));
+                notebook_writer.write(buffer).await?;
             }
         }
     }
 
+    text_render.flush().await?;
+
+    notebook_writer
+        .write(std::mem::replace(text_render.inner_mut(), Vec::new()))
+        .await?;
     notebook_writer.close().await?;
 
     Ok(())
