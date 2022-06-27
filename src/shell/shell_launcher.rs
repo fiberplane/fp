@@ -14,6 +14,8 @@ pub struct ShellLauncher {
     notebook_id: String,
 }
 
+pub const NESTED_SHELL_SESSION_ENV_VAR_NAME: &str = "__FP_SHELL_SESSION";
+
 impl ShellLauncher {
     pub fn new(notebook_id: String) -> Self {
         let (shell_type, path) = ShellType::auto_detect();
@@ -29,7 +31,7 @@ impl ShellLauncher {
 
         cmd.cwd(std::env::current_dir().unwrap());
         cmd.env("NOTEBOOK_ID", &self.notebook_id);
-        cmd.env("__FP_SHELL_SESSION", "1");
+        cmd.env(NESTED_SHELL_SESSION_ENV_VAR_NAME, "1");
 
         if self.shell_type == ShellType::PowerShell {
             // Launch powershell with a custom command and don't exit (aka stay interactive) after completing it.

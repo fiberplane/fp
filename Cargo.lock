@@ -151,7 +151,7 @@ dependencies = [
  "base64",
  "serde",
  "thiserror",
- "uuid 1.1.1",
+ "uuid",
 ]
 
 [[package]]
@@ -968,7 +968,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "url",
- "uuid 0.8.2",
+ "uuid",
  "vergen",
  "vmap",
  "webbrowser",
@@ -3603,21 +3603,12 @@ checksum = "936e4b492acfd135421d8dca4b1aa80a7bfc26e702ef3af710e0752684df5372"
 
 [[package]]
 name = "uuid"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
-dependencies = [
- "getrandom 0.2.4",
- "serde",
-]
-
-[[package]]
-name = "uuid"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c6d5d669b51467dcf7b2f1a796ce0f955f05f01cafda6c19d6e95f730df29238"
 dependencies = [
  "getrandom 0.2.4",
+ "serde",
 ]
 
 [[package]]

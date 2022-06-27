@@ -9,7 +9,7 @@ mod text_renderer;
 use self::{
     notebook_writer::NotebookWriter,
     pty_terminal::PtyTerminal,
-    shell_launcher::ShellLauncher,
+    shell_launcher::{ShellLauncher, NESTED_SHELL_SESSION_ENV_VAR_NAME},
     terminal_extractor::{PtyOutput, TerminalExtractor},
     terminal_renderer::TerminalRenderer,
     text_renderer::TextRenderer,
@@ -23,11 +23,8 @@ use tracing::instrument;
 #[derive(Parser)]
 pub struct Arguments {
     // ID of the notebook
-    #[clap(name = "id", env = "NOTEBOOK_ID")]
-    id: String,
-
-    #[clap(parse(from_flag), env = "__FP_SHELL_SESSION")]
-    nested: bool,
+    #[clap()]
+    notebook_id: String,
 
     #[clap(from_global)]
     base_url: url::Url,
@@ -40,19 +37,20 @@ const TEXT_BUF_SIZE: usize = 256;
 
 #[instrument(err, skip_all)]
 pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
-    if args.nested {
-        eprintln!("Can't start recording inside an existing recording session");
-        return Ok(());
+    if std::env::var(NESTED_SHELL_SESSION_ENV_VAR_NAME).is_ok() {
+        return Err(anyhow::anyhow!(
+            "Can't start recording inside an existing recording session"
+        ));
     }
 
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    let launcher = ShellLauncher::new(args.id.clone());
+    let launcher = ShellLauncher::new(args.notebook_id.clone());
     let mut term_renderer = TerminalRenderer::new(tokio::io::stdout());
     let mut initialized = false;
     let mut interval = tokio::time::interval(Duration::from_millis(250));
 
     let (notebook_writer, (mut terminal, pty_reader)) = tokio::try_join!(
-        NotebookWriter::new(config, args.id),
+        NotebookWriter::new(config, args.notebook_id),
         PtyTerminal::new(launcher)
     )?;
 
