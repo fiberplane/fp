@@ -5,6 +5,7 @@ use super::terminal_extractor::{
 use anyhow::Result;
 use portable_pty::CommandBuilder;
 use std::path::PathBuf;
+use tracing::trace;
 
 #[derive(Debug)]
 pub struct ShellLauncher {
@@ -35,21 +36,19 @@ impl ShellLauncher {
             // The reason for doing this rather than the approach taken for unix shells below is because powershell
             // doesn't have a nice equivalent of `history` that also removes the command from the command history file
             // but luckily for us the command provided to `-command` seemingly doesn't end up in any history #hack
-            cmd.args(&[
-                "-noexit",
-                "-command",
-                &format!(
-                    // This command assigns a new prompt and saves the old one inside a closure.
-                    // The closure returns a function block which prints out the START_PROMPT_BYTES before the prompt and END_PROMPT_BYTES after executing the saved prompt
-                    // The reason only the START/STOP_PROMPT_CHAR is formatted in and used in `ConvertFromUtf32` is because otherwise it would be printed as *this* command
-                    // is executed which in turn would be picked up by the terminal extractor and output a PromptStart.
-                    // That initial PromptStart is used to detect when the terminal is fully initialized but we don't want to have *this* command show up in the user's
-                    // terminal history our output
-                    r#"$function:prompt = & {{ $__last_prompt = $function:prompt; $BP = [char]::ConvertFromUtf32({:#x}); $EP = [char]::ConvertFromUtf32({:#x}); {{ Write-Host "$BP$BP" -NoNewline; &$script:__last_prompt; return "$EP$EP" }}.GetNewClosure() }}"#,
-                    START_PROMPT_CHAR as u32,
-                    END_PROMPT_CHAR as u32
-                )
-            ]);
+            let cmd_string = format!(
+                // This command assigns a new prompt and saves the old one inside a closure.
+                // The closure returns a function block which prints out the START_PROMPT_BYTES before the prompt and END_PROMPT_BYTES after executing the saved prompt
+                // The reason only the START/STOP_PROMPT_CHAR is formatted in and used in `ConvertFromUtf32` is because otherwise it would be printed as *this* command
+                // is executed which in turn would be picked up by the terminal extractor and output a PromptStart.
+                // That initial PromptStart is used to detect when the terminal is fully initialized but we don't want to have *this* command show up in the user's
+                // terminal history our output
+                r#"$function:prompt = & {{ $__last_prompt = $function:prompt; $BP = [char]::ConvertFromUtf32({:#x}); $EP = [char]::ConvertFromUtf32({:#x}); {{ Write-Host "$BP$BP" -NoNewline; &$script:__last_prompt; return "$EP$EP" }}.GetNewClosure() }}"#,
+                START_PROMPT_CHAR as u32, END_PROMPT_CHAR as u32
+            );
+
+            trace!(?cmd_string, "starting powershell with -Command");
+            cmd.args(&["-NoExit", "-Interactive", "-Command", &cmd_string]);
         }
 
         cmd
