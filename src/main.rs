@@ -21,6 +21,7 @@ use url::Url;
 mod auth;
 mod config;
 mod events;
+mod exec;
 mod experiments;
 mod labels;
 mod manifest;
@@ -82,6 +83,9 @@ enum SubCommand {
         #[clap(arg_enum)]
         shell: clap_complete::Shell,
     },
+
+    /// Execute a command and send the output to a notebook
+    Exec(exec::Arguments),
 
     /// Experimental commands 🧪
     ///
@@ -208,6 +212,7 @@ async fn main() {
 
     use SubCommand::*;
     let result = match args.sub_command {
+        Exec(args) => exec::handle_command(args).await,
         Experiments(args) => experiments::handle_command(args).await,
         Login => auth::handle_login_command(args).await,
         Logout => auth::handle_logout_command(args).await,
