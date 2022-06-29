@@ -14,12 +14,17 @@ use tracing::{debug, info};
 use url::Url;
 
 pub mod cell_writer;
+mod parse_logs;
 
 #[derive(Parser, Clone)]
 pub struct Arguments {
     /// The notebook to append the message to
     #[clap(long, short, env)]
     notebook_id: String,
+
+    /// Which cell type should be inserted into the notebook to represent the command output
+    #[clap(long, short, default_value = "code", arg_enum)]
+    cell_type: CellType,
 
     /// The command to run
     command: String,
@@ -36,6 +41,15 @@ pub struct Arguments {
     /// Output type to display
     #[clap(long, short, default_value = "command", arg_enum)]
     output: ExecOutput,
+}
+
+#[derive(ArgEnum, Clone, PartialEq)]
+enum CellType {
+    /// Insert the output as a code cell
+    Code,
+
+    /// Insert the output as a log cell
+    Log,
 }
 
 #[derive(ArgEnum, Clone, PartialEq)]
@@ -85,7 +99,11 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
                 break;
             }
             _ = send_interval.tick() => {
-                cell_writer.write_to_cell().await?;
+                // We cannot append to log cells so we need to
+                // wait until the command has completely finished
+                if args.cell_type != CellType::Log {
+                    cell_writer.write_to_cell().await?;
+                }
             }
             chunk = child_stdout.next() => {
                 if let Some(Ok(chunk)) = chunk {

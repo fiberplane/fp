@@ -1,4 +1,4 @@
-use super::Arguments;
+use super::{parse_logs::parse_logs, Arguments, CellType};
 use anyhow::{anyhow, Context, Error, Result};
 use bytes::Bytes;
 use fiberplane::protocols::core;
@@ -43,47 +43,49 @@ impl CellWriter {
             output.push_str(&String::from_utf8_lossy(&chunk));
         }
 
-        // Either create a new cell or append to the existing one
-        match &mut self.cell {
-            None => {
-                let timestamp = OffsetDateTime::now_utc().format(&Rfc3339)?;
-                let cwd = current_dir()
-                    .map(|p| p.display().to_string())
-                    .unwrap_or_default();
-                let content = format!(
-                    "{}\n{} ❯ {} {}\n{}",
-                    timestamp,
-                    cwd,
-                    self.args.command,
-                    self.args.args.join(" "),
-                    output
-                );
-                let cell = Cell::CodeCell {
-                    id: String::new(),
-                    content,
-                    syntax: None,
-                    read_only: None,
-                };
-
-                let cell = notebook_cells_append(&self.config, &self.args.notebook_id, vec![cell])
-                    .await
-                    .with_context(|| "Error appending cell to notebook")?
-                    .pop()
-                    .ok_or_else(|| anyhow!("No cells returned"))?;
-                self.cell = Some(serde_json::from_value(serde_json::to_value(cell)?)?);
+        match self.args.cell_type {
+            CellType::Code => {
+                // Either create a new cell or append to the existing one
+                match &mut self.cell {
+                    None => {
+                        let content = format!("{}\n{}", self.prompt_line(), output);
+                        let cell = Cell::CodeCell {
+                            id: String::new(),
+                            content,
+                            syntax: None,
+                            read_only: None,
+                        };
+                        let cell = self.append_cell(cell).await?;
+                        self.cell = Some(cell);
+                    }
+                    Some(cell) => {
+                        notebook_cell_append_text(
+                            &self.config,
+                            &self.args.notebook_id,
+                            cell.id(),
+                            CellAppendText {
+                                content: output,
+                                formatting: None,
+                            },
+                        )
+                        .await
+                        .with_context(|| format!("Error appending text to cell {}", cell.id()))?;
+                    }
+                }
             }
-            Some(cell) => {
-                notebook_cell_append_text(
-                    &self.config,
-                    &self.args.notebook_id,
-                    cell.id(),
-                    CellAppendText {
-                        content: output,
-                        formatting: None,
-                    },
-                )
-                .await
-                .with_context(|| format!("Error appending text to cell {}", cell.id()))?;
+            CellType::Log => {
+                let data = Some(parse_logs(&output));
+                let cell = Cell::LogCell {
+                    id: "".to_string(),
+                    read_only: None,
+                    source_ids: vec![],
+                    title: self.prompt_line(),
+                    formatting: None,
+                    time_range: None,
+                    data,
+                };
+                let cell = self.append_cell(cell).await?;
+                self.cell = Some(cell);
             }
         }
         Ok::<_, Error>(())
@@ -91,5 +93,29 @@ impl CellWriter {
 
     pub fn into_output_cell(self) -> Option<core::Cell> {
         self.cell
+    }
+
+    async fn append_cell(&self, cell: Cell) -> Result<core::Cell> {
+        let cell = notebook_cells_append(&self.config, &self.args.notebook_id, vec![cell])
+            .await
+            .with_context(|| "Error appending cell to notebook")?
+            .pop()
+            .ok_or_else(|| anyhow!("No cells returned"))?;
+        let cell = serde_json::from_value(serde_json::to_value(cell)?)?;
+        Ok(cell)
+    }
+
+    fn prompt_line(&self) -> String {
+        let timestamp = OffsetDateTime::now_utc().format(&Rfc3339).unwrap();
+        let cwd = current_dir()
+            .map(|p| p.display().to_string())
+            .unwrap_or_default();
+        format!(
+            "{}\n{} ❯ {} {}",
+            timestamp,
+            cwd,
+            self.args.command,
+            self.args.args.join(" ")
+        )
     }
 }
