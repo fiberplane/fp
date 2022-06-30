@@ -15,6 +15,7 @@ use url::Url;
 
 pub mod cell_writer;
 mod parse_logs;
+mod timestamp;
 
 #[derive(Parser, Clone)]
 pub struct Arguments {
