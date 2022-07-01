@@ -7,9 +7,16 @@ use std::collections::HashMap;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use tracing::warn;
 
-pub(crate) static TIMESTAMP_FIELDS: &[&str] = &["@timestamp", "timestamp", "fields.timestamp"];
-pub(crate) static BODY_FIELDS: &[&str] =
-    &["body", "message", "fields.body", "fields.message", "log"];
+pub(crate) static TIMESTAMP_FIELDS: &[&str] =
+    &["@timestamp", "timestamp", "fields.timestamp", "ts"];
+pub(crate) static BODY_FIELDS: &[&str] = &[
+    "body",
+    "message",
+    "fields.body",
+    "fields.message",
+    "log",
+    "msg",
+];
 // This mapping is based on the recommended mapping from the
 // Elastic Common Schema to the OpenTelemetry Log specification
 // https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/logs/data-model.md#elastic-common-schema
@@ -29,6 +36,7 @@ pub fn parse_logs(output: &str) -> HashMap<String, Vec<LogRecord>> {
         } else if let Some(matches) = nginx.match_against(line) {
             let fields = matches
                 .into_iter()
+                // The keys written in upper case are the grok components used to build up the values we care about
                 .filter(|(k, _)| k.chars().all(|c| c.is_lowercase()))
                 .map(|(k, v)| (k.to_string(), v.trim_matches('"').to_string()))
                 .collect();
@@ -72,9 +80,14 @@ fn parse_flattened_json(
     let mut timestamp: Option<OffsetDateTime> = None;
     for field_name in TIMESTAMP_FIELDS {
         if let Some(ts) = flattened_fields.remove(*field_name) {
-            if let Ok(ts) = serde_json::from_value::<AnyTimestamp>(Value::String(ts)) {
-                timestamp = Some(ts.into());
-                break;
+            match serde_json::from_value::<AnyTimestamp>(Value::String(ts)) {
+                Ok(ts) => {
+                    timestamp = Some(ts.into());
+                    break;
+                }
+                Err(err) => {
+                    warn!("Unable to parse timestamp: {}", err);
+                }
             }
         }
     }

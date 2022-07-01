@@ -17,6 +17,8 @@ pub enum AnyTimestamp {
     Rfc2822(OffsetDateTime),
     #[serde(deserialize_with = "deserialize_nginx_timestamp")]
     Nginx(OffsetDateTime),
+    #[serde(deserialize_with = "deserialize_unix_timestamp")]
+    UnixFloat(OffsetDateTime),
 }
 
 pub fn deserialize_nginx_timestamp<'de, D>(deserializer: D) -> Result<OffsetDateTime, D::Error>
@@ -27,6 +29,21 @@ where
     OffsetDateTime::parse(&s, NGINX_TIMESTAMP_FORMAT).map_err(D::Error::custom)
 }
 
+pub fn deserialize_unix_timestamp<'de, D>(deserializer: D) -> Result<OffsetDateTime, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    // TODO also handle if it's a plain float instead of a stringified float
+    let f = String::deserialize(deserializer)?;
+    let f: f64 = f.parse().map_err(D::Error::custom)?;
+    if f.is_nan() {
+        Err(D::Error::custom("expected a valid Unix timestamp"))
+    } else {
+        let nanos = f * 1_000_000_000f64;
+        OffsetDateTime::from_unix_timestamp_nanos(nanos as i128).map_err(D::Error::custom)
+    }
+}
+
 impl From<AnyTimestamp> for OffsetDateTime {
     fn from(timestamp: AnyTimestamp) -> Self {
         match timestamp {
@@ -35,6 +52,7 @@ impl From<AnyTimestamp> for OffsetDateTime {
             AnyTimestamp::Iso8601(t) => t,
             AnyTimestamp::Rfc2822(t) => t,
             AnyTimestamp::Nginx(t) => t,
+            AnyTimestamp::UnixFloat(t) => t,
         }
     }
 }
