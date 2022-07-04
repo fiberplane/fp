@@ -28,6 +28,13 @@ impl<W: AsyncWriteExt + Unpin> TextRenderer<W> {
         &mut self.writer
     }
 
+    fn push_char(&mut self, c: char) {
+        if !self.alternate_mode {
+            self.current_line.push(c);
+            self.position += c.len_utf8();
+        }
+    }
+
     pub async fn flush(&mut self) -> Result<()> {
         self.writer.write_all(self.current_line.as_bytes()).await?;
         self.current_line.clear();
@@ -49,17 +56,9 @@ impl<W: AsyncWriteExt + Unpin> TextRenderer<W> {
             i += consumed;
             trace!(?action);
             match action {
-                Action::Print(c) => {
-                    if !self.alternate_mode {
-                        self.current_line.push(c);
-                        self.position += c.len_utf8();
-                    }
-                }
-                Action::Control(ControlCode::LineFeed) => {
-                    if !self.alternate_mode {
-                        self.current_line.push('\n');
-                        self.flush().await?;
-                    }
+                Action::Print(c) => self.push_char(c),
+                Action::Control(c @ ControlCode::VerticalTab | c @ ControlCode::LineFeed) => {
+                    self.push_char(c as u8 as char)
                 }
                 Action::Control(ControlCode::Backspace) => {
                     if !self.alternate_mode {
@@ -86,21 +85,21 @@ impl<W: AsyncWriteExt + Unpin> TextRenderer<W> {
                 // to render them to text since that'd look really weird
                 Action::CSI(CSI::Mode(Mode::SetDecPrivateMode(DecPrivateMode::Code(code)))) => {
                     match code {
-                        DecPrivateModeCode::ClearAndEnableAlternateScreen => {
+                        DecPrivateModeCode::ClearAndEnableAlternateScreen
+                        | DecPrivateModeCode::EnableAlternateScreen
+                        | DecPrivateModeCode::OptEnableAlternateScreen => {
                             self.alternate_mode = true
                         }
-                        DecPrivateModeCode::EnableAlternateScreen => self.alternate_mode = true,
-                        DecPrivateModeCode::OptEnableAlternateScreen => self.alternate_mode = true,
                         _ => {}
                     }
                 }
                 Action::CSI(CSI::Mode(Mode::ResetDecPrivateMode(DecPrivateMode::Code(code)))) => {
                     match code {
-                        DecPrivateModeCode::ClearAndEnableAlternateScreen => {
+                        DecPrivateModeCode::ClearAndEnableAlternateScreen
+                        | DecPrivateModeCode::EnableAlternateScreen
+                        | DecPrivateModeCode::OptEnableAlternateScreen => {
                             self.alternate_mode = false
                         }
-                        DecPrivateModeCode::EnableAlternateScreen => self.alternate_mode = false,
-                        DecPrivateModeCode::OptEnableAlternateScreen => self.alternate_mode = false,
                         _ => {}
                     }
                 }
