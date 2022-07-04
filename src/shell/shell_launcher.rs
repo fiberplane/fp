@@ -4,6 +4,7 @@ use super::terminal_extractor::{
 };
 use anyhow::Result;
 use portable_pty::CommandBuilder;
+use std::io::Write;
 use std::path::PathBuf;
 use tracing::trace;
 
@@ -56,10 +57,7 @@ impl ShellLauncher {
         cmd
     }
 
-    pub async fn initialize_shell<W: futures::io::AsyncWriteExt + Unpin>(
-        &self,
-        stdin: &mut W,
-    ) -> Result<()> {
+    pub fn initialize_shell<W: Write>(&self, stdin: &mut W) -> Result<()> {
         match self.shell_type {
             ShellType::Bash | ShellType::Sh | ShellType::Zsh => {
                 //this produces the escaped string: "\xE2\x80\x8B\xE2\x80\x8B"
@@ -84,8 +82,7 @@ impl ShellLauncher {
                 stdin
                     .write_all(
                             format!("export PS1=\"$(printf '{escaped_start_bytes}')${{PS1}}$(printf '{escaped_end_bytes}')\";history -d $(history 1)\n").as_bytes(),
-                    )
-                    .await?;
+                    )?;
             }
             _ => {}
         }

@@ -1,3 +1,5 @@
+use std::io::Write;
+
 use super::shell_launcher::ShellLauncher;
 use abort_on_drop::ChildTask;
 use anyhow::Result;
@@ -73,7 +75,7 @@ impl PtyTerminal {
             Self {
                 child_waiter,
                 stdin_task: ChildTask::from(tokio::spawn(Self::forward_stdin(
-                    Unblock::new(pty.master.try_clone_writer()?),
+                    pty.master.try_clone_writer()?,
                     launcher,
                 )))
                 .fuse(),
@@ -101,15 +103,18 @@ impl PtyTerminal {
     }
 
     async fn forward_stdin(
-        mut writer: impl AsyncWriteExt + Unpin,
+        mut writer: impl Write + Send + 'static,
         launcher: ShellLauncher,
     ) -> Result<()> {
-        launcher.initialize_shell(&mut writer).await?;
+        launcher.initialize_shell(&mut writer)?;
 
-        let mut stdin = Unblock::new(std::io::stdin()).compat();
-        let mut writer = writer.compat_write();
+        tokio::task::spawn_blocking(move || {
+            let mut writer = writer;
+            let mut stdin = std::io::stdin().lock();
 
-        tokio::io::copy(&mut stdin, &mut writer).await?;
+            std::io::copy(&mut stdin, &mut writer)
+        })
+        .await??;
 
         Ok(())
     }
