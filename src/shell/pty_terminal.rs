@@ -73,12 +73,12 @@ impl PtyTerminal {
         Ok((
             Self {
                 child_waiter,
-                #[cfg(windows)]
                 stdin_task: ChildTask::from(tokio::spawn(Self::forward_stdin(
                     Unblock::new(pty.master.try_clone_writer()?),
                     launcher,
                 )))
                 .fuse(),
+                #[cfg(windows)]
                 resize_task: ChildTask::from(tokio::spawn(Self::forward_resize(pty.master))).fuse(),
                 _guard: guard,
             },
