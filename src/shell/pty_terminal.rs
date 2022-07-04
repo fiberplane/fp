@@ -44,6 +44,7 @@ impl Drop for RawGuard {
 /// And forwards resizing as well as stdin to the child process
 pub struct PtyTerminal {
     child_waiter: Fuse<Task<Result<ExitStatus, std::io::Error>>>,
+    #[cfg(windows)]
     stdin_task: Fuse<ChildTask<Result<()>>>,
     resize_task: Fuse<ChildTask<Result<()>>>,
     _guard: RawGuard,
@@ -72,6 +73,7 @@ impl PtyTerminal {
         Ok((
             Self {
                 child_waiter,
+                #[cfg(windows)]
                 stdin_task: ChildTask::from(tokio::spawn(Self::forward_stdin(
                     Unblock::new(pty.master.try_clone_writer()?),
                     launcher,
@@ -84,6 +86,9 @@ impl PtyTerminal {
         ))
     }
 
+    #[cfg(windows)]
+    // Long story short this is only required on windows because resize
+    // events are out of band there while on unix they're part of the stdin stream
     async fn forward_resize(master: Box<dyn MasterPty + Send>) -> Result<()> {
         let mut stream = EventStream::new();
 
@@ -114,6 +119,7 @@ impl PtyTerminal {
         Ok(())
     }
 
+    #[cfg(windows)]
     pub async fn wait_close(&mut self) -> Result<()> {
         tokio::select! {
             biased;
@@ -123,6 +129,17 @@ impl PtyTerminal {
             }
             res = &mut self.stdin_task => Ok(res??),
             res = &mut self.resize_task => Ok(res??),
+        }
+    }
+    #[cfg(not(windows))]
+    pub async fn wait_close(&mut self) -> Result<()> {
+        tokio::select! {
+            biased;
+            res = &mut self.child_waiter => {
+                res?;
+                Ok(())
+            }
+            res = &mut self.stdin_task => Ok(res??),
         }
     }
 }
