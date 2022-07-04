@@ -1,6 +1,8 @@
 use crate::config::api_client_configuration;
+use crate::interactive;
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use anyhow::{anyhow, Result};
+use base64uuid::Base64Uuid;
 use clap::{ArgEnum, Parser};
 use cli_table::Table;
 use fp_api_client::apis::default_api::{
@@ -34,8 +36,8 @@ pub enum SubCommand {
     /// Retrieve a single proxy
     Get(GetArgs),
 
-    /// Remove a proxy
-    Remove(RemoveArgs),
+    /// Delete a proxy
+    Delete(DeleteArgs),
 }
 
 #[derive(Parser)]
@@ -83,7 +85,7 @@ pub struct DataSourcesArgs {
 #[derive(Parser)]
 pub struct GetArgs {
     /// ID of the proxy
-    proxy_id: String,
+    proxy_id: Option<Base64Uuid>,
 
     /// Output of the proxy
     #[clap(long, short, default_value = "table", arg_enum)]
@@ -97,9 +99,9 @@ pub struct GetArgs {
 }
 
 #[derive(Parser)]
-pub struct RemoveArgs {
+pub struct DeleteArgs {
     /// ID of the proxy
-    proxy_id: String,
+    proxy_id: Option<Base64Uuid>,
 
     #[clap(from_global)]
     base_url: Url,
@@ -125,7 +127,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
         List(args) => handle_list_command(args).await,
         Get(args) => handle_get_command(args).await,
         DataSources(args) => handle_data_sources_command(args).await,
-        Remove(args) => handle_remove_command(args).await,
+        Delete(args) => handle_delete_command(args).await,
     }
 }
 
@@ -176,12 +178,13 @@ async fn handle_list_command(args: ListArgs) -> Result<()> {
 
 async fn handle_get_command(args: GetArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    let proxy = proxy_get(&config, &args.proxy_id).await?;
+    let proxy_id = interactive::proxy_picker(&config, args.proxy_id).await?;
+
+    let proxy = proxy_get(&config, &proxy_id.to_string()).await?;
 
     match args.output {
         ProxyOutput::Table => {
             let proxy = GenericKeyValue::from_proxy(proxy);
-
             output_details(proxy)
         }
         ProxyOutput::Json => output_json(&proxy),
@@ -203,9 +206,12 @@ async fn handle_data_sources_command(args: DataSourcesArgs) -> Result<()> {
     }
 }
 
-async fn handle_remove_command(args: RemoveArgs) -> Result<()> {
+async fn handle_delete_command(args: DeleteArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    proxy_delete(&config, &args.proxy_id).await?;
+    let proxy_id = interactive::proxy_picker(&config, args.proxy_id).await?;
+
+    proxy_delete(&config, &proxy_id.to_string()).await?;
+
     info!("Removed proxy");
     Ok(())
 }

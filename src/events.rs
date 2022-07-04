@@ -1,7 +1,8 @@
 use crate::config::api_client_configuration;
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
-use crate::KeyValueArgument;
+use crate::{interactive, KeyValueArgument};
 use anyhow::Result;
+use base64uuid::Base64Uuid;
 use clap::ArgEnum;
 use clap::Parser;
 use cli_table::Table;
@@ -57,7 +58,7 @@ enum EventOutput {
 struct CreateArguments {
     /// Name of the event
     #[clap(long, alias = "name")]
-    title: String,
+    title: Option<String>,
 
     /// Labels to add to the events (you can specify multiple labels).
     #[clap(name = "label", short, long)]
@@ -122,7 +123,7 @@ pub struct SearchArguments {
 #[derive(Parser)]
 pub struct DeleteArguments {
     /// ID of the event that should be deleted
-    id: String,
+    id: Base64Uuid,
 
     #[clap(from_global)]
     base_url: Url,
@@ -145,12 +146,13 @@ async fn handle_event_create_command(args: CreateArguments) -> Result<()> {
         None
     };
 
+    let title = interactive::text_req("Title", args.title, None)?;
     let time = args.time.map(|input| input.format(&Rfc3339).unwrap());
 
     let event = event_create(
         &config,
         NewEvent {
-            title: args.title,
+            title,
             labels,
             time,
         },
@@ -197,7 +199,7 @@ async fn handle_event_search_command(args: SearchArguments) -> Result<()> {
 async fn handle_event_delete_command(args: DeleteArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
-    event_delete(&config, &args.id).await?;
+    event_delete(&config, &args.id.to_string()).await?;
 
     info!("Successfully deleted event");
     Ok(())

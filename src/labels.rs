@@ -1,4 +1,5 @@
 use crate::config::api_client_configuration;
+use crate::interactive;
 use crate::output::{output_json, output_string_list};
 use anyhow::Result;
 use clap::{ArgEnum, Parser};
@@ -68,7 +69,7 @@ async fn handle_list_keys_command(args: ListKeysArgs) -> Result<()> {
 
 #[derive(Parser)]
 pub struct ListValuesArgs {
-    label_key: String,
+    label_key: Option<String>,
 
     #[clap(long, short)]
     prefix: Option<String>,
@@ -97,7 +98,11 @@ async fn handle_list_values_command(args: ListValuesArgs) -> Result<()> {
     use ListValuesOutput::*;
 
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    let values = label_values_list(&config, &args.label_key, args.prefix.as_deref()).await?;
+
+    let label_key = interactive::text_req("Label key", args.label_key, None)?;
+    let prefix = interactive::text_opt("Prefix", args.prefix, None);
+
+    let values = label_values_list(&config, &label_key, prefix.as_deref()).await?;
 
     match args.output {
         List => output_string_list(values),

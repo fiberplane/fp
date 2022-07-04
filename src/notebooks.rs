@@ -1,7 +1,9 @@
 use crate::config::api_client_configuration;
+use crate::interactive::{self, notebook_picker};
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use crate::KeyValueArgument;
 use anyhow::{anyhow, Context, Result};
+use base64uuid::Base64Uuid;
 use clap::{ArgEnum, Parser, ValueHint};
 use cli_table::Table;
 use fiberplane::protocols::core;
@@ -14,7 +16,8 @@ use fp_api_client::models::{
     Cell, Label, NewNotebook, Notebook, NotebookSearch, NotebookSummary, NotebookVisibility,
     TimeRange,
 };
-use std::{collections::HashMap, path::PathBuf, time::Duration};
+use std::time::Duration;
+use std::{collections::HashMap, path::PathBuf};
 use time::OffsetDateTime;
 use time_util::clap_rfc3339;
 use tracing::{info, trace};
@@ -67,41 +70,6 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 }
 
 #[derive(Parser)]
-pub struct CreateArgs {
-    /// Title for the new notebook
-    #[clap(short, long)]
-    title: Option<String>,
-
-    /// Labels to attach to the newly created notebook (you can specify multiple labels).
-    #[clap(name = "label", short, long)]
-    labels: Vec<KeyValueArgument>,
-
-    /// Start time to be passed into the new notebook (RFC3339). Leave empty to use 60 minutes ago.
-    #[clap(long, parse(try_from_str = clap_rfc3339::parse_rfc3339))]
-    from: Option<OffsetDateTime>,
-
-    /// End time to be passed into the new notebook (RFC3339). Leave empty to use the current time.
-    #[clap(long, parse(try_from_str = clap_rfc3339::parse_rfc3339))]
-    to: Option<OffsetDateTime>,
-
-    /// Create the notebook from the given Markdown
-    ///
-    /// To read the Markdown from a file use `--markdown=$(cat file.md)`
-    #[clap(long, short, value_hint = ValueHint::FilePath)]
-    markdown: Option<String>,
-
-    /// Output of the notebook
-    #[clap(long, short, default_value = "table", arg_enum)]
-    output: NotebookOutput,
-
-    #[clap(from_global)]
-    base_url: Url,
-
-    #[clap(from_global)]
-    config: Option<PathBuf>,
-}
-
-#[derive(Parser)]
 pub struct GetArgs {
     /// ID of the notebook
     id: String,
@@ -150,16 +118,19 @@ pub struct SearchArgs {
 #[derive(Parser)]
 pub struct OpenArgs {
     /// ID of the notebook
-    id: String,
+    notebook_id: Option<Base64Uuid>,
 
     #[clap(from_global)]
     base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
 }
 
 #[derive(Parser)]
 pub struct DeleteArgs {
     /// ID of the notebook
-    id: String,
+    notebook_id: Option<Base64Uuid>,
 
     #[clap(from_global)]
     base_url: Url,
@@ -171,14 +142,14 @@ pub struct DeleteArgs {
 #[derive(Parser)]
 pub struct AppendCellArgs {
     /// ID of the notebook
-    id: String,
+    notebook_id: Option<Base64Uuid>,
 
     /// Append a text cell
-    #[clap(long, conflicts_with_all = &["code"])]
+    #[clap(long, required_unless_present = "code",  conflicts_with_all = &["code"])]
     text: Option<String>,
 
     /// Append a code cell
-    #[clap(long, conflicts_with_all = &["text"])]
+    #[clap(long, required_unless_present = "text", conflicts_with_all = &["text"])]
     code: Option<String>,
 
     #[clap(from_global)]
@@ -225,6 +196,41 @@ enum CellOutput {
     Json,
 }
 
+#[derive(Parser)]
+pub struct CreateArgs {
+    /// Title for the new notebook
+    #[clap(short, long)]
+    title: Option<String>,
+
+    /// Labels to attach to the newly created notebook (you can specify multiple labels).
+    #[clap(name = "label", short, long)]
+    labels: Vec<KeyValueArgument>,
+
+    /// Start time to be passed into the new notebook (RFC3339). Leave empty to use 60 minutes ago.
+    #[clap(long, parse(try_from_str = clap_rfc3339::parse_rfc3339))]
+    from: Option<OffsetDateTime>,
+
+    /// End time to be passed into the new notebook (RFC3339). Leave empty to use the current time.
+    #[clap(long, parse(try_from_str = clap_rfc3339::parse_rfc3339))]
+    to: Option<OffsetDateTime>,
+
+    /// Create the notebook from the given Markdown
+    ///
+    /// To read the Markdown from a file use `--markdown=$(cat file.md)`
+    #[clap(long, short, value_hint = ValueHint::FilePath)]
+    markdown: Option<String>,
+
+    /// Output of the notebook
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: NotebookOutput,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
 async fn handle_create_command(args: CreateArgs) -> Result<()> {
     let labels = match args.labels.len() {
         0 => None,
@@ -246,7 +252,7 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
         .unix_timestamp() as f64;
 
     let to = args
-        .from
+        .to
         .unwrap_or_else(OffsetDateTime::now_utc)
         .unix_timestamp() as f64;
 
@@ -265,13 +271,14 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
             labels: Default::default(),
         },
     };
-    let title = if let Some(title) = args.title {
-        title
-    } else if !notebook.title.is_empty() {
-        notebook.title
-    } else {
+
+    let default_title = if notebook.title.is_empty() {
         "New Notebook".to_string()
+    } else {
+        notebook.title
     };
+    let title = interactive::text_req("Title", args.title, Some(default_title.to_string()))?;
+
     let notebook = NewNotebook {
         title,
         time_range: Box::new(TimeRange { from, to }),
@@ -285,7 +292,7 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
     match args.output {
         NotebookOutput::Table => {
             info!("Successfully created new notebook");
-            println!("{}", notebook_url(args.base_url, notebook.id));
+            println!("{}", notebook_url(args.base_url, &notebook.id));
             Ok(())
         }
         NotebookOutput::Json => output_json(&notebook),
@@ -357,7 +364,10 @@ async fn handle_search_command(args: SearchArgs) -> Result<()> {
 }
 
 async fn handle_open_command(args: OpenArgs) -> Result<()> {
-    let url = notebook_url(args.base_url, args.id);
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let notebook_id = notebook_picker(&config, args.notebook_id).await?;
+
+    let url = notebook_url(args.base_url, &notebook_id.to_string());
     if open(&url).is_err() {
         info!("Please go to {} to view the notebook", url);
     }
@@ -367,7 +377,7 @@ async fn handle_open_command(args: OpenArgs) -> Result<()> {
 
 async fn handle_delete_command(args: DeleteArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    let notebook_id = args.id;
+    let notebook_id = notebook_picker(&config, args.notebook_id).await?;
 
     delete_notebook(&config, &notebook_id.to_string())
         .await
@@ -379,6 +389,8 @@ async fn handle_delete_command(args: DeleteArgs) -> Result<()> {
 
 async fn handle_append_cell_command(args: AppendCellArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
+
+    let notebook_id = notebook_picker(&config, args.notebook_id).await?;
 
     let cell = if let Some(content) = args.text {
         Cell::TextCell {
@@ -395,20 +407,23 @@ async fn handle_append_cell_command(args: AppendCellArgs) -> Result<()> {
             read_only: None,
         }
     } else {
-        panic!("Must provide a cell type");
+        unreachable!();
     };
 
-    let cell = notebook_cells_append(&config, &args.id, vec![cell])
+    let cell = notebook_cells_append(&config, &notebook_id.to_string(), vec![cell])
         .await?
         .pop()
         .ok_or_else(|| anyhow!("Expected a single cell"))?;
     match args.output {
         CellOutput::Json => output_json(&cell),
-        CellOutput::Table => output_details(GenericKeyValue::from_cell(cell)),
+        CellOutput::Table => {
+            info!("Created cell:");
+            output_details(GenericKeyValue::from_cell(cell))
+        }
     }
 }
 
-fn notebook_url(base_url: Url, id: String) -> String {
+fn notebook_url(base_url: Url, id: &str) -> String {
     format!("{}notebook/{}", base_url, id)
 }
 
