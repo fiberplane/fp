@@ -44,8 +44,8 @@ impl Drop for RawGuard {
 /// And forwards resizing as well as stdin to the child process
 pub struct PtyTerminal {
     child_waiter: Fuse<Task<Result<ExitStatus, std::io::Error>>>,
-    #[cfg(windows)]
     stdin_task: Fuse<ChildTask<Result<()>>>,
+    #[cfg(windows)]
     resize_task: Fuse<ChildTask<Result<()>>>,
     _guard: RawGuard,
 }
