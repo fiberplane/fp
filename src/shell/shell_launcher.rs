@@ -87,6 +87,11 @@ impl ShellLauncher {
                     )
                     .await?;
             }
+            ShellType::Cmd => {
+                stdin
+                    .write_all(format!("SET __BP__={START_PROMPT_CHAR}\r\nSET __EP__={END_PROMPT_CHAR}\r\nprompt %__BP__%%__BP__%$p$g%__EP__%%__EP__%\r\n").as_bytes())
+                    .await?;
+            }
             _ => {}
         }
         Ok(())
