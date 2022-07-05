@@ -1,7 +1,7 @@
 use anyhow::Result;
 use memchr::memmem::Finder;
 use once_cell::sync::OnceCell;
-use std::{cmp, io::BufRead};
+use std::{cmp, fmt::Debug, io::BufRead};
 use tracing::{instrument, trace};
 use vmap::io::{Ring, SeqRead, SeqWrite};
 
@@ -12,11 +12,24 @@ enum State {
     Consume(usize),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub enum PtyOutput<'a> {
     Data(&'a [u8]),
     PromptStart,
     PromptEnd,
+}
+
+impl Debug for PtyOutput<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Data(arg0) => f
+                .debug_tuple("Data")
+                .field(&arg0.len() as &dyn Debug)
+                .finish(),
+            Self::PromptStart => write!(f, "PromptStart"),
+            Self::PromptEnd => write!(f, "PromptEnd"),
+        }
+    }
 }
 
 pub struct TerminalExtractor<R: tokio::io::AsyncReadExt> {
@@ -50,18 +63,19 @@ impl<R: tokio::io::AsyncReadExt + Unpin> TerminalExtractor<R> {
         })
     }
 
-    #[instrument(skip_all)]
+    #[instrument(skip_all, ret)]
     pub async fn next<'a>(&'a mut self) -> Result<PtyOutput<'a>> {
         loop {
+            trace!(
+                avail = self.buffer.read_len(),
+                remain = self.buffer.write_len()
+            );
             match self.state {
                 State::Read => {
-                    let buf = &mut self.buffer;
-
-                    let buffered = {
-                        let slice = buf.as_write_slice(usize::MAX);
-                        self.reader.read(slice).await?
-                    };
-                    buf.feed(buffered);
+                    let slice = self.buffer.as_write_slice(usize::MAX);
+                    let read = self.reader.read(slice).await?;
+                    self.buffer.feed(read);
+                    trace!(?self.state, read);
                     self.state = State::Process;
                 }
                 State::Process => {
@@ -135,9 +149,9 @@ impl<R: tokio::io::AsyncReadExt + Unpin> TerminalExtractor<R> {
                     });
                 }
                 State::Consume(len) => {
-                    let buf = &mut self.buffer;
-                    buf.consume(len);
-                    self.state = if buf.read_len() >= START_PROMPT_BYTES.len() {
+                    trace!(?self.state);
+                    self.buffer.consume(len);
+                    self.state = if self.buffer.read_len() >= START_PROMPT_BYTES.len() {
                         State::Process
                     } else {
                         State::Read
