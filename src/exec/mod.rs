@@ -1,10 +1,11 @@
 use self::cell_writer::CellWriter;
 use crate::config::api_client_configuration;
 use crate::output::{output_details, output_json, GenericKeyValue};
-use anyhow::{Context, Result};
+use anyhow::Result;
 use clap::{ArgEnum, Parser};
 use fp_api_client::models::Cell;
 use futures::StreamExt;
+use std::io::ErrorKind;
 use std::time::Duration;
 use std::{path::PathBuf, process::Stdio};
 use tokio::io::{self, AsyncWriteExt};
@@ -22,10 +23,6 @@ pub struct Arguments {
     /// The notebook to append the message to
     #[clap(long, short, env)]
     notebook_id: String,
-
-    /// Which cell type should be inserted into the notebook to represent the command output
-    #[clap(long, short, default_value = "code", arg_enum)]
-    cell_type: CellType,
 
     /// The command to run
     command: String,
@@ -45,15 +42,6 @@ pub struct Arguments {
 }
 
 #[derive(ArgEnum, Clone, PartialEq)]
-enum CellType {
-    /// Insert the output as a code cell
-    Code,
-
-    /// Insert the output as a log cell
-    Log,
-}
-
-#[derive(ArgEnum, Clone, PartialEq)]
 enum ExecOutput {
     /// Output the result of the command
     Command,
@@ -65,16 +53,28 @@ enum ExecOutput {
     Json,
 }
 
-pub async fn handle_command(args: Arguments) -> Result<()> {
+pub async fn handle_command(mut args: Arguments) -> Result<()> {
     debug!("Running command: \"{}\"", args.command);
     let config = api_client_configuration(args.config.clone(), &args.base_url).await?;
+
+    // Shell aliases won't work but we can handle common aliases
+    if args.command == "k" {
+        args.command = "kubectl".to_string();
+    }
+
     let mut child = Command::new(&args.command)
         .args(&args.args)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .stdin(Stdio::inherit())
         .spawn()
-        .with_context(|| "Error spawning child process to run command")?;
+        .map_err(|err| {
+            if err.kind() == ErrorKind::NotFound {
+                anyhow::anyhow!("Command not found: {}", args.command)
+            } else {
+                anyhow::anyhow!("Failed to run command: {}", err)
+            }
+        })?;
 
     let mut child_stdout = ReaderStream::new(child.stdout.take().unwrap());
     let mut child_stderr = ReaderStream::new(child.stderr.take().unwrap());
