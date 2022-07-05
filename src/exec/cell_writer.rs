@@ -5,7 +5,7 @@ use bytes::Bytes;
 use fiberplane::protocols::core;
 use fp_api_client::apis::configuration::Configuration;
 use fp_api_client::apis::default_api::notebook_cells_append;
-use fp_api_client::models::{Cell, CellAppendText};
+use fp_api_client::models::Cell;
 use std::env::current_dir;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use tracing::debug;
