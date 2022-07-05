@@ -62,11 +62,11 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 url = "2.2"
 uuid = { version = "1", features = ["serde", "v4"] }
 vmap = "0.5.1"
-webbrowser = "0.6.0"
+webbrowser = "0.7.1"
 
 [build-dependencies]
 anyhow = "1.0"
-vergen = "6"
+vergen = "7"
 
 # [patch."ssh://git@github.com/fiberplane/providers.git"]
 # fp-provider-runtime = { path = "../providers/runtimes/fp-provider-runtime/" }
