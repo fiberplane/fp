@@ -109,10 +109,10 @@ impl PtyTerminal {
         use tokio::signal::unix::{signal, SignalKind};
 
         let mut stream = signal(SignalKind::window_change())?;
-        while let Some(_) = stream.recv().await {
+        while stream.recv().await.is_some() {
             // spawn_blocking because terminal::size() might in a worst case scenario need to
             // launch a `tput` command
-            let (cols, rows) = tokio::task::spawn_blocking(|| terminal::size()).await??;
+            let (cols, rows) = tokio::task::spawn_blocking(terminal::size).await??;
             master.resize(PtySize {
                 rows,
                 cols,
