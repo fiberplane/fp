@@ -2,10 +2,9 @@ use super::shell_launcher::ShellLauncher;
 use abort_on_drop::ChildTask;
 use anyhow::Result;
 use blocking::{unblock, Task, Unblock};
-use crossterm::event::{Event, EventStream};
 use crossterm::terminal;
 use futures::future::Fuse;
-use futures::{AsyncWriteExt, FutureExt, StreamExt};
+use futures::{AsyncWriteExt, FutureExt};
 use portable_pty::{native_pty_system, ExitStatus, MasterPty, PtySize};
 use tokio_util::compat::{FuturesAsyncReadCompatExt, FuturesAsyncWriteCompatExt};
 
@@ -45,7 +44,6 @@ impl Drop for RawGuard {
 pub struct PtyTerminal {
     child_waiter: Fuse<Task<Result<ExitStatus, std::io::Error>>>,
     stdin_task: Fuse<ChildTask<Result<()>>>,
-    #[cfg(windows)]
     resize_task: Fuse<ChildTask<Result<()>>>,
     _guard: RawGuard,
 }
@@ -78,7 +76,6 @@ impl PtyTerminal {
                     launcher,
                 )))
                 .fuse(),
-                #[cfg(windows)]
                 resize_task: ChildTask::from(tokio::spawn(Self::forward_resize(pty.master))).fuse(),
                 _guard: guard,
             },
@@ -87,9 +84,11 @@ impl PtyTerminal {
     }
 
     #[cfg(windows)]
-    // Long story short this is only required on windows because resize
-    // events are out of band there while on unix they're part of the stdin stream
     async fn forward_resize(master: Box<dyn MasterPty + Send>) -> Result<()> {
+        //unfortunately we can't use this for the unix impl because it reads from
+        //stdin :(
+        use crossterm::event::{Event, EventStream};
+        use futures::StreamExt;
         let mut stream = EventStream::new();
 
         while let Some(Ok(event)) = stream.next().await {
@@ -102,6 +101,26 @@ impl PtyTerminal {
                 })?;
             }
         }
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    async fn forward_resize(master: Box<dyn MasterPty + Send>) -> Result<()> {
+        use tokio::signal::unix::{signal, SignalKind};
+
+        let mut stream = signal(SignalKind::window_change())?;
+        while let Some(_) = stream.recv().await {
+            // spawn_blocking because terminal::size() might in a worst case scenario need to
+            // launch a `tput` command
+            let (cols, rows) = tokio::task::spawn_blocking(|| terminal::size()).await??;
+            master.resize(PtySize {
+                rows,
+                cols,
+                pixel_width: 0,
+                pixel_height: 0,
+            })?;
+        }
+
         Ok(())
     }
 
@@ -119,7 +138,6 @@ impl PtyTerminal {
         Ok(())
     }
 
-    #[cfg(windows)]
     pub async fn wait_close(&mut self) -> Result<()> {
         tokio::select! {
             biased;
@@ -129,17 +147,6 @@ impl PtyTerminal {
             }
             res = &mut self.stdin_task => Ok(res??),
             res = &mut self.resize_task => Ok(res??),
-        }
-    }
-    #[cfg(not(windows))]
-    pub async fn wait_close(&mut self) -> Result<()> {
-        tokio::select! {
-            biased;
-            res = &mut self.child_waiter => {
-                res?;
-                Ok(())
-            }
-            res = &mut self.stdin_task => Ok(res??),
         }
     }
 }
