@@ -83,9 +83,6 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 
     let mut cell_writer = CellWriter::new(args.clone(), config);
 
-    // Read from the child process' stdout/stderr and write the output to the notebook
-    // cell every 250 milliseconds
-    let mut send_interval = interval(Duration::from_millis(250));
     loop {
         tokio::select! {
             biased;
@@ -96,15 +93,8 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
                 break;
             }
             _ = child.wait() => {
-                cell_writer.write_to_cell().await?;
+                cell_writer.flush().await?;
                 break;
-            }
-            _ = send_interval.tick() => {
-                // We cannot append to log cells so we need to
-                // wait until the command has completely finished
-                if args.cell_type != CellType::Log {
-                    cell_writer.write_to_cell().await?;
-                }
             }
             chunk = child_stdout.next() => {
                 if let Some(Ok(chunk)) = chunk {

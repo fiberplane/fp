@@ -1,18 +1,31 @@
-use super::{parse_logs::parse_logs, Arguments, CellType};
+use super::parse_logs::contains_logs;
+use super::{parse_logs::parse_logs, Arguments};
 use anyhow::{anyhow, Context, Error, Result};
 use bytes::Bytes;
 use fiberplane::protocols::core;
 use fp_api_client::apis::configuration::Configuration;
-use fp_api_client::apis::default_api::{notebook_cell_append_text, notebook_cells_append};
+use fp_api_client::apis::default_api::notebook_cells_append;
 use fp_api_client::models::{Cell, CellAppendText};
 use std::env::current_dir;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
+use tracing::debug;
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum CellType {
+    Log,
+    Code,
+    Unknown,
+}
 
 pub struct CellWriter {
     args: Arguments,
     config: Configuration,
     cell: Option<core::Cell>,
-    buffer: Vec<Bytes>,
+    buffer: Vec<u8>,
+    /// At first, we don't know what type of cell we're writing to.
+    /// We'll try to parse the data we get as a log and if it fails
+    /// we'll assume we should write to a code cell.
+    cell_type: CellType,
 }
 
 impl CellWriter {
@@ -22,57 +35,27 @@ impl CellWriter {
             config,
             cell: None,
             buffer: Vec::new(),
+            cell_type: CellType::Unknown,
         }
     }
 
     pub fn append(&mut self, data: Bytes) {
-        self.buffer.push(data);
+        self.buffer.extend_from_slice(&data);
     }
 
     /// Create a new cell and write the buffered text to it
     /// or append the buffered text to the cell if one was
     /// already created
-    pub async fn write_to_cell(&mut self) -> Result<()> {
+    pub async fn flush(&mut self) -> Result<()> {
         if self.buffer.is_empty() {
             return Ok(());
         }
 
-        let mut output = String::new();
-        let buffer = self.buffer.split_off(0);
-        for chunk in buffer {
-            output.push_str(&String::from_utf8_lossy(&chunk));
-        }
+        self.detect_cell_type();
 
-        match self.args.cell_type {
-            CellType::Code => {
-                // Either create a new cell or append to the existing one
-                match &mut self.cell {
-                    None => {
-                        let content = format!("{}\n{}", self.prompt_line(), output);
-                        let cell = Cell::CodeCell {
-                            id: String::new(),
-                            content,
-                            syntax: None,
-                            read_only: None,
-                        };
-                        let cell = self.append_cell(cell).await?;
-                        self.cell = Some(cell);
-                    }
-                    Some(cell) => {
-                        notebook_cell_append_text(
-                            &self.config,
-                            &self.args.notebook_id,
-                            cell.id(),
-                            CellAppendText {
-                                content: output,
-                                formatting: None,
-                            },
-                        )
-                        .await
-                        .with_context(|| format!("Error appending text to cell {}", cell.id()))?;
-                    }
-                }
-            }
+        let output = String::from_utf8_lossy(&self.buffer).to_string();
+
+        match self.cell_type {
             CellType::Log => {
                 let data = Some(parse_logs(&output));
                 let cell = Cell::LogCell {
@@ -87,12 +70,46 @@ impl CellWriter {
                 let cell = self.append_cell(cell).await?;
                 self.cell = Some(cell);
             }
+            // Create a new code cell
+            CellType::Code | CellType::Unknown => {
+                let content = format!("{}\n{}", self.prompt_line(), output);
+                let cell = Cell::CodeCell {
+                    id: String::new(),
+                    content,
+                    syntax: None,
+                    read_only: None,
+                };
+                let cell = self.append_cell(cell).await?;
+                self.cell = Some(cell);
+            }
         }
+
+        self.buffer.clear();
+
         Ok::<_, Error>(())
     }
 
     pub fn into_output_cell(self) -> Option<core::Cell> {
         self.cell
+    }
+
+    /// Try to parse the buffered data as a log and if it fails
+    /// assume we should write to a code cell.
+    fn detect_cell_type(&mut self) {
+        if self.cell_type == CellType::Unknown {
+            if let Ok(string) = std::str::from_utf8(&self.buffer) {
+                if contains_logs(string) {
+                    self.cell_type = CellType::Log;
+                    debug!("Detected logs");
+                } else {
+                    self.cell_type = CellType::Code;
+                    dbg!(&string);
+                    debug!("Failed to detect logs, using code cell");
+                }
+            } else {
+                debug!("Could not parse buffer as UTF-8");
+            }
+        }
     }
 
     async fn append_cell(&self, cell: Cell) -> Result<core::Cell> {

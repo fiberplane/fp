@@ -28,33 +28,44 @@ static NGINX_GROK: &str = r#"%{IPORHOST:clientip} %{USER:ident} %{USER:auth} \[%
 pub fn parse_logs(output: &str) -> HashMap<String, Vec<LogRecord>> {
     let mut logs: HashMap<String, Vec<LogRecord>> = HashMap::new();
 
-    let nginx: Lazy<Pattern> = Lazy::new(|| Grok::default().compile(NGINX_GROK, false).unwrap());
-
     for line in output.lines() {
-        let result = if let Ok(Value::Object(json)) = serde_json::from_str(line) {
-            parse_json(json)
-        } else if let Some(matches) = nginx.match_against(line) {
-            let fields = matches
-                .into_iter()
-                // The keys written in upper case are the grok components used to build up the values we care about
-                .filter(|(k, _)| k.chars().all(|c| c.is_lowercase()))
-                .map(|(k, v)| (k.to_string(), v.trim_matches('"').to_string()))
-                .collect();
-            parse_flattened_json(fields)
-        } else {
-            warn!("Unable to parse log line: {}", line);
-            continue;
-        };
-
-        if let Some((timestamp, log)) = result {
+        if let Some((timestamp, log)) = parse_log(line) {
             if let Some(records) = logs.get_mut(&timestamp) {
                 records.push(log);
             } else {
                 logs.insert(timestamp, vec![log]);
             }
+        } else {
+            warn!("Unable to parse log line: {}", line);
+            continue;
         }
     }
     logs
+}
+
+pub fn contains_logs(output: &str) -> bool {
+    output
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .any(|line| parse_log(line).is_some())
+}
+
+fn parse_log(line: &str) -> Option<(String, LogRecord)> {
+    let nginx: Lazy<Pattern> = Lazy::new(|| Grok::default().compile(NGINX_GROK, false).unwrap());
+
+    if let Ok(Value::Object(json)) = serde_json::from_str(line) {
+        parse_json(json)
+    } else if let Some(matches) = nginx.match_against(line) {
+        let fields = matches
+            .into_iter()
+            // The keys written in upper case are the grok components used to build up the values we care about
+            .filter(|(k, _)| k.chars().all(|c| c.is_lowercase()))
+            .map(|(k, v)| (k.to_string(), v.trim_matches('"').to_string()))
+            .collect();
+        parse_flattened_json(fields)
+    } else {
+        None
+    }
 }
 
 fn parse_json(json: Map<String, Value>) -> Option<(String, LogRecord)> {
