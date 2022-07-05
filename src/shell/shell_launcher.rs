@@ -45,12 +45,12 @@ impl ShellLauncher {
                 // is executed which in turn would be picked up by the terminal extractor and output a PromptStart.
                 // That initial PromptStart is used to detect when the terminal is fully initialized but we don't want to have *this* command show up in the user's
                 // terminal history our output
-                r#"$function:prompt = & {{ $__last_prompt = $function:prompt; $BP = [char]::ConvertFromUtf32({:#x}); $EP = [char]::ConvertFromUtf32({:#x}); {{ Write-Host "$BP$BP" -NoNewline; &$script:__last_prompt; return "$EP$EP" }}.GetNewClosure() }}"#,
+                "$function:prompt = & {{ $__last_prompt = $function:prompt; $BP = [char]::ConvertFromUtf32({:#x}); $EP = [char]::ConvertFromUtf32({:#x}); {{ Write-Host \"$BP$BP\" -NoNewline; &$script:__last_prompt; return \"$EP$EP\" }}.GetNewClosure() }}",
                 START_PROMPT_CHAR as u32, END_PROMPT_CHAR as u32
             );
 
             trace!(?cmd_string, "starting powershell with -Command");
-            cmd.args(&["-NoExit", "-Interactive", "-Command", &cmd_string]);
+            cmd.args(&["-NoExit", "-Command", &cmd_string]);
         }
 
         cmd
