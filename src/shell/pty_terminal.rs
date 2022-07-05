@@ -96,6 +96,7 @@ impl PtyTerminal {
                 master.resize(PtySize {
                     rows,
                     cols,
+                    //linux specific stuff EG doesn't matter
                     pixel_width: 0,
                     pixel_height: 0,
                 })?;
@@ -116,6 +117,7 @@ impl PtyTerminal {
             master.resize(PtySize {
                 rows,
                 cols,
+                // not actually used: https://stackoverflow.com/a/42937269
                 pixel_width: 0,
                 pixel_height: 0,
             })?;
