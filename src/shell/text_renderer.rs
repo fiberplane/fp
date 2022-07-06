@@ -57,8 +57,10 @@ impl<W: AsyncWriteExt + Unpin> TextRenderer<W> {
             trace!(?action);
             match action {
                 Action::Print(c) => self.push_char(c),
-                Action::Control(c @ ControlCode::HorizontalTab | c @ ControlCode::LineFeed) => {
-                    self.push_char(c as u8 as char)
+                Action::Control(c @ ControlCode::HorizontalTab) => self.push_char(c as u8 as char),
+                Action::Control(c @ ControlCode::LineFeed) => {
+                    self.push_char(c as u8 as char);
+                    self.flush().await?;
                 }
                 Action::Control(ControlCode::Backspace) => {
                     if !self.alternate_mode {
