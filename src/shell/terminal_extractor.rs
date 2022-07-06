@@ -180,7 +180,8 @@ mod tests {
     #[tokio::test]
     async fn test_basic_extraction() {
         let mut extractor = TerminalExtractor::new(
-            "some initial output here\u{200b}\u{200b}My fancy prompt>\u{200e}\u{200e}".as_bytes(),
+            "some initial output here\u{200b}\u{200b}\u{200b}My fancy prompt>\u{200e}\u{200e}"
+                .as_bytes(),
         )
         .unwrap();
 
@@ -201,7 +202,7 @@ mod tests {
         let (client, mut server) = tokio::io::duplex(4096);
 
         server
-            .write_all("some initial output here\u{200b}".as_bytes())
+            .write_all("some initial output here\u{200b}\u{200b}".as_bytes())
             .await
             .unwrap();
 
