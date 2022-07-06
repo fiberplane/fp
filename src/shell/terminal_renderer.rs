@@ -10,10 +10,16 @@ pub struct TerminalRenderer<W: AsyncWriteExt> {
 }
 
 fn get_styled_bytes() -> &'static [u8] {
+    // ---------------------- ATTENTION ----------------------
+    // Don't change this unless you know what you're doing!
+    // Check the explanation above `START_PROMPT_CHAR` in
+    // terminal_renderer.rs!
+    const WARNING_TEXT: &str = "[REC]";
+
     static STYLED_BYTES: OnceCell<Vec<u8>> = OnceCell::new();
     STYLED_BYTES.get_or_init(|| {
         let mut buf = Vec::new();
-        let styled = "[REC]".with(Color::Red);
+        let styled = WARNING_TEXT.with(Color::Red);
         //this produces something along the lines of this terminal escape output:
         //\u{001b}[31m[REC]\u{001b}[0m
         write!(&mut buf, "{}", styled).unwrap();

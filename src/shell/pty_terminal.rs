@@ -7,6 +7,7 @@ use futures::future::Fuse;
 use futures::{AsyncWriteExt, FutureExt};
 use portable_pty::{native_pty_system, ExitStatus, MasterPty, PtySize};
 use tokio_util::compat::{FuturesAsyncReadCompatExt, FuturesAsyncWriteCompatExt};
+use tracing::trace;
 
 /// A helper that enters terminal raw mode when constructed
 /// and exits raw mode when dropped if it was enabled by the
@@ -93,6 +94,7 @@ impl PtyTerminal {
 
         while let Some(Ok(event)) = stream.next().await {
             if let Event::Resize(cols, rows) = event {
+                trace!("Sending resize event: ({},{})", cols, rows);
                 master.resize(PtySize {
                     rows,
                     cols,
@@ -114,6 +116,7 @@ impl PtyTerminal {
             // spawn_blocking because terminal::size() might in a worst case scenario need to
             // launch a `tput` command
             let (cols, rows) = tokio::task::spawn_blocking(terminal::size).await??;
+            trace!("Sending resize event: ({},{})", cols, rows);
             master.resize(PtySize {
                 rows,
                 cols,

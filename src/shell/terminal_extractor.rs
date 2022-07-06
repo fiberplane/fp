@@ -38,12 +38,22 @@ pub struct TerminalExtractor<R: tokio::io::AsyncReadExt> {
     reader: R,
 }
 
+// ---------------------- ATTENTION ----------------------
+// Don't change these unless you know what you're doing!
+// Due to the way powershell works ($deity knows why)
+// the *CHARACTERS* we remove from the stdout stream of the
+// pty MUST be equal to the number of *CHARACTERS* we insert
+// in order to print the [REC] part of the terminal window.
+// In short:
+// `assert_eq!(START_PROMPT_REPEATS + END_PROMPT_REPEATS, "[REC]".len())`
 pub const START_PROMPT_CHAR: char = '\u{200b}';
-pub const START_PROMPT: &str = "\u{200b}\u{200b}";
+pub const START_PROMPT: &str = "\u{200b}\u{200b}\u{200b}";
 pub const START_PROMPT_BYTES: &[u8] = START_PROMPT.as_bytes();
+pub const START_PROMPT_REPEATS: usize = START_PROMPT_BYTES.len() / START_PROMPT_CHAR.len_utf8();
 pub const END_PROMPT_CHAR: char = '\u{200e}';
 pub const END_PROMPT: &str = "\u{200e}\u{200e}";
 pub const END_PROMPT_BYTES: &[u8] = END_PROMPT.as_bytes();
+pub const END_PROMPT_REPEATS: usize = END_PROMPT_BYTES.len() / END_PROMPT_CHAR.len_utf8();
 
 fn start_prompt_finder() -> &'static Finder<'static> {
     static START_PROMPT_FINDER: OnceCell<Finder> = OnceCell::new();
