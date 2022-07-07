@@ -100,6 +100,18 @@ fn end_prompt_finder() -> &'static Finder<'static> {
     END_PROMPT_FINDER.get_or_init(|| Finder::new(END_PROMPT_BYTES))
 }
 
+#[inline]
+fn partially_matching_needle_len(data: &[u8], needle: &[u8]) -> usize {
+    let data_len = data.len();
+    (0..=cmp::min(needle.len(), data_len))
+        .rev()
+        .find(|i| {
+            let start = data_len - i;
+            needle.starts_with(&data[start..])
+        })
+        .unwrap_or_default()
+}
+
 impl<R: tokio::io::AsyncReadExt + Unpin> TerminalExtractor<R> {
     pub fn new(reader: R) -> Result<Self> {
         Ok(Self {
@@ -126,7 +138,6 @@ impl<R: tokio::io::AsyncReadExt + Unpin> TerminalExtractor<R> {
                 }
                 State::Process => {
                     let data = self.buffer.as_read_slice(usize::MAX);
-
                     let start_prompt_pos = start_prompt_finder().find(data);
                     let end_prompt_pos = end_prompt_finder().find(data);
 
@@ -153,51 +164,47 @@ impl<R: tokio::io::AsyncReadExt + Unpin> TerminalExtractor<R> {
                         // in a row.
                         (Some(pos), None) | (None, Some(pos)) => {
                             self.state = State::Consume(pos);
-                            PtyOutput::Data(&data[..pos])
+                            PtyOutput::Data(self.buffer.as_read_slice(pos))
                         }
                         // In the case where we found both markers we should only consume data until the first one
                         // that was found
                         (Some(start), Some(end)) => {
                             let valid_data_len = cmp::min(start, end);
                             self.state = State::Consume(valid_data_len);
-                            PtyOutput::Data(&data[..valid_data_len])
+                            PtyOutput::Data(self.buffer.as_read_slice(valid_data_len))
                         }
                         // The last case is where we didn't find any *full* markers.
                         (None, None) => {
+                            let data = self.buffer.as_read_slice(usize::MAX);
                             // Unfortunately there's no guarantee that we actually read all of a marker
                             // since a full marker is 6 bytes long.
                             // As such we need to check if the *last* 5,4,3,2 and 1 bytes of the read bytes
                             // contains *first* 5,4,3,2 or 1 bytes of either marker.
-                            let data_len = data.len();
-                            let num_partial_start_bytes_match =
-                                (1..cmp::min(START_PROMPT_BYTES.len(), data_len))
-                                    .rev()
-                                    .find(|i| START_PROMPT_BYTES.starts_with(&data[data_len - i..]))
-                                    .unwrap_or_default();
-                            let num_partial_end_bytes_match =
-                                (1..cmp::min(END_PROMPT_BYTES.len(), data_len))
-                                    .rev()
-                                    .find(|i| START_PROMPT_BYTES.starts_with(&data[data_len - i..]))
-                                    .unwrap_or_default();
-
                             let max_bytes = cmp::max(
-                                num_partial_start_bytes_match,
-                                num_partial_end_bytes_match,
+                                partially_matching_needle_len(data, START_PROMPT_BYTES),
+                                partially_matching_needle_len(data, END_PROMPT_BYTES),
                             );
 
                             // We subtract the max number of matched bytes from the available data length
                             // and consume that much. Then next round trip we can read more data and check
                             // if the partial matching bytes fully match the marker bytes
-                            let valid_data_len = data_len - max_bytes;
-                            self.state = State::Consume(valid_data_len);
-                            PtyOutput::Data(&data[..valid_data_len])
+                            let valid_data_len = data.len() - max_bytes;
+                            if valid_data_len == 0 {
+                                self.state = State::Read;
+                                continue;
+                            } else {
+                                self.state = State::Consume(valid_data_len);
+                                PtyOutput::Data(self.buffer.as_read_slice(valid_data_len))
+                            }
                         }
                     });
                 }
                 State::Consume(len) => {
                     trace!(?self.state);
                     self.buffer.consume(len);
-                    self.state = if self.buffer.read_len() >= START_PROMPT_BYTES.len() {
+                    self.state = if self.buffer.read_len()
+                        >= cmp::min(START_PROMPT_BYTES.len(), END_PROMPT_BYTES.len())
+                    {
                         State::Process
                     } else {
                         State::Read
@@ -213,6 +220,19 @@ mod tests {
     use super::*;
     use tokio::io::AsyncWriteExt;
 
+    #[test]
+    fn test_partial_needle() {
+        assert_eq!(
+            partially_matching_needle_len("data".as_bytes(), START_PROMPT_BYTES),
+            0
+        );
+        for i in 0..=START_PROMPT_BYTES.len() {
+            assert_eq!(
+                partially_matching_needle_len(&START_PROMPT_BYTES[0..i], START_PROMPT_BYTES),
+                i
+            );
+        }
+    }
     #[tokio::test]
     async fn test_basic_extraction() {
         let mut extractor = TerminalExtractor::new(
