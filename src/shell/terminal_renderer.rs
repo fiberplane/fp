@@ -1,4 +1,5 @@
 use super::terminal_extractor::PtyOutput;
+use crate::shell::terminal_extractor::{END_PROMPT_REPEATS, START_PROMPT_REPEATS};
 use anyhow::Result;
 use crossterm::style::{Color, Stylize};
 use once_cell::sync::OnceCell;
@@ -18,6 +19,10 @@ fn get_styled_bytes() -> &'static [u8] {
 
     static STYLED_BYTES: OnceCell<Vec<u8>> = OnceCell::new();
     STYLED_BYTES.get_or_init(|| {
+        assert_eq!(
+            START_PROMPT_REPEATS + END_PROMPT_REPEATS,
+            WARNING_TEXT.chars().count()
+        );
         let mut buf = Vec::new();
         let styled = WARNING_TEXT.with(Color::Red);
         //this produces something along the lines of this terminal escape output:

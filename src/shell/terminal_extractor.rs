@@ -86,8 +86,8 @@ pub const START_PROMPT_CHAR: char = '\u{200b}';
 pub const START_PROMPT: &str = "\u{200b}\u{200b}\u{200b}";
 pub const START_PROMPT_BYTES: &[u8] = START_PROMPT.as_bytes();
 pub const START_PROMPT_REPEATS: usize = START_PROMPT_BYTES.len() / START_PROMPT_CHAR.len_utf8();
-pub const END_PROMPT_CHAR: char = '\u{200e}';
-pub const END_PROMPT: &str = "\u{200e}\u{200e}";
+pub const END_PROMPT_CHAR: char = '\u{200c}';
+pub const END_PROMPT: &str = "\u{200c}\u{200c}";
 pub const END_PROMPT_BYTES: &[u8] = END_PROMPT.as_bytes();
 pub const END_PROMPT_REPEATS: usize = END_PROMPT_BYTES.len() / END_PROMPT_CHAR.len_utf8();
 
@@ -233,10 +233,11 @@ mod tests {
             );
         }
     }
+
     #[tokio::test]
     async fn test_basic_extraction() {
         let mut extractor = TerminalExtractor::new(
-            "some initial output here\u{200b}\u{200b}\u{200b}My fancy prompt>\u{200e}\u{200e}"
+            "some initial output here\u{200b}\u{200b}\u{200b}My fancy prompt>\u{200c}\u{200c}"
                 .as_bytes(),
         )
         .unwrap();
@@ -270,7 +271,7 @@ mod tests {
         );
 
         server
-            .write_all("\u{200b}My fancy prompt>\u{200e}\u{200e}".as_bytes())
+            .write_all("\u{200b}My fancy prompt>\u{200c}\u{200c}".as_bytes())
             .await
             .unwrap();
 
