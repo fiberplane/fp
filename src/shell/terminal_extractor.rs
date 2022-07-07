@@ -46,6 +46,42 @@ pub struct TerminalExtractor<R: tokio::io::AsyncReadExt> {
 // in order to print the [REC] part of the terminal window.
 // In short:
 // `assert_eq!(START_PROMPT_REPEATS + END_PROMPT_REPEATS, "[REC]".len())`
+//
+// More details:
+// When a user types in a string like "pwd" powershell outputs
+// the following ansi stuff on my system:
+// CSI(Mode(ResetDecPrivateMode(Code(ShowCursor))
+// CSI(Sgr(Foreground(PaletteIndex(11))))
+// Print('p')  <--------------------------------------------------------------------------- (1)
+// CSI(Mode(SetDecPrivateMode(Code(ShowCursor))))
+// CSI(Sgr(Reset))
+// CSI(Mode(ResetDecPrivateMode(Code(ShowCursor))))
+// CSI(Sgr(Foreground(PaletteIndex(11))))
+// Control(Backspace)  <------------------------------------------------------------------- (2)
+// Print('p')
+// Print('w')
+// CSI(Mode(SetDecPrivateMode(Code(ShowCursor))))
+// CSI(Sgr(Reset))
+// CSI(Mode(ResetDecPrivateMode(Code(ShowCursor))))
+// CSI(Sgr(Foreground(PaletteIndex(11))))
+// CSI(Cursor(Position { line: OneBased { value: 2 }, col: OneBased { value: 44 } }))  <--- (3)
+// Print('p')
+// Print('w')
+// Print('d')
+// CSI(Mode(SetDecPrivateMode(Code(ShowCursor))))
+//
+// As you can see that's all over place...
+// First character (1) it just prints 'p'
+// Second character (2) it first erases 'p' and then
+// prints 'p' and 'w'???
+// Third character (3) it realizes that's dumb and instead
+// SETS the cursor position to the position of 'p'
+// and then prints out all 3 characters again???
+// What can go wrong here is that the pty we're recording
+// is completely unaware that we're fiddling with the output
+// and as such it sets the cursor to the position it thinks
+// the end of the prompt is at which is different IF
+// the number of bytes we replace in the prompt don't line up
 pub const START_PROMPT_CHAR: char = '\u{200b}';
 pub const START_PROMPT: &str = "\u{200b}\u{200b}\u{200b}";
 pub const START_PROMPT_BYTES: &[u8] = START_PROMPT.as_bytes();
