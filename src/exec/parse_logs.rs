@@ -1,7 +1,7 @@
 use super::timestamp::AnyTimestamp;
 use fp_api_client::models::LogRecord;
 use grok::{Grok, Pattern};
-use once_cell::unsync::Lazy;
+use once_cell::sync::Lazy;
 use serde_json::{Map, Value};
 use std::collections::HashMap;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
@@ -23,7 +23,9 @@ pub(crate) static BODY_FIELDS: &[&str] = &[
 static RESOURCE_FIELD_PREFIXES: &[&str] = &["agent.", "cloud.", "container.", "host.", "service."];
 static RESOURCE_FIELD_EXCEPTIONS: &[&str] = &["container.labels", "host.uptime", "service.state"];
 
-static NGINX_GROK: &str = r#"%{IPORHOST:clientip} %{USER:ident} %{USER:auth} \[%{HTTPDATE:timestamp}\] "(?:%{WORD:verb} %{NOTSPACE:request}(?: HTTP/%{NUMBER:httpversion})?|%{DATA:rawrequest})" %{NUMBER:response} (?:%{NUMBER:bytes}|-) %{QS:referrer} %{QS:agent}"#;
+static NGINX_PATTERN: Lazy<Pattern> = Lazy::new(|| {
+    Grok::default().compile(r#"%{IPORHOST:clientip} %{USER:ident} %{USER:auth} \[%{HTTPDATE:timestamp}\] "(?:%{WORD:verb} %{NOTSPACE:request}(?: HTTP/%{NUMBER:httpversion})?|%{DATA:rawrequest})" %{NUMBER:response} (?:%{NUMBER:bytes}|-) %{QS:referrer} %{QS:agent}"#, false).unwrap()
+});
 
 pub fn parse_logs(output: &str) -> HashMap<String, Vec<LogRecord>> {
     let mut logs: HashMap<String, Vec<LogRecord>> = HashMap::new();
@@ -47,11 +49,9 @@ pub fn contains_logs(output: &str) -> bool {
 }
 
 fn parse_log(line: &str) -> Option<(String, LogRecord)> {
-    let nginx: Lazy<Pattern> = Lazy::new(|| Grok::default().compile(NGINX_GROK, false).unwrap());
-
     if let Ok(Value::Object(json)) = serde_json::from_str(line) {
         parse_json(json)
-    } else if let Some(matches) = nginx.match_against(line) {
+    } else if let Some(matches) = NGINX_PATTERN.match_against(line) {
         let fields = matches
             .into_iter()
             // The keys written in upper case are the grok components used to build up the values we care about
