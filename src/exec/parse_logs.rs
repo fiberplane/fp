@@ -30,11 +30,7 @@ pub fn parse_logs(output: &str) -> HashMap<String, Vec<LogRecord>> {
 
     for line in output.lines() {
         if let Some((timestamp, log)) = parse_log(line) {
-            if let Some(records) = logs.get_mut(&timestamp) {
-                records.push(log);
-            } else {
-                logs.insert(timestamp, vec![log]);
-            }
+            logs.entry(timestamp).or_insert_with(Vec::new).push(log);
         } else {
             warn!("Unable to parse log line: {}", line);
             continue;
