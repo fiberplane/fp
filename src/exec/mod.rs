@@ -56,11 +56,6 @@ pub async fn handle_command(mut args: Arguments) -> Result<()> {
     debug!("Running command: \"{}\"", args.command);
     let config = api_client_configuration(args.config.clone(), &args.base_url).await?;
 
-    // Shell aliases won't work but we can handle common aliases
-    if args.command == "k" {
-        args.command = "kubectl".to_string();
-    }
-
     let mut child = Command::new(&args.command)
         .args(&args.args)
         .stdout(Stdio::piped())
