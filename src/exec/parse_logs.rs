@@ -77,10 +77,10 @@ fn parse_flattened_json(
 ) -> Option<(String, LogRecord)> {
     let trace_id = flattened_fields
         .remove("trace_id")
-        .or(flattened_fields.remove("trace.id"));
+        .or_else(|| flattened_fields.remove("trace.id"));
     let span_id = flattened_fields
         .remove("span_id")
-        .or(flattened_fields.remove("span.id"));
+        .or_else(|| flattened_fields.remove("span.id"));
 
     // Find the timestamp field (or set it to NaN if none is found)
     // Note: this will leave the original timestamp field in the flattened_fields
