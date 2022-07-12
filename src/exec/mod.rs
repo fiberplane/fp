@@ -52,7 +52,7 @@ enum ExecOutput {
     Json,
 }
 
-pub async fn handle_command(mut args: Arguments) -> Result<()> {
+pub async fn handle_command(args: Arguments) -> Result<()> {
     debug!("Running command: \"{}\"", args.command);
     let config = api_client_configuration(args.config.clone(), &args.base_url).await?;
 

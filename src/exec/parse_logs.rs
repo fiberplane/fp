@@ -27,17 +27,83 @@ static NGINX_PATTERN: Lazy<Pattern> = Lazy::new(|| {
     Grok::default().compile(r#"%{IPORHOST:clientip} %{USER:ident} %{USER:auth} \[%{HTTPDATE:timestamp}\] "(?:%{WORD:verb} %{NOTSPACE:request}(?: HTTP/%{NUMBER:httpversion})?|%{DATA:rawrequest})" %{NUMBER:response} (?:%{NUMBER:bytes}|-) %{QS:referrer} %{QS:agent}"#, false).unwrap()
 });
 
+/// Parse logs from each line of the string.
+/// This handles JSON-encoded log lines as well as a variety of other log formats.
+///
+/// The HashMap returned is keyed by the timestamp of the log record (to handle multiple logs at the same instant).
 pub fn parse_logs(output: &str) -> HashMap<String, Vec<LogRecord>> {
     let mut logs: HashMap<String, Vec<LogRecord>> = HashMap::new();
+    // Keep track of the most recent timestamp in case later log lines do not have a timestamp
+    let mut most_recent_timestamp = None;
+    // Keep track of lines without timestamps so we can add them to a later entry with a timestamp
+    let mut lines_without_timestamps = Vec::new();
 
     for line in output.lines() {
-        if let Some((timestamp, log)) = parse_log(line) {
-            logs.entry(timestamp).or_insert_with(Vec::new).push(log);
-        } else {
-            warn!("Unable to parse log line: {}", line);
+        let line = line.trim();
+        if line.is_empty() {
             continue;
         }
+
+        match parse_log(line) {
+            Some((timestamp, log)) => {
+                let entries_at_timestamp = logs.entry(timestamp.clone()).or_insert_with(Vec::new);
+
+                // If we had lines before that didn't have timestamps, add them under this
+                // timestamp (and put them first in the array)
+                if !lines_without_timestamps.is_empty() {
+                    *entries_at_timestamp = lines_without_timestamps
+                        .split_off(0)
+                        .into_iter()
+                        .map(|line| LogRecord {
+                            timestamp: log.timestamp.clone(),
+                            body: line,
+                            attributes: Default::default(),
+                            resource: Default::default(),
+                            trace_id: None,
+                            span_id: None,
+                        })
+                        .chain(entries_at_timestamp.split_off(0))
+                        .collect();
+                }
+
+                most_recent_timestamp = Some((timestamp, log.timestamp.clone()));
+                entries_at_timestamp.push(log);
+            }
+            None => {
+                if let Some((timestamp_string, timestamp)) = &most_recent_timestamp {
+                    if let Some(logs) = logs.get_mut(timestamp_string) {
+                        logs.push(LogRecord {
+                            timestamp: *timestamp,
+                            body: line.to_string(),
+                            attributes: Default::default(),
+                            resource: Default::default(),
+                            trace_id: None,
+                            span_id: None,
+                        })
+                    }
+                }
+
+                lines_without_timestamps.push(line.to_string());
+            }
+        }
     }
+
+    // If none of the lines had timestamps, use the current moment as the timestamp
+    if !lines_without_timestamps.is_empty() {
+        let now = OffsetDateTime::now_utc();
+        let timestamp = now.unix_timestamp() as f32;
+        logs.entry(now.format(&Rfc3339).unwrap())
+            .or_insert_with(Vec::new)
+            .extend(lines_without_timestamps.into_iter().map(|line| LogRecord {
+                timestamp,
+                body: line,
+                attributes: Default::default(),
+                resource: Default::default(),
+                trace_id: None,
+                span_id: None,
+            }));
+    }
+
     logs
 }
 
@@ -127,7 +193,6 @@ fn parse_flattened_json(
                 && !RESOURCE_FIELD_EXCEPTIONS.contains(&key.as_str())
         });
 
-    // TODO can we do something better than ignoring lines without timestamps?
     timestamp.map(|timestamp| {
         (
             timestamp.format(&Rfc3339).unwrap(),
@@ -169,4 +234,89 @@ fn flatten_nested_value(output: &mut HashMap<String, String>, key: String, value
             output.insert(key, "".to_string());
         }
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::iter::FromIterator;
+
+    #[test]
+    fn json_logs() {
+        let logs = r#"{"ts": "2018-01-01T00:00:00.000Z", "body": "test"}
+        {"timestamp": "1657619253", "message": "hello", "trace_id": "123", "thing": 1, "host.name": "blah"}"#;
+        let logs = parse_logs(logs);
+        assert_eq!(logs.len(), 2);
+        assert_eq!(logs["2018-01-01T00:00:00Z"][0].body, "test");
+        assert_eq!(logs["2022-07-12T09:47:33Z"][0].body, "hello");
+        assert_eq!(
+            logs["2022-07-12T09:47:33Z"][0].trace_id,
+            Some("123".to_string())
+        );
+        assert_eq!(logs["2022-07-12T09:47:33Z"][0].attributes["thing"], "1");
+        assert_eq!(
+            logs["2022-07-12T09:47:33Z"][0].resource["host.name"],
+            "blah"
+        );
+    }
+
+    #[test]
+    fn nginx_logs() {
+        let logs = r#"
+192.0.7.128 - - [11/Jul/2022:13:04:26 +0000] "GET / HTTP/1.1" 200 472 "-" "ELB-HealthChecker/2.0" "-"
+192.0.6.198 - - [11/Jul/2022:13:04:27 +0000] "GET / HTTP/1.1" 200 472 "-" "ELB-HealthChecker/2.0" "-""#;
+        let logs = parse_logs(logs);
+        assert_eq!(logs.len(), 2);
+        let mut attributes = HashMap::from_iter(
+            [
+                ("auth", "-"),
+                ("referrer", "-"),
+                ("ident", "-"),
+                ("clientip", "192.0.7.128"),
+                ("verb", "GET"),
+                ("agent", "ELB-HealthChecker/2.0"),
+                ("response", "200"),
+                ("bytes", "472"),
+                ("httpversion", "1.1"),
+                ("request", "/"),
+            ]
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string())),
+        );
+        assert_eq!(logs["2022-07-11T13:04:26Z"][0].attributes, attributes);
+
+        *attributes.get_mut("clientip").unwrap() = "192.0.6.198".to_string();
+        assert_eq!(logs["2022-07-11T13:04:27Z"][0].attributes, attributes);
+    }
+
+    #[test]
+    fn no_timestamps() {
+        let logs = r#"
+/docker-entrypoint.sh: Launching /docker-entrypoint.d/20-envsubst-on-templates.sh
+/docker-entrypoint.sh: Launching /docker-entrypoint.d/30-tune-worker-processes.sh
+/docker-entrypoint.sh: Configuration complete; ready for start up"#;
+        let logs = parse_logs(logs);
+        let (_, entries) = logs.into_iter().next().unwrap();
+        assert_eq!(entries.len(), 3);
+    }
+
+    #[test]
+    fn lines_without_timestamps() {
+        let logs = r#"
+/docker-entrypoint.sh: Launching /docker-entrypoint.d/20-envsubst-on-templates.sh
+/docker-entrypoint.sh: Launching /docker-entrypoint.d/30-tune-worker-processes.sh
+/docker-entrypoint.sh: Configuration complete; ready for start up
+192.0.7.128 - - [11/Jul/2022:13:04:26 +0000] "GET / HTTP/1.1" 200 472 "-" "ELB-HealthChecker/2.0" "-"
+192.0.6.198 - - [11/Jul/2022:13:04:26 +0000] "GET / HTTP/1.1" 200 472 "-" "ELB-HealthChecker/2.0" "-""#;
+        let logs = parse_logs(logs);
+        assert_eq!(logs["2022-07-11T13:04:26Z"].len(), 5);
+        assert_eq!(
+            logs["2022-07-11T13:04:26Z"][0].body,
+            "/docker-entrypoint.sh: Launching /docker-entrypoint.d/20-envsubst-on-templates.sh"
+        );
+        assert_eq!(
+            logs["2022-07-11T13:04:26Z"][1].body,
+            "/docker-entrypoint.sh: Launching /docker-entrypoint.d/30-tune-worker-processes.sh"
+        );
+    }
 }
