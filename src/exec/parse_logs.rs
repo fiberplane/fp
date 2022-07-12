@@ -96,7 +96,7 @@ pub fn parse_logs(output: &str) -> HashMap<String, Vec<LogRecord>> {
     // If none of the lines had timestamps, use the current moment as the timestamp
     if !lines_without_timestamps.is_empty() {
         let now = OffsetDateTime::now_utc();
-        let timestamp = now.unix_timestamp() as f32;
+        let timestamp = now.unix_timestamp() as f64;
         logs.entry(now.format(&Rfc3339).unwrap())
             .or_insert_with(Vec::new)
             .extend(lines_without_timestamps.into_iter().map(|line| LogRecord {
@@ -173,10 +173,9 @@ fn parse_flattened_json(
         }
     }
     let timestamp_float = if let Some(timestamp) = timestamp {
-        // TODO don't panic if this conversion fails
-        timestamp.unix_timestamp() as f32
+        timestamp.unix_timestamp_nanos() as f64 / 1_000_000_000f64
     } else {
-        f32::NAN
+        f64::NAN
     };
 
     // Find the body field (or set it to an empty string if none is found)
