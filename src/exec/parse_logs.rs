@@ -24,7 +24,12 @@ static RESOURCE_FIELD_PREFIXES: &[&str] = &["agent.", "cloud.", "container.", "h
 static RESOURCE_FIELD_EXCEPTIONS: &[&str] = &["container.labels", "host.uptime", "service.state"];
 
 static NGINX_PATTERN: Lazy<Pattern> = Lazy::new(|| {
-    Grok::default().compile(r#"%{IPORHOST:clientip} %{USER:ident} %{USER:auth} \[%{HTTPDATE:timestamp}\] "(?:%{WORD:verb} %{NOTSPACE:request}(?: HTTP/%{NUMBER:httpversion})?|%{DATA:rawrequest})" %{NUMBER:response} (?:%{NUMBER:bytes}|-) %{QS:referrer} %{QS:agent}"#, false).unwrap()
+    let pattern = r#"%{IPORHOST:clientip} %{USER:ident} %{USER:auth} \[%{HTTPDATE:timestamp}\] "(?:%{WORD:verb} %{NOTSPACE:request}(?: HTTP/%{NUMBER:httpversion})?|%{DATA:rawrequest})" %{NUMBER:response} (?:%{NUMBER:bytes}|-) %{QS:referrer} %{QS:agent}"#;
+    Grok::default().compile(pattern, true).unwrap()
+});
+static GITHUB_ACTION_PATTERN: Lazy<Pattern> = Lazy::new(|| {
+    let pattern = r"%{WORD:job}%{SPACE}%{DATA:step}%{SPACE}%{TIMESTAMP_ISO8601:timestamp}%{SPACE}%{GREEDYDATA:body}";
+    Grok::default().compile(pattern, true).unwrap()
 });
 
 /// Parse logs from each line of the string.
@@ -117,7 +122,10 @@ pub fn contains_logs(output: &str) -> bool {
 fn parse_log(line: &str) -> Option<(String, LogRecord)> {
     if let Ok(Value::Object(json)) = serde_json::from_str(line) {
         parse_json(json)
-    } else if let Some(matches) = NGINX_PATTERN.match_against(line) {
+    } else if let Some(matches) = NGINX_PATTERN
+        .match_against(line)
+        .or_else(|| GITHUB_ACTION_PATTERN.match_against(line))
+    {
         let fields = matches
             .into_iter()
             // The keys written in upper case are the grok components used to build up the values we care about
@@ -176,7 +184,7 @@ fn parse_flattened_json(
     // it into the body of the LogRecord
     let mut body = String::new();
     for field_name in BODY_FIELDS {
-        if let Some(b) = flattened_fields.get(*field_name) {
+        if let Some(b) = flattened_fields.remove(*field_name) {
             body = b.to_string();
             break;
         }
@@ -287,6 +295,32 @@ mod tests {
 
         *attributes.get_mut("clientip").unwrap() = "192.0.6.198".to_string();
         assert_eq!(logs["2022-07-11T13:04:27Z"][0].attributes, attributes);
+    }
+
+    #[test]
+    fn github_action_logs() {
+        let logs = "
+build   Set up job      2022-07-11T15:12:28.2324317Z Packages: write
+build   Set up job      2022-07-11T15:12:28.2324660Z Pages: write
+build   Set up job      2022-07-11T15:12:28.2325020Z PullRequests: write";
+        let logs = parse_logs(logs);
+        assert_eq!(logs.len(), 3);
+        assert_eq!(
+            logs["2022-07-11T15:12:28.2324317Z"][0].timestamp,
+            1657552348.2324317
+        );
+        assert_eq!(
+            logs["2022-07-11T15:12:28.2324317Z"][0].body,
+            "Packages: write"
+        );
+        assert_eq!(
+            logs["2022-07-11T15:12:28.2324317Z"][0].attributes["job"],
+            "build"
+        );
+        assert_eq!(
+            logs["2022-07-11T15:12:28.2324317Z"][0].attributes["step"],
+            "Set up job"
+        );
     }
 
     #[test]

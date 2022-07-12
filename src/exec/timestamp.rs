@@ -94,10 +94,12 @@ mod tests {
     #[test]
     fn rfc3339() {
         let timestamp: AnyTimestamp =
-            serde_json::from_value(json!("2022-07-11T10:56:04Z")).unwrap();
+            serde_json::from_value(json!("2022-07-11T10:56:04.2324317Z")).unwrap();
         assert_eq!(
             timestamp,
-            AnyTimestamp::Rfc3339(OffsetDateTime::parse("2022-07-11T10:56:04Z", &Rfc3339).unwrap())
+            AnyTimestamp::Rfc3339(
+                OffsetDateTime::parse("2022-07-11T10:56:04.2324317Z", &Rfc3339).unwrap()
+            )
         );
     }
 
