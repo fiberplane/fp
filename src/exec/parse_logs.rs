@@ -60,7 +60,7 @@ pub fn parse_logs(output: &str) -> HashMap<String, Vec<LogRecord>> {
                         .split_off(0)
                         .into_iter()
                         .map(|line| LogRecord {
-                            timestamp: log.timestamp.clone(),
+                            timestamp: log.timestamp,
                             body: line,
                             attributes: Default::default(),
                             resource: Default::default(),
@@ -71,7 +71,7 @@ pub fn parse_logs(output: &str) -> HashMap<String, Vec<LogRecord>> {
                         .collect();
                 }
 
-                most_recent_timestamp = Some((timestamp, log.timestamp.clone()));
+                most_recent_timestamp = Some((timestamp, log.timestamp));
                 entries_at_timestamp.push(log);
             }
             None => {
@@ -185,7 +185,7 @@ fn parse_flattened_json(
     let mut body = String::new();
     for field_name in BODY_FIELDS {
         if let Some(b) = flattened_fields.remove(*field_name) {
-            body = b.to_string();
+            body = b;
             break;
         }
     }

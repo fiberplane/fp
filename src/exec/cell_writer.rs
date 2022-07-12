@@ -1,5 +1,5 @@
-use super::parse_logs::contains_logs;
-use super::{parse_logs::parse_logs, Arguments};
+use super::parse_logs::{contains_logs, parse_logs};
+use super::Arguments;
 use anyhow::{anyhow, Context, Error, Result};
 use bytes::Bytes;
 use fiberplane::protocols::core;
