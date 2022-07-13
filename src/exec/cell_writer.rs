@@ -5,8 +5,9 @@ use bytes::Bytes;
 use fiberplane::protocols::core;
 use fp_api_client::apis::configuration::Configuration;
 use fp_api_client::apis::default_api::notebook_cells_append;
-use fp_api_client::models::Cell;
+use fp_api_client::models::{Cell, TimeRange};
 use std::env::current_dir;
+use std::vec;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use tracing::debug;
 
@@ -58,13 +59,36 @@ impl CellWriter {
         match self.cell_type {
             CellType::Log => {
                 let data = Some(parse_logs(&output));
+
+                // Find the earliest and latest timestamps
+                let time_range = data
+                    .as_ref()
+                    .and_then(|data| {
+                        data.iter().flat_map(|(_, logs)| logs.iter()).fold(
+                            None,
+                            |time_range, log| match time_range {
+                                None => Some(TimeRange {
+                                    from: log.timestamp,
+                                    to: log.timestamp,
+                                }),
+                                Some(TimeRange { from, to }) => Some(TimeRange {
+                                    from: from.min(log.timestamp),
+                                    to: to.min(log.timestamp),
+                                }),
+                            },
+                        )
+                    })
+                    .map(Box::new);
+
                 let cell = Cell::LogCell {
                     id: "".to_string(),
-                    read_only: None,
+                    // Lock the cell because if the time range is updated, the studio
+                    // will clear out all of the log entries
+                    read_only: Some(true),
                     source_ids: vec![],
                     title: self.prompt_line(),
                     formatting: None,
-                    time_range: None,
+                    time_range,
                     data,
                 };
                 let cell = self.append_cell(cell).await?;
