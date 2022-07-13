@@ -1,7 +1,7 @@
 use anyhow::Result;
 use memchr::memmem::Finder;
 use once_cell::sync::OnceCell;
-use std::{cmp, io::BufRead};
+use std::{cmp, fmt::Debug, io::BufRead};
 use tracing::{instrument, trace};
 use vmap::io::{Ring, SeqRead, SeqWrite};
 
@@ -12,11 +12,24 @@ enum State {
     Consume(usize),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub enum PtyOutput<'a> {
     Data(&'a [u8]),
     PromptStart,
     PromptEnd,
+}
+
+impl Debug for PtyOutput<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Data(arg0) => f
+                .debug_tuple("Data")
+                .field(&arg0.len() as &dyn Debug)
+                .finish(),
+            Self::PromptStart => write!(f, "PromptStart"),
+            Self::PromptEnd => write!(f, "PromptEnd"),
+        }
+    }
 }
 
 pub struct TerminalExtractor<R: tokio::io::AsyncReadExt> {
@@ -25,12 +38,58 @@ pub struct TerminalExtractor<R: tokio::io::AsyncReadExt> {
     reader: R,
 }
 
+// ---------------------- ATTENTION ----------------------
+// Don't change these unless you know what you're doing!
+// Due to the way powershell works ($deity knows why)
+// the *CHARACTERS* we remove from the stdout stream of the
+// pty MUST be equal to the number of *CHARACTERS* we insert
+// in order to print the [REC] part of the terminal window.
+// In short:
+// `assert_eq!(START_PROMPT_REPEATS + END_PROMPT_REPEATS, "[REC]".len())`
+//
+// More details:
+// When a user types in a string like "pwd" powershell outputs
+// the following ansi stuff on my system:
+// CSI(Mode(ResetDecPrivateMode(Code(ShowCursor))
+// CSI(Sgr(Foreground(PaletteIndex(11))))
+// Print('p')  <--------------------------------------------------------------------------- (1)
+// CSI(Mode(SetDecPrivateMode(Code(ShowCursor))))
+// CSI(Sgr(Reset))
+// CSI(Mode(ResetDecPrivateMode(Code(ShowCursor))))
+// CSI(Sgr(Foreground(PaletteIndex(11))))
+// Control(Backspace)  <------------------------------------------------------------------- (2)
+// Print('p')
+// Print('w')
+// CSI(Mode(SetDecPrivateMode(Code(ShowCursor))))
+// CSI(Sgr(Reset))
+// CSI(Mode(ResetDecPrivateMode(Code(ShowCursor))))
+// CSI(Sgr(Foreground(PaletteIndex(11))))
+// CSI(Cursor(Position { line: OneBased { value: 2 }, col: OneBased { value: 44 } }))  <--- (3)
+// Print('p')
+// Print('w')
+// Print('d')
+// CSI(Mode(SetDecPrivateMode(Code(ShowCursor))))
+//
+// As you can see that's all over place...
+// First character (1) it just prints 'p'
+// Second character (2) it first erases 'p' and then
+// prints 'p' and 'w'???
+// Third character (3) it realizes that's dumb and instead
+// SETS the cursor position to the position of 'p'
+// and then prints out all 3 characters again???
+// What can go wrong here is that the pty we're recording
+// is completely unaware that we're fiddling with the output
+// and as such it sets the cursor to the position it thinks
+// the end of the prompt is at which is different IF
+// the number of bytes we replace in the prompt don't line up
 pub const START_PROMPT_CHAR: char = '\u{200b}';
-pub const START_PROMPT: &str = "\u{200b}\u{200b}";
+pub const START_PROMPT: &str = "\u{200b}\u{200b}\u{200b}";
 pub const START_PROMPT_BYTES: &[u8] = START_PROMPT.as_bytes();
-pub const END_PROMPT_CHAR: char = '\u{200e}';
-pub const END_PROMPT: &str = "\u{200e}\u{200e}";
+pub const START_PROMPT_REPEATS: usize = START_PROMPT_BYTES.len() / START_PROMPT_CHAR.len_utf8();
+pub const END_PROMPT_CHAR: char = '\u{200c}';
+pub const END_PROMPT: &str = "\u{200c}\u{200c}";
 pub const END_PROMPT_BYTES: &[u8] = END_PROMPT.as_bytes();
+pub const END_PROMPT_REPEATS: usize = END_PROMPT_BYTES.len() / END_PROMPT_CHAR.len_utf8();
 
 fn start_prompt_finder() -> &'static Finder<'static> {
     static START_PROMPT_FINDER: OnceCell<Finder> = OnceCell::new();
@@ -39,6 +98,18 @@ fn start_prompt_finder() -> &'static Finder<'static> {
 fn end_prompt_finder() -> &'static Finder<'static> {
     static END_PROMPT_FINDER: OnceCell<Finder> = OnceCell::new();
     END_PROMPT_FINDER.get_or_init(|| Finder::new(END_PROMPT_BYTES))
+}
+
+#[inline]
+fn partially_matching_needle_len(data: &[u8], needle: &[u8]) -> usize {
+    let data_len = data.len();
+    (0..=cmp::min(needle.len(), data_len))
+        .rev()
+        .find(|i| {
+            let start = data_len - i;
+            needle.starts_with(&data[start..])
+        })
+        .unwrap_or_default()
 }
 
 impl<R: tokio::io::AsyncReadExt + Unpin> TerminalExtractor<R> {
@@ -53,20 +124,20 @@ impl<R: tokio::io::AsyncReadExt + Unpin> TerminalExtractor<R> {
     #[instrument(skip_all)]
     pub async fn next<'a>(&'a mut self) -> Result<PtyOutput<'a>> {
         loop {
+            trace!(
+                avail = self.buffer.read_len(),
+                remain = self.buffer.write_len()
+            );
             match self.state {
                 State::Read => {
-                    let buf = &mut self.buffer;
-
-                    let buffered = {
-                        let slice = buf.as_write_slice(usize::MAX);
-                        self.reader.read(slice).await?
-                    };
-                    buf.feed(buffered);
+                    let slice = self.buffer.as_write_slice(usize::MAX);
+                    let read = self.reader.read(slice).await?;
+                    self.buffer.feed(read);
+                    trace!(?self.state, read);
                     self.state = State::Process;
                 }
                 State::Process => {
                     let data = self.buffer.as_read_slice(usize::MAX);
-
                     let start_prompt_pos = start_prompt_finder().find(data);
                     let end_prompt_pos = end_prompt_finder().find(data);
 
@@ -93,51 +164,47 @@ impl<R: tokio::io::AsyncReadExt + Unpin> TerminalExtractor<R> {
                         // in a row.
                         (Some(pos), None) | (None, Some(pos)) => {
                             self.state = State::Consume(pos);
-                            PtyOutput::Data(&data[..pos])
+                            PtyOutput::Data(self.buffer.as_read_slice(pos))
                         }
                         // In the case where we found both markers we should only consume data until the first one
                         // that was found
                         (Some(start), Some(end)) => {
                             let valid_data_len = cmp::min(start, end);
                             self.state = State::Consume(valid_data_len);
-                            PtyOutput::Data(&data[..valid_data_len])
+                            PtyOutput::Data(self.buffer.as_read_slice(valid_data_len))
                         }
                         // The last case is where we didn't find any *full* markers.
                         (None, None) => {
+                            let data = self.buffer.as_read_slice(usize::MAX);
                             // Unfortunately there's no guarantee that we actually read all of a marker
                             // since a full marker is 6 bytes long.
                             // As such we need to check if the *last* 5,4,3,2 and 1 bytes of the read bytes
                             // contains *first* 5,4,3,2 or 1 bytes of either marker.
-                            let data_len = data.len();
-                            let num_partial_start_bytes_match =
-                                (1..cmp::min(START_PROMPT_BYTES.len(), data_len))
-                                    .rev()
-                                    .find(|i| START_PROMPT_BYTES.starts_with(&data[data_len - i..]))
-                                    .unwrap_or_default();
-                            let num_partial_end_bytes_match =
-                                (1..cmp::min(END_PROMPT_BYTES.len(), data_len))
-                                    .rev()
-                                    .find(|i| START_PROMPT_BYTES.starts_with(&data[data_len - i..]))
-                                    .unwrap_or_default();
-
                             let max_bytes = cmp::max(
-                                num_partial_start_bytes_match,
-                                num_partial_end_bytes_match,
+                                partially_matching_needle_len(data, START_PROMPT_BYTES),
+                                partially_matching_needle_len(data, END_PROMPT_BYTES),
                             );
 
                             // We subtract the max number of matched bytes from the available data length
                             // and consume that much. Then next round trip we can read more data and check
                             // if the partial matching bytes fully match the marker bytes
-                            let valid_data_len = data_len - max_bytes;
-                            self.state = State::Consume(valid_data_len);
-                            PtyOutput::Data(&data[..valid_data_len])
+                            let valid_data_len = data.len() - max_bytes;
+                            if valid_data_len == 0 {
+                                self.state = State::Read;
+                                continue;
+                            } else {
+                                self.state = State::Consume(valid_data_len);
+                                PtyOutput::Data(self.buffer.as_read_slice(valid_data_len))
+                            }
                         }
                     });
                 }
                 State::Consume(len) => {
-                    let buf = &mut self.buffer;
-                    buf.consume(len);
-                    self.state = if buf.read_len() >= START_PROMPT_BYTES.len() {
+                    trace!(?self.state);
+                    self.buffer.consume(len);
+                    self.state = if self.buffer.read_len()
+                        >= cmp::min(START_PROMPT_BYTES.len(), END_PROMPT_BYTES.len())
+                    {
                         State::Process
                     } else {
                         State::Read
@@ -153,10 +220,25 @@ mod tests {
     use super::*;
     use tokio::io::AsyncWriteExt;
 
+    #[test]
+    fn test_partial_needle() {
+        assert_eq!(
+            partially_matching_needle_len("data".as_bytes(), START_PROMPT_BYTES),
+            0
+        );
+        for i in 0..=START_PROMPT_BYTES.len() {
+            assert_eq!(
+                partially_matching_needle_len(&START_PROMPT_BYTES[0..i], START_PROMPT_BYTES),
+                i
+            );
+        }
+    }
+
     #[tokio::test]
     async fn test_basic_extraction() {
         let mut extractor = TerminalExtractor::new(
-            "some initial output here\u{200b}\u{200b}My fancy prompt>\u{200e}\u{200e}".as_bytes(),
+            "some initial output here\u{200b}\u{200b}\u{200b}My fancy prompt>\u{200c}\u{200c}"
+                .as_bytes(),
         )
         .unwrap();
 
@@ -177,7 +259,7 @@ mod tests {
         let (client, mut server) = tokio::io::duplex(4096);
 
         server
-            .write_all("some initial output here\u{200b}".as_bytes())
+            .write_all("some initial output here\u{200b}\u{200b}".as_bytes())
             .await
             .unwrap();
 
@@ -189,7 +271,7 @@ mod tests {
         );
 
         server
-            .write_all("\u{200b}My fancy prompt>\u{200e}\u{200e}".as_bytes())
+            .write_all("\u{200b}My fancy prompt>\u{200c}\u{200c}".as_bytes())
             .await
             .unwrap();
 

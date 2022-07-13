@@ -1,19 +1,21 @@
 use self::cell_writer::CellWriter;
 use crate::config::api_client_configuration;
 use crate::output::{output_details, output_json, GenericKeyValue};
-use anyhow::{Context, Result};
+use anyhow::Result;
 use clap::{ArgEnum, Parser};
 use fp_api_client::models::Cell;
 use futures::StreamExt;
-use std::time::Duration;
+use std::io::ErrorKind;
 use std::{path::PathBuf, process::Stdio};
 use tokio::io::{self, AsyncWriteExt};
-use tokio::{process::Command, signal, time::interval};
+use tokio::{process::Command, signal};
 use tokio_util::io::ReaderStream;
 use tracing::{debug, info};
 use url::Url;
 
 pub mod cell_writer;
+mod parse_logs;
+mod timestamp;
 
 #[derive(Parser, Clone)]
 pub struct Arguments {
@@ -53,13 +55,20 @@ enum ExecOutput {
 pub async fn handle_command(args: Arguments) -> Result<()> {
     debug!("Running command: \"{}\"", args.command);
     let config = api_client_configuration(args.config.clone(), &args.base_url).await?;
+
     let mut child = Command::new(&args.command)
         .args(&args.args)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .stdin(Stdio::inherit())
         .spawn()
-        .with_context(|| "Error spawning child process to run command")?;
+        .map_err(|err| {
+            if err.kind() == ErrorKind::NotFound {
+                anyhow::anyhow!("Command not found: {}", args.command)
+            } else {
+                anyhow::anyhow!("Failed to run command: {}", err)
+            }
+        })?;
 
     let mut child_stdout = ReaderStream::new(child.stdout.take().unwrap());
     let mut child_stderr = ReaderStream::new(child.stderr.take().unwrap());
@@ -68,9 +77,6 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 
     let mut cell_writer = CellWriter::new(args.clone(), config);
 
-    // Read from the child process' stdout/stderr and write the output to the notebook
-    // cell every 250 milliseconds
-    let mut send_interval = interval(Duration::from_millis(250));
     loop {
         tokio::select! {
             biased;
@@ -81,11 +87,8 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
                 break;
             }
             _ = child.wait() => {
-                cell_writer.write_to_cell().await?;
+                cell_writer.flush().await?;
                 break;
-            }
-            _ = send_interval.tick() => {
-                cell_writer.write_to_cell().await?;
             }
             chunk = child_stdout.next() => {
                 if let Some(Ok(chunk)) = chunk {
