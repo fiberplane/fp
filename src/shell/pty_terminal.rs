@@ -2,12 +2,12 @@ use super::shell_launcher::ShellLauncher;
 use abort_on_drop::ChildTask;
 use anyhow::Result;
 use blocking::{unblock, Task, Unblock};
-use crossterm::event::{Event, EventStream};
 use crossterm::terminal;
 use futures::future::Fuse;
-use futures::{AsyncWriteExt, FutureExt, StreamExt};
+use futures::{AsyncWriteExt, FutureExt};
 use portable_pty::{native_pty_system, ExitStatus, MasterPty, PtySize};
 use tokio_util::compat::{FuturesAsyncReadCompatExt, FuturesAsyncWriteCompatExt};
+use tracing::trace;
 
 /// A helper that enters terminal raw mode when constructed
 /// and exits raw mode when dropped if it was enabled by the
@@ -84,19 +84,48 @@ impl PtyTerminal {
         ))
     }
 
+    #[cfg(windows)]
     async fn forward_resize(master: Box<dyn MasterPty + Send>) -> Result<()> {
+        //unfortunately we can't use this for the unix impl because it reads from
+        //stdin :(
+        use crossterm::event::{Event, EventStream};
+        use futures::StreamExt;
         let mut stream = EventStream::new();
 
         while let Some(Ok(event)) = stream.next().await {
             if let Event::Resize(cols, rows) = event {
+                trace!("Sending resize event: ({},{})", cols, rows);
                 master.resize(PtySize {
                     rows,
                     cols,
+                    //linux specific stuff EG doesn't matter
                     pixel_width: 0,
                     pixel_height: 0,
                 })?;
             }
         }
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    async fn forward_resize(master: Box<dyn MasterPty + Send>) -> Result<()> {
+        use tokio::signal::unix::{signal, SignalKind};
+
+        let mut stream = signal(SignalKind::window_change())?;
+        while stream.recv().await.is_some() {
+            // spawn_blocking because terminal::size() might in a worst case scenario need to
+            // launch a `tput` command
+            let (cols, rows) = tokio::task::spawn_blocking(terminal::size).await??;
+            trace!("Sending resize event: ({},{})", cols, rows);
+            master.resize(PtySize {
+                rows,
+                cols,
+                // not actually used: https://stackoverflow.com/a/42937269
+                pixel_width: 0,
+                pixel_height: 0,
+            })?;
+        }
+
         Ok(())
     }
 

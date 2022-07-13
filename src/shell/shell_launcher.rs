@@ -1,10 +1,14 @@
 use super::shell_type::ShellType;
 use super::terminal_extractor::{
-    END_PROMPT_BYTES, END_PROMPT_CHAR, START_PROMPT_BYTES, START_PROMPT_CHAR,
+    END_PROMPT_BYTES, END_PROMPT_CHAR, END_PROMPT_REPEATS, START_PROMPT_BYTES, START_PROMPT_CHAR,
+    START_PROMPT_REPEATS,
 };
 use anyhow::Result;
+use crossterm::cursor::MoveTo;
+use crossterm::terminal::{Clear, ClearType};
 use portable_pty::CommandBuilder;
 use std::path::PathBuf;
+use tokio::io::AsyncWriteExt;
 use tracing::trace;
 
 #[derive(Debug)]
@@ -45,12 +49,23 @@ impl ShellLauncher {
                 // is executed which in turn would be picked up by the terminal extractor and output a PromptStart.
                 // That initial PromptStart is used to detect when the terminal is fully initialized but we don't want to have *this* command show up in the user's
                 // terminal history our output
-                r#"$function:prompt = & {{ $__last_prompt = $function:prompt; $BP = [char]::ConvertFromUtf32({:#x}); $EP = [char]::ConvertFromUtf32({:#x}); {{ Write-Host "$BP$BP" -NoNewline; &$script:__last_prompt; return "$EP$EP" }}.GetNewClosure() }}"#,
-                START_PROMPT_CHAR as u32, END_PROMPT_CHAR as u32
+                "$function:prompt = & {{
+                    $__last_prompt = $function:prompt;
+                    $BP = [char]::ConvertFromUtf32({:#x});
+                    $EP = [char]::ConvertFromUtf32({:#x});
+                    {{
+                        Write-Host \"{}\" -NoNewline
+                        return \"$(&$script:__last_prompt){}\"
+                    }}.GetNewClosure()
+                }}",
+                START_PROMPT_CHAR as u32,
+                END_PROMPT_CHAR as u32,
+                "$BP".repeat(START_PROMPT_REPEATS),
+                "$EP".repeat(END_PROMPT_REPEATS)
             );
 
             trace!(?cmd_string, "starting powershell with -Command");
-            cmd.args(&["-NoExit", "-Interactive", "-Command", &cmd_string]);
+            cmd.args(&["-NoExit", "-Command", &cmd_string]);
         }
 
         cmd
@@ -87,7 +102,24 @@ impl ShellLauncher {
                     )
                     .await?;
             }
-            _ => {}
+            ShellType::PowerShell => {
+                // For whatever reason Powershell doesn't properly pickup where its current cursor position
+                // is when launched under a PTY so we have to clear and reset the cursor position get make
+                // sure everything is lined up correctly
+                tokio::io::stdout()
+                    .write_all(format!("{}{}", Clear(ClearType::All), MoveTo(0, 0)).as_bytes())
+                    .await?;
+            }
+            ShellType::Cmd => {
+                stdin
+                    .write_all(
+                    format!("SET __BP__={START_PROMPT_CHAR}\r\nSET __EP__={END_PROMPT_CHAR}\r\nprompt {}$p$g{}\r\n",
+                            "%__BP__%".repeat(START_PROMPT_REPEATS),
+                            "%__EP__%".repeat(END_PROMPT_REPEATS)
+                        ).as_bytes()
+                    )
+                    .await?;
+            }
         }
         Ok(())
     }
