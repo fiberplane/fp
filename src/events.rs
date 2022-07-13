@@ -2,6 +2,7 @@ use crate::config::api_client_configuration;
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use crate::KeyValueArgument;
 use anyhow::Result;
+use base64uuid::Base64Uuid;
 use clap::ArgEnum;
 use clap::Parser;
 use cli_table::Table;
@@ -71,6 +72,10 @@ struct CreateArguments {
     #[clap(long, short, default_value = "table", arg_enum)]
     output: EventOutput,
 
+    /// Workspace to create the event in.
+    #[clap(long)]
+    workspace_id: Option<Base64Uuid>,
+
     #[clap(from_global)]
     base_url: Url,
 
@@ -95,6 +100,10 @@ pub struct SearchArguments {
     /// Output of the event
     #[clap(long, short, default_value = "table", arg_enum)]
     output: EventOutput,
+
+    /// Workspace to search for events in.
+    #[clap(long)]
+    workspace_id: Option<Base64Uuid>,
 
     /// Sort the result according to the following field
     #[clap(long, arg_enum)]
@@ -122,7 +131,11 @@ pub struct SearchArguments {
 #[derive(Parser)]
 pub struct DeleteArguments {
     /// ID of the event that should be deleted
-    id: String,
+    id: Base64Uuid,
+
+    /// Workspace to delete the event from.
+    #[clap(long)]
+    workspace_id: Option<Base64Uuid>,
 
     #[clap(from_global)]
     base_url: Url,
@@ -135,9 +148,11 @@ async fn handle_event_create_command(args: CreateArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
     let time = args.time.map(|input| input.format(&Rfc3339).unwrap());
+    let workspace_id = args.workspace_id.expect("workspace_id is required");
 
     let event = event_create(
         &config,
+        &workspace_id.to_string(),
         NewEvent {
             title: args.title,
             labels: Some(
@@ -161,9 +176,11 @@ async fn handle_event_create_command(args: CreateArguments) -> Result<()> {
 
 async fn handle_event_search_command(args: SearchArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
+    let workspace_id = args.workspace_id.expect("workspace_id is required");
 
     let events = event_list(
         &config,
+        &workspace_id.to_string(),
         args.start.format(&Rfc3339)?,
         args.end.format(&Rfc3339)?,
         Some(
@@ -190,8 +207,9 @@ async fn handle_event_search_command(args: SearchArguments) -> Result<()> {
 
 async fn handle_event_delete_command(args: DeleteArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
+    let workspace_id = args.workspace_id.expect("workspace_id is required");
 
-    event_delete(&config, &args.id).await?;
+    event_delete(&config, &workspace_id.to_string(), &args.id.to_string()).await?;
 
     info!("Successfully deleted event");
     Ok(())
