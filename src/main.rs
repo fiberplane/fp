@@ -85,6 +85,7 @@ enum SubCommand {
     },
 
     /// Execute a command and send the output to a notebook
+    #[clap(trailing_var_arg = true)]
     Exec(exec::Arguments),
 
     /// Experimental commands 🧪

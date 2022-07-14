@@ -2,7 +2,7 @@ use self::cell_writer::CellWriter;
 use crate::config::api_client_configuration;
 use crate::output::{output_details, output_json, GenericKeyValue};
 use anyhow::Result;
-use clap::{ArgEnum, Parser};
+use clap::{ArgEnum, Parser, ValueHint};
 use fp_api_client::models::Cell;
 use futures::StreamExt;
 use std::io::ErrorKind;
@@ -24,10 +24,8 @@ pub struct Arguments {
     notebook_id: String,
 
     /// The command to run
-    command: String,
-
-    /// Args to pass to the command
-    args: Vec<String>,
+    #[clap(value_hint = ValueHint::CommandWithArguments, multiple_values = true)]
+    command: Vec<String>,
 
     #[clap(from_global)]
     base_url: Url,
@@ -53,18 +51,18 @@ enum ExecOutput {
 }
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
-    debug!("Running command: \"{}\"", args.command);
+    debug!("Running command: \"{}\"", args.command[0]);
     let config = api_client_configuration(args.config.clone(), &args.base_url).await?;
 
-    let mut child = Command::new(&args.command)
-        .args(&args.args)
+    let mut child = Command::new(&args.command[0])
+        .args(&args.command[1..])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .stdin(Stdio::inherit())
         .spawn()
         .map_err(|err| {
             if err.kind() == ErrorKind::NotFound {
-                anyhow::anyhow!("Command not found: {}", args.command)
+                anyhow::anyhow!("Command not found: {}", args.command[0])
             } else {
                 anyhow::anyhow!("Failed to run command: {}", err)
             }
