@@ -21,7 +21,6 @@ use url::Url;
 mod auth;
 mod config;
 mod events;
-mod exec;
 mod experiments;
 mod labels;
 mod manifest;
@@ -29,6 +28,7 @@ mod notebooks;
 mod output;
 mod providers;
 mod proxies;
+mod run;
 mod shell;
 mod templates;
 mod triggers;
@@ -84,10 +84,6 @@ enum SubCommand {
         shell: clap_complete::Shell,
     },
 
-    /// Execute a command and send the output to a notebook
-    #[clap(trailing_var_arg = true)]
-    Exec(exec::Arguments),
-
     /// Experimental commands 🧪
     ///
     /// These commands are not stable and may change at any time.
@@ -127,6 +123,10 @@ enum SubCommand {
     /// within your network without exposing them or sharing credentials.
     #[clap(alias = "proxy")]
     Proxies(proxies::Arguments),
+
+    /// Run a command and send the output to a notebook
+    #[clap(trailing_var_arg = true)]
+    Run(run::Arguments),
 
     /// Interact with templates
     ///
@@ -213,7 +213,6 @@ async fn main() {
 
     use SubCommand::*;
     let result = match args.sub_command {
-        Exec(args) => exec::handle_command(args).await,
         Experiments(args) => experiments::handle_command(args).await,
         Login => auth::handle_login_command(args).await,
         Logout => auth::handle_logout_command(args).await,
@@ -221,6 +220,7 @@ async fn main() {
         Notebooks(args) => notebooks::handle_command(args).await,
         Providers(args) => providers::handle_command(args).await,
         Proxies(args) => proxies::handle_command(args).await,
+        Run(args) => run::handle_command(args).await,
         Templates(args) => templates::handle_command(args).await,
         Triggers(args) => triggers::handle_command(args).await,
         Events(args) => events::handle_command(args).await,
