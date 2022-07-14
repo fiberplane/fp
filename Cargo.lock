@@ -965,7 +965,7 @@ dependencies = [
 [[package]]
 name = "fp-api-client"
 version = "1.0.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=single_player#dccedbbee1e07049f8bc54689e72f39a5f670def"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=single_player#b8f9625acd5a474372288efb892cd63819bc9b09"
 dependencies = [
  "reqwest",
  "serde",
