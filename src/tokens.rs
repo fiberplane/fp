@@ -2,11 +2,11 @@ use crate::config::api_client_configuration;
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use anyhow::Result;
 use clap::{ArgEnum, Parser};
+use cli_table::Table;
 use fiberplane::sorting::{SortDirection, TokenListSortFields};
 use fp_api_client::apis::default_api::{token_create, token_delete, token_list};
 use fp_api_client::models::{NewToken, Token, TokenSummary};
 use std::path::PathBuf;
-use cli_table::Table;
 use tracing::info;
 use url::Url;
 
