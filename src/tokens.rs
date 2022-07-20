@@ -44,13 +44,18 @@ enum TokenOutput {
 
     /// Output the details as JSON
     Json,
+
+    /// Output only the most important detail in plain-text without anything special. Mostly used for scripting purposes.
+    /// On creation, output only the raw token and nothing else (no trailing newline).
+    /// On listing, output only the ID of each token on a separate line (with trailing newline).
+    Condensed,
 }
 
 #[derive(Parser)]
 struct CreateArguments {
     /// Name of the token
     #[clap(long, alias = "name")]
-    title: String,
+    name: String,
 
     /// Output of the token
     #[clap(long, short, default_value = "table", arg_enum)]
@@ -107,13 +112,19 @@ pub struct DeleteArguments {
 async fn handle_token_create_command(args: CreateArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
-    let token = token_create(&config, NewToken::new(args.title)).await?;
+    let token = token_create(&config, NewToken::new(args.name)).await?;
 
-    info!("Successfully created new token");
+    if !matches!(args.output, TokenOutput::Condensed) {
+        info!("Successfully created new token");
+    }
 
     match args.output {
         TokenOutput::Table => output_details(GenericKeyValue::from_token(token)),
         TokenOutput::Json => output_json(&token),
+        TokenOutput::Condensed => {
+            print!("{}", token.token);
+            Ok(())
+        }
     }
 }
 
@@ -135,6 +146,10 @@ async fn handle_token_list_command(args: ListArguments) -> Result<()> {
             output_list(rows)
         }
         TokenOutput::Json => output_json(&tokens),
+        TokenOutput::Condensed => {
+            let _ = tokens.into_iter().map(|token| println!("{}", token.id));
+            Ok(())
+        }
     }
 }
 
