@@ -125,6 +125,10 @@ enum SubCommand {
     Proxies(proxies::Arguments),
 
     /// Run a command and send the output to a notebook
+    ///
+    /// Note: to run a command with pipes, you must wrap the command in quotes
+    /// (otherwise, your shell will think you want to pipe the output of `fp run`).
+    /// For example, `fp run "echo hello world | grep hello"`
     #[clap(trailing_var_arg = true)]
     Run(run::Arguments),
 

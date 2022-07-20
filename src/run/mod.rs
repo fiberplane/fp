@@ -1,6 +1,7 @@
 use self::cell_writer::CellWriter;
 use crate::config::api_client_configuration;
 use crate::output::{output_details, output_json, GenericKeyValue};
+use crate::shell::shell_type::ShellType;
 use anyhow::Result;
 use clap::{ArgEnum, Parser, ValueHint};
 use fp_api_client::models::Cell;
@@ -51,14 +52,18 @@ enum ExecOutput {
 }
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
-    debug!("Running command: \"{}\"", args.command[0]);
     let config = api_client_configuration(args.config.clone(), &args.base_url).await?;
+    let command = args.command.join(" ");
 
-    let mut child = Command::new(&args.command[0])
-        .args(&args.command[1..])
+    let (shell_type, shell_path) = ShellType::auto_detect();
+    debug!("Using {:?} to run command: \"{}\"", shell_type, &command);
+
+    let mut child = Command::new(shell_path)
+        .arg("-c")
+        .arg(command)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .stdin(Stdio::inherit())
+        .stdin(Stdio::piped())
         .spawn()
         .map_err(|err| {
             if err.kind() == ErrorKind::NotFound {
