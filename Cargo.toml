@@ -12,8 +12,8 @@ anyhow = "1.0"
 base64uuid = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main" }
 blocking = "1.2.0"
 bytes = "1.1.0"
-clap = { version = "3.0.5", features = ["derive", "env", "wrap_help"] }
-clap_complete = "3.0.6"
+clap = { version = "3.2.11", features = ["derive", "env", "wrap_help"] }
+clap_complete = "3.2.3"
 cli-table = "0.4"
 crossterm = { version = "0.23.0", features = ["event-stream"] }
 directories = "4.0.1"

@@ -151,12 +151,6 @@ impl CellWriter {
         let cwd = current_dir()
             .map(|p| p.display().to_string())
             .unwrap_or_default();
-        format!(
-            "{}\n{} ❯ {} {}",
-            timestamp,
-            cwd,
-            self.args.command,
-            self.args.args.join(" ")
-        )
+        format!("{}\n{} ❯ {}", timestamp, cwd, self.args.command.join(" "),)
     }
 }
