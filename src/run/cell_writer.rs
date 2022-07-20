@@ -127,7 +127,6 @@ impl CellWriter {
                     debug!("Detected logs");
                 } else {
                     self.cell_type = CellType::Code;
-                    dbg!(&string);
                     debug!("Failed to detect logs, using code cell");
                 }
             } else {
