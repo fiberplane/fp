@@ -38,17 +38,24 @@ enum SubCommand {
 }
 
 #[derive(ArgEnum, Clone)]
-enum TokenOutput {
+enum TokenCreateOutput {
     /// Output the details as a table
     Table,
 
     /// Output the details as JSON
     Json,
 
-    /// Output only the most important detail in plain-text without anything special. Mostly used for scripting purposes.
-    /// On creation, output only the raw token and nothing else (no trailing newline).
-    /// On listing, output only the ID of each token on a separate line (with trailing newline).
-    Condensed,
+    /// Output only the token, without a trailing newline
+    Token,
+}
+
+#[derive(ArgEnum, Clone)]
+enum TokenListOutput {
+    /// Output the details as a table
+    Table,
+
+    /// Output the details as JSON
+    Json,
 }
 
 #[derive(Parser)]
@@ -59,7 +66,7 @@ struct CreateArguments {
 
     /// Output of the token
     #[clap(long, short, default_value = "table", arg_enum)]
-    output: TokenOutput,
+    output: TokenCreateOutput,
 
     #[clap(from_global)]
     base_url: Url,
@@ -72,7 +79,7 @@ struct CreateArguments {
 pub struct ListArguments {
     /// Output of the token
     #[clap(long, short, default_value = "table", arg_enum)]
-    output: TokenOutput,
+    output: TokenListOutput,
 
     /// Sort the result according to the following field
     #[clap(long, arg_enum)]
@@ -114,14 +121,14 @@ async fn handle_token_create_command(args: CreateArguments) -> Result<()> {
 
     let token = token_create(&config, NewToken::new(args.name)).await?;
 
-    if !matches!(args.output, TokenOutput::Condensed) {
+    if !matches!(args.output, TokenCreateOutput::Token) {
         info!("Successfully created new token");
     }
 
     match args.output {
-        TokenOutput::Table => output_details(GenericKeyValue::from_token(token)),
-        TokenOutput::Json => output_json(&token),
-        TokenOutput::Condensed => {
+        TokenCreateOutput::Table => output_details(GenericKeyValue::from_token(token)),
+        TokenCreateOutput::Json => output_json(&token),
+        TokenCreateOutput::Token => {
             print!("{}", token.token);
             Ok(())
         }
@@ -141,15 +148,11 @@ async fn handle_token_list_command(args: ListArguments) -> Result<()> {
     .await?;
 
     match args.output {
-        TokenOutput::Table => {
+        TokenListOutput::Table => {
             let rows: Vec<TokenRow> = tokens.into_iter().map(Into::into).collect();
             output_list(rows)
         }
-        TokenOutput::Json => output_json(&tokens),
-        TokenOutput::Condensed => {
-            let _ = tokens.into_iter().map(|token| println!("{}", token.id));
-            Ok(())
-        }
+        TokenListOutput::Json => output_json(&tokens),
     }
 }
 
