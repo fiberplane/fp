@@ -27,13 +27,13 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 
 #[derive(Parser)]
 enum SubCommand {
-    /// Create an event
+    /// Create a token
     Create(CreateArguments),
 
-    /// Search for an event
+    /// Lists all tokens
     List(ListArguments),
 
-    /// Delete an event
+    /// Deletes a token
     Delete(DeleteArguments),
 }
 
