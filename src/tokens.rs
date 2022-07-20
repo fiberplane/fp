@@ -54,7 +54,7 @@ enum TokenOutput {
 #[derive(Parser)]
 struct CreateArguments {
     /// Name of the token
-    #[clap(long, alias = "name")]
+    #[clap(long)]
     name: String,
 
     /// Output of the token
