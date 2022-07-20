@@ -45,7 +45,7 @@ enum TokenCreateOutput {
     /// Output the details as JSON
     Json,
 
-    /// Output only the token, without a trailing newline
+    /// Output only the token
     Token,
 }
 
@@ -129,7 +129,7 @@ async fn handle_token_create_command(args: CreateArguments) -> Result<()> {
         TokenCreateOutput::Table => output_details(GenericKeyValue::from_token(token)),
         TokenCreateOutput::Json => output_json(&token),
         TokenCreateOutput::Token => {
-            print!("{}", token.token);
+            println!("{}", token.token);
             Ok(())
         }
     }
