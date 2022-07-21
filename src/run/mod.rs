@@ -7,7 +7,7 @@ use clap::{ArgEnum, Parser, ValueHint};
 use fp_api_client::models::Cell;
 use futures::StreamExt;
 use std::io::ErrorKind;
-use std::{path::PathBuf, process::Stdio};
+use std::{env, path::PathBuf, process::Stdio};
 use tokio::io::{self, AsyncWriteExt};
 use tokio::{process::Command, signal};
 use tokio_util::io::ReaderStream;
