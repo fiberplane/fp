@@ -1,7 +1,7 @@
 mod notebook_writer;
 mod pty_terminal;
 mod shell_launcher;
-mod shell_type;
+pub mod shell_type;
 mod terminal_extractor;
 mod terminal_renderer;
 mod text_renderer;
