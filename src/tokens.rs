@@ -193,6 +193,15 @@ impl From<TokenSummary> for TokenRow {
 
 impl GenericKeyValue {
     fn from_token(token: Token) -> Vec<Self> {
-        vec![GenericKeyValue::new("Token:", token.token)]
+        vec![
+            GenericKeyValue::new("ID:", token.id),
+            GenericKeyValue::new("Title:", token.title),
+            GenericKeyValue::new("Token:", token.token),
+            GenericKeyValue::new("Created at:", token.created_at),
+            GenericKeyValue::new(
+                "Expires at:",
+                token.expires_at.unwrap_or_else(|| "Never".to_string()),
+            ),
+        ]
     }
 }
