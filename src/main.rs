@@ -31,6 +31,7 @@ mod proxies;
 mod run;
 mod shell;
 mod templates;
+mod tokens;
 mod triggers;
 mod update;
 mod users;
@@ -125,6 +126,9 @@ enum SubCommand {
     Proxies(proxies::Arguments),
 
     /// Run a command and send the output to a notebook
+    ///
+    /// Note: to run a command with pipes, you must wrap the command in quotes.
+    /// For example, `fp run "echo hello world | grep hello"`
     #[clap(trailing_var_arg = true)]
     Run(run::Arguments),
 
@@ -144,11 +148,15 @@ enum SubCommand {
     /// Launch a recorded shell session that'll show up in the notebook
     #[clap()]
     Shell(shell::Arguments),
+
     /// Interact with events
     ///
     /// Events allow you to mark a specific point in time when something occurred, such as a deployment.
     #[clap(alias = "event")]
     Events(events::Arguments),
+
+    /// Interact with API tokens
+    Tokens(tokens::Arguments),
 
     /// Update the current FP binary
     #[clap()]
@@ -224,6 +232,7 @@ async fn main() {
         Templates(args) => templates::handle_command(args).await,
         Triggers(args) => triggers::handle_command(args).await,
         Events(args) => events::handle_command(args).await,
+        Tokens(args) => tokens::handle_command(args).await,
         Update(args) => update::handle_command(args).await,
         Users(args) => users::handle_command(args).await,
         Version(args) => version::handle_command(args).await,
