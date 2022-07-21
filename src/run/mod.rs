@@ -61,6 +61,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
     let mut child = Command::new(shell_path)
         .arg("-c")
         .arg(command)
+        .current_dir(env::current_dir()?)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .stdin(Stdio::piped())
