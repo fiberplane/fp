@@ -60,7 +60,7 @@ struct CreateArguments {
     title: String,
 
     /// Labels to add to the events (you can specify multiple labels).
-    #[clap(name = "label", short, long, required = true)]
+    #[clap(name = "label", short, long)]
     labels: Vec<KeyValueArgument>,
 
     /// Time at which the event occurred. Leave empty to use current time.
@@ -134,18 +134,24 @@ pub struct DeleteArguments {
 async fn handle_event_create_command(args: CreateArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
+    let key_values: HashMap<String, String> = args
+        .labels
+        .into_iter()
+        .map(|kv| (kv.key, kv.value))
+        .collect();
+    let labels = if !key_values.is_empty() {
+        Some(key_values)
+    } else {
+        None
+    };
+
     let time = args.time.map(|input| input.format(&Rfc3339).unwrap());
 
     let event = event_create(
         &config,
         NewEvent {
             title: args.title,
-            labels: Some(
-                args.labels
-                    .into_iter()
-                    .map(|kv| (kv.key, kv.value))
-                    .collect(),
-            ),
+            labels,
             time,
         },
     )
