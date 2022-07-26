@@ -990,7 +990,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "452ea8163d431b1cc799f7b6cbec514c62b901b18ba54778ce363374e64f12fc"
 dependencies = [
  "Inflector",
- "fp-bindgen-macros 2.0.0",
+ "fp-bindgen-macros",
  "http",
  "pretty_assertions",
  "proc-macro2",
@@ -999,17 +999,6 @@ dependencies = [
  "serde_bytes",
  "syn",
  "time",
-]
-
-[[package]]
-name = "fp-bindgen-macros"
-version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fp-bindgen.git?branch=main#59d067a6efbf349ab3e9df9e03b10c0804f6f059"
-dependencies = [
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
@@ -1026,10 +1015,11 @@ dependencies = [
 
 [[package]]
 name = "fp-bindgen-support"
-version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fp-bindgen.git?branch=main#59d067a6efbf349ab3e9df9e03b10c0804f6f059"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6efce769d719e4a3b402d4093b08458a65c2c4a95ac329bfc82ece7fb2128a18"
 dependencies = [
- "fp-bindgen-macros 0.1.0",
+ "fp-bindgen-macros",
  "once_cell",
  "rmp-serde",
  "serde",
@@ -1041,7 +1031,7 @@ dependencies = [
 [[package]]
 name = "fp-provider-runtime"
 version = "1.0.0-alpha.1"
-source = "git+ssh://git@github.com/fiberplane/providers.git?branch=main#24e654e2c26d90f19f267a988c64661ad6789a64"
+source = "git+ssh://git@github.com/fiberplane/providers.git?branch=main#c1b5f24c7f1309fb6f9b45f5d1a3958fcbbc7de4"
 dependencies = [
  "fp-bindgen-support",
  "rand 0.8.5",
