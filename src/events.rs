@@ -134,7 +134,8 @@ pub struct DeleteArguments {
 async fn handle_event_create_command(args: CreateArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
-    let key_values: HashMap<String, String> = args.labels
+    let key_values: HashMap<String, String> = args
+        .labels
         .into_iter()
         .map(|kv| (kv.key, kv.value))
         .collect();
