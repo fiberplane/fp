@@ -95,11 +95,11 @@ pub async fn notebook_picker(
     pb.set_message("Fetching recent notebooks");
     pb.enable_steady_tick(100);
 
-    let results = notebook_search(&config, NotebookSearch { labels: None }).await?;
+    let results = notebook_search(config, NotebookSearch { labels: None }).await?;
 
     pb.finish_and_clear();
 
-    if results.len() == 0 {
+    if results.is_empty() {
         return Err(anyhow!("No notebook id provided and no notebooks found"));
     }
 
@@ -146,11 +146,11 @@ pub async fn template_picker(
     pb.set_message("Fetching templates");
     pb.enable_steady_tick(100);
 
-    let results = template_list(&config, Some("updated_at"), Some("descending")).await?;
+    let results = template_list(config, Some("updated_at"), Some("descending")).await?;
 
     pb.finish_and_clear();
 
-    if results.len() == 0 {
+    if results.is_empty() {
         return Err(anyhow!("No templates found"));
     }
 
@@ -197,11 +197,11 @@ pub async fn trigger_picker(
     pb.set_message("Fetching triggers");
     pb.enable_steady_tick(100);
 
-    let results = trigger_list(&config).await?;
+    let results = trigger_list(config).await?;
 
     pb.finish_and_clear();
 
-    if results.len() == 0 {
+    if results.is_empty() {
         return Err(anyhow!("No triggers found"));
     }
 
@@ -248,11 +248,11 @@ pub async fn proxy_picker(
     pb.set_message("Fetching proxies");
     pb.enable_steady_tick(100);
 
-    let results = proxy_list(&config).await?;
+    let results = proxy_list(config).await?;
 
     pb.finish_and_clear();
 
-    if results.len() == 0 {
+    if results.is_empty() {
         return Err(anyhow!("No proxies found"));
     }
 

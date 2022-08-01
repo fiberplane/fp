@@ -276,21 +276,22 @@ impl From<DataSourceAndProxySummary> for DataSourceAndProxySummaryRow {
 
 impl GenericKeyValue {
     pub fn from_proxy(proxy: Proxy) -> Vec<GenericKeyValue> {
-        let datasources = if proxy.data_sources.is_empty() {
+        let data_sources = if proxy.data_sources.is_empty() {
             String::from("(none)")
         } else {
-            let mut datasources = String::new();
-            for datasource in proxy.data_sources {
-                datasources.push_str(&format!("{} ({:?})\n", datasource.name, datasource._type))
-            }
-            datasources
+            proxy
+                .data_sources
+                .iter()
+                .map(|datasource| format!("{} ({:?})", datasource.name, datasource._type))
+                .collect::<Vec<String>>()
+                .join("\n")
         };
 
         vec![
             GenericKeyValue::new("Name:", proxy.name),
             GenericKeyValue::new("ID:", proxy.id),
             GenericKeyValue::new("Status:", proxy.status.to_string()),
-            GenericKeyValue::new("Datasources:", datasources),
+            GenericKeyValue::new("Datasources:", data_sources),
         ]
     }
 }
