@@ -14,8 +14,13 @@ fn default_theme() -> impl theme::Theme {
     theme::SimpleTheme
 }
 
-/// Get the value from either a argument, interactive input, or from a default
-/// value.
+/// Get the value from either a CLI argument, interactive input, or from a
+/// default value. If no value is provided by the user and there is no default
+/// value, it will return None.
+///
+/// NOTE: If the user does not specifies a value through a cli argument, the
+/// interactive input will always be shown. This is a limitation that we
+/// currently not check if the invocation is interactive or not.
 pub fn text_opt<P>(prompt: P, argument: Option<String>, default: Option<String>) -> Option<String>
 where
     P: Into<String>,
@@ -50,7 +55,12 @@ where
 }
 
 /// Get the value from either a argument, interactive input, or from a default
-/// value.
+/// value. If the user does not supply a value then this function will return an
+/// error. Use `text_opt` if you want to allow a None value.
+///
+/// NOTE: If the user does not specifies a value through a cli argument, the
+/// interactive input will always be shown. This is a limitation that we
+/// currently not check if the invocation is interactive or not.
 pub fn text_req<P>(prompt: P, argument: Option<String>, default: Option<String>) -> Result<String>
 where
     P: Into<String>,
@@ -61,6 +71,17 @@ where
     }
 }
 
+/// Get a notebook ID from either a CLI argument, or from a interactive picker.
+///
+/// If the user has not specified the notebook ID through a CLI argument then it
+/// will retrieve recent notebooks using the notebook search endpoint, and allow
+/// the user to select one.
+///
+/// NOTE: This currently does not do any limiting of the result nor does it do
+/// any sorting. It will allow client side filtering.
+/// NOTE: If the user does not specifies a value through a cli argument, the
+/// interactive input will always be shown. This is a limitation that we
+/// currently not check if the invocation is interactive or not.
 pub async fn notebook_picker(
     config: &Configuration,
     argument: Option<Base64Uuid>,
@@ -101,6 +122,17 @@ pub async fn notebook_picker(
     }
 }
 
+/// Get a template ID from either a CLI argument, or from a interactive picker.
+///
+/// If the user has not specified the template ID through a CLI argument then it
+/// will retrieve recent templates using the template list endpoint, and allow
+/// the user to select one.
+///
+/// NOTE: This currently does not do any limiting of the result. It will allow
+/// client side filtering.
+/// NOTE: If the user does not specifies a value through a cli argument, the
+/// interactive input will always be shown. This is a limitation that we
+/// currently not check if the invocation is interactive or not.
 pub async fn template_picker(
     config: &Configuration,
     argument: Option<Base64Uuid>,
@@ -114,7 +146,7 @@ pub async fn template_picker(
     pb.set_message("Fetching templates");
     pb.enable_steady_tick(100);
 
-    let results = template_list(&config, Some("title"), Some("ascending")).await?;
+    let results = template_list(&config, Some("updated_at"), Some("descending")).await?;
 
     pb.finish_and_clear();
 
@@ -141,6 +173,17 @@ pub async fn template_picker(
     }
 }
 
+/// Get a trigger ID from either a CLI argument, or from a interactive picker.
+///
+/// If the user has not specified the trigger ID through a CLI argument then it
+/// will retrieve recent triggers using the trigger list endpoint, and allow
+/// the user to select one.
+///
+/// NOTE: This currently does not do any limiting of the result nor does it do
+/// any sorting. It will allow client side filtering.
+/// NOTE: If the user does not specifies a value through a cli argument, the
+/// interactive input will always be shown. This is a limitation that we
+/// currently not check if the invocation is interactive or not.
 pub async fn trigger_picker(
     config: &Configuration,
     argument: Option<Base64Uuid>,
@@ -181,6 +224,17 @@ pub async fn trigger_picker(
     }
 }
 
+/// Get a proxy ID from either a CLI argument, or from a interactive picker.
+///
+/// If the user has not specified the proxy ID through a CLI argument then it
+/// will retrieve recent proxies using the proxy list endpoint, and allow
+/// the user to select one.
+///
+/// NOTE: This currently does not do any limiting of the result nor does it do
+/// any sorting. It will allow client side filtering.
+/// NOTE: If the user does not specifies a value through a cli argument, the
+/// interactive input will always be shown. This is a limitation that we
+/// currently not check if the invocation is interactive or not.
 pub async fn proxy_picker(
     config: &Configuration,
     argument: Option<Base64Uuid>,

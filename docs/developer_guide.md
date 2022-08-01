@@ -7,14 +7,15 @@ to use.
 
 ## Prefer simplicity
 
-A command that does one thing and does it good, is better than a command that
+A command that does one thing and does it well, is better than a command that
 does lots of things but is hard to understand. This also applies to arguments.
-If a argument has lots of different usages it requires that the user carefully
-reads the usage doc, but it better to separate this into separate arguments. By
-utilizing mutual exclusive arguments in clap it is not possible to have the user
-supply both.
+If an argument has lots of different usages it requires that the user carefully
+reads the usage doc, but it is better to separate this into separate arguments.
+By utilizing mutual exclusive arguments in clap it is not possible to have the
+user supply both.
 
-Of course it is not possible to always adhere to this.
+Of course it is not possible to always adhere to this and some more complex
+scenario's are required.
 
 ## Interactive usage
 
