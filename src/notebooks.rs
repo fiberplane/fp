@@ -1,5 +1,5 @@
 use crate::config::api_client_configuration;
-use crate::interactive::{self, notebook_picker};
+use crate::interactive;
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use crate::KeyValueArgument;
 use anyhow::{anyhow, Context, Result};
@@ -366,7 +366,7 @@ async fn handle_search_command(args: SearchArgs) -> Result<()> {
 
 async fn handle_open_command(args: OpenArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    let notebook_id = notebook_picker(&config, args.notebook_id).await?;
+    let notebook_id = interactive::notebook_picker(&config, args.notebook_id).await?;
 
     let url = notebook_url(args.base_url, &notebook_id.to_string());
     if open(&url).is_err() {
@@ -378,7 +378,7 @@ async fn handle_open_command(args: OpenArgs) -> Result<()> {
 
 async fn handle_delete_command(args: DeleteArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    let notebook_id = notebook_picker(&config, args.notebook_id).await?;
+    let notebook_id = interactive::notebook_picker(&config, args.notebook_id).await?;
 
     delete_notebook(&config, &notebook_id.to_string())
         .await
@@ -391,7 +391,7 @@ async fn handle_delete_command(args: DeleteArgs) -> Result<()> {
 async fn handle_append_cell_command(args: AppendCellArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
-    let notebook_id = notebook_picker(&config, args.notebook_id).await?;
+    let notebook_id = interactive::notebook_picker(&config, args.notebook_id).await?;
 
     let cell = if let Some(content) = args.text {
         Cell::TextCell {
