@@ -16,8 +16,9 @@ use fp_api_client::models::{
     Cell, Label, NewNotebook, Notebook, NotebookSearch, NotebookSummary, NotebookVisibility,
     TimeRange,
 };
+use std::collections::HashMap;
+use std::path::PathBuf;
 use std::time::Duration;
-use std::{collections::HashMap, path::PathBuf};
 use time::OffsetDateTime;
 use time_util::clap_rfc3339;
 use tracing::{info, trace};
