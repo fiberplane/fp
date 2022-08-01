@@ -70,101 +70,6 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
     }
 }
 
-#[derive(Parser)]
-pub struct GetArgs {
-    /// ID of the notebook
-    notebook_id: String,
-
-    /// Output of the notebook
-    #[clap(long, short, default_value = "table", arg_enum)]
-    output: SingleNotebookOutput,
-
-    #[clap(from_global)]
-    base_url: Url,
-
-    #[clap(from_global)]
-    config: Option<PathBuf>,
-}
-
-#[derive(Parser)]
-pub struct ListArgs {
-    /// Output of the notebook
-    #[clap(long, short, default_value = "table", arg_enum)]
-    output: NotebookOutput,
-
-    #[clap(from_global)]
-    base_url: Url,
-
-    #[clap(from_global)]
-    config: Option<PathBuf>,
-}
-
-#[derive(Parser)]
-pub struct SearchArgs {
-    /// Labels to search notebooks for (you can specify multiple labels).
-    #[clap(name = "label", short, long)]
-    labels: Vec<KeyValueArgument>,
-
-    /// Output of the notebooks
-    #[clap(long, short, default_value = "table", arg_enum)]
-    output: NotebookOutput,
-
-    #[clap(from_global)]
-    base_url: Url,
-
-    #[clap(from_global)]
-    config: Option<PathBuf>,
-}
-
-#[derive(Parser)]
-pub struct OpenArgs {
-    /// ID of the notebook
-    notebook_id: Option<Base64Uuid>,
-
-    #[clap(from_global)]
-    base_url: Url,
-
-    #[clap(from_global)]
-    config: Option<PathBuf>,
-}
-
-#[derive(Parser)]
-pub struct DeleteArgs {
-    /// ID of the notebook
-    notebook_id: Option<Base64Uuid>,
-
-    #[clap(from_global)]
-    base_url: Url,
-
-    #[clap(from_global)]
-    config: Option<PathBuf>,
-}
-
-#[derive(Parser)]
-pub struct AppendCellArgs {
-    /// ID of the notebook
-    #[clap(long, short, env)]
-    notebook_id: Option<Base64Uuid>,
-
-    /// Append a text cell
-    #[clap(long, required_unless_present = "code",  conflicts_with_all = &["code"])]
-    text: Option<String>,
-
-    /// Append a code cell
-    #[clap(long, required_unless_present = "text", conflicts_with_all = &["text"])]
-    code: Option<String>,
-
-    #[clap(from_global)]
-    base_url: Url,
-
-    #[clap(from_global)]
-    config: Option<PathBuf>,
-
-    /// Output type to display
-    #[clap(long, short, default_value = "table", arg_enum)]
-    output: CellOutput,
-}
-
 /// A generic output for notebook related commands.
 #[derive(ArgEnum, Clone)]
 enum SingleNotebookOutput {
@@ -301,6 +206,22 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
     }
 }
 
+#[derive(Parser)]
+pub struct GetArgs {
+    /// ID of the notebook
+    notebook_id: String,
+
+    /// Output of the notebook
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: SingleNotebookOutput,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
 async fn handle_get_command(args: GetArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
     trace!(notebook_id = ?args.notebook_id, "fetching notebook");
@@ -320,6 +241,19 @@ async fn handle_get_command(args: GetArgs) -> Result<()> {
     }
 }
 
+#[derive(Parser)]
+pub struct ListArgs {
+    /// Output of the notebook
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: NotebookOutput,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
 async fn handle_list_command(args: ListArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
     let notebooks = notebook_list(&config).await?;
@@ -336,6 +270,23 @@ async fn handle_list_command(args: ListArgs) -> Result<()> {
         }
         NotebookOutput::Json => output_json(&notebooks),
     }
+}
+
+#[derive(Parser)]
+pub struct SearchArgs {
+    /// Labels to search notebooks for (you can specify multiple labels).
+    #[clap(name = "label", short, long)]
+    labels: Vec<KeyValueArgument>,
+
+    /// Output of the notebooks
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: NotebookOutput,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
 }
 
 async fn handle_search_command(args: SearchArgs) -> Result<()> {
@@ -365,6 +316,18 @@ async fn handle_search_command(args: SearchArgs) -> Result<()> {
     }
 }
 
+#[derive(Parser)]
+pub struct OpenArgs {
+    /// ID of the notebook
+    notebook_id: Option<Base64Uuid>,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
 async fn handle_open_command(args: OpenArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
     let notebook_id = interactive::notebook_picker(&config, args.notebook_id).await?;
@@ -377,6 +340,18 @@ async fn handle_open_command(args: OpenArgs) -> Result<()> {
     Ok(())
 }
 
+#[derive(Parser)]
+pub struct DeleteArgs {
+    /// ID of the notebook
+    notebook_id: Option<Base64Uuid>,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
 async fn handle_delete_command(args: DeleteArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
     let notebook_id = interactive::notebook_picker(&config, args.notebook_id).await?;
@@ -387,6 +362,31 @@ async fn handle_delete_command(args: DeleteArgs) -> Result<()> {
 
     info!(%notebook_id, "Deleted notebook");
     Ok(())
+}
+
+#[derive(Parser)]
+pub struct AppendCellArgs {
+    /// ID of the notebook
+    #[clap(long, short, env)]
+    notebook_id: Option<Base64Uuid>,
+
+    /// Append a text cell
+    #[clap(long, required_unless_present = "code",  conflicts_with_all = &["code"])]
+    text: Option<String>,
+
+    /// Append a code cell
+    #[clap(long, required_unless_present = "text", conflicts_with_all = &["text"])]
+    code: Option<String>,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+
+    /// Output type to display
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: CellOutput,
 }
 
 async fn handle_append_cell_command(args: AppendCellArgs) -> Result<()> {
