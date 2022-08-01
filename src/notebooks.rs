@@ -72,7 +72,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 #[derive(Parser)]
 pub struct GetArgs {
     /// ID of the notebook
-    id: String,
+    notebook_id: String,
 
     /// Output of the notebook
     #[clap(long, short, default_value = "table", arg_enum)]
@@ -142,6 +142,7 @@ pub struct DeleteArgs {
 #[derive(Parser)]
 pub struct AppendCellArgs {
     /// ID of the notebook
+    #[clap(long, short, env)]
     notebook_id: Option<Base64Uuid>,
 
     /// Append a text cell
@@ -301,9 +302,9 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
 
 async fn handle_get_command(args: GetArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    trace!(id = ?args.id, "fetching notebook");
+    trace!(notebook_id = ?args.notebook_id, "fetching notebook");
 
-    let notebook = get_notebook(&config, &args.id).await?;
+    let notebook = get_notebook(&config, &args.notebook_id).await?;
 
     match args.output {
         SingleNotebookOutput::Table => output_details(GenericKeyValue::from_notebook(notebook)),
