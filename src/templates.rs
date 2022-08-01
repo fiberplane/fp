@@ -529,7 +529,7 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
     let mut notebook: core::NewNotebook = serde_json::to_string(&notebook)
         .and_then(|s| serde_json::from_str(&s))
         .with_context(|| "Error converting from API client model to core model")?;
-    let title = notebook.title.clone();
+    let notebook_title = notebook.title.clone();
 
     // Add image URLs to ImageCells that were uploaded to the Studio.
     //
@@ -552,14 +552,13 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
     // plain strings (rather than JSON objects) so we'll convert it locally instead
     let template = notebook_to_template(notebook);
 
-    // TODO
-    // let title = interactive::
+    let title = interactive::text_opt("Title", args.title, None);
     let description = interactive::text_opt("Description", args.description, None);
 
     // Create or update the template
     let template = if let Some(template_id) = args.template_id {
         let template = UpdateTemplate {
-            title: args.title,
+            title,
             description,
             body: Some(template),
         };
@@ -570,7 +569,7 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
         template
     } else {
         let template = NewTemplate {
-            title: args.title.unwrap_or(title),
+            title: title.unwrap_or(notebook_title),
             description: description.unwrap_or_default(),
             body: template,
         };
