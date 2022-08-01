@@ -58,8 +58,10 @@ enum ListKeysOutput {
 async fn handle_list_keys_command(args: ListKeysArgs) -> Result<()> {
     use ListKeysOutput::*;
 
+    let prefix = interactive::text_opt("Prefix", args.prefix, None);
+
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    let keys = label_keys_list(&config, args.prefix.as_deref()).await?;
+    let keys = label_keys_list(&config, prefix.as_deref()).await?;
 
     match args.output {
         List => output_string_list(keys),
