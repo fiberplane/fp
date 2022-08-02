@@ -489,10 +489,7 @@ async fn expand_template_file(args: ExpandArguments) -> Result<Notebook> {
     } else {
         Vec::new()
     };
-    expander.add_ext_var(
-        "PROXY_DATA_SOURCES".to_string(),
-        serde_json::to_value(&data_sources)?,
-    );
+    expander.set_proxy_data_sources(serde_json::to_value(&data_sources)?);
 
     let template_args = if let Some(args) = args.template_arguments {
         args.0
