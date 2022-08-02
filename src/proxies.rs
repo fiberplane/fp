@@ -291,7 +291,7 @@ impl GenericKeyValue {
             GenericKeyValue::new("Name:", proxy.name),
             GenericKeyValue::new("ID:", proxy.id),
             GenericKeyValue::new("Status:", proxy.status.to_string()),
-            GenericKeyValue::new("Datasources:", data_sources),
+            GenericKeyValue::new("Data sources:", data_sources),
         ]
     }
 }
