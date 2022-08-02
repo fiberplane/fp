@@ -22,6 +22,7 @@ mod auth;
 mod config;
 mod events;
 mod experiments;
+mod interactive;
 mod labels;
 mod manifest;
 mod notebooks;

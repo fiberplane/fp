@@ -1,7 +1,9 @@
 use crate::config::api_client_configuration;
+use crate::interactive;
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use crate::KeyValueArgument;
 use anyhow::{anyhow, Context, Result};
+use base64uuid::Base64Uuid;
 use clap::{ArgEnum, Parser, ValueHint};
 use cli_table::Table;
 use fiberplane::protocols::core;
@@ -14,7 +16,9 @@ use fp_api_client::models::{
     Cell, Label, NewNotebook, Notebook, NotebookSearch, NotebookSummary, NotebookVisibility,
     TimeRange,
 };
-use std::{collections::HashMap, path::PathBuf, time::Duration};
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::time::Duration;
 use time::OffsetDateTime;
 use time_util::clap_rfc3339;
 use tracing::{info, trace};
@@ -66,6 +70,39 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
     }
 }
 
+/// A generic output for notebook related commands.
+#[derive(ArgEnum, Clone)]
+enum SingleNotebookOutput {
+    /// Output the result as a table
+    Table,
+
+    /// Output the result as a JSON encoded object
+    Json,
+
+    /// Output the notebook as Markdown
+    Markdown,
+}
+
+/// A generic output for notebook related commands.
+#[derive(ArgEnum, Clone)]
+enum NotebookOutput {
+    /// Output the result as a table
+    Table,
+
+    /// Output the result as a JSON encoded object
+    Json,
+}
+
+/// Output for cell related commands
+#[derive(ArgEnum, Clone)]
+enum CellOutput {
+    /// Output the result as a table
+    Table,
+
+    /// Output the result as a JSON encoded object
+    Json,
+}
+
 #[derive(Parser)]
 pub struct CreateArgs {
     /// Title for the new notebook
@@ -101,130 +138,6 @@ pub struct CreateArgs {
     config: Option<PathBuf>,
 }
 
-#[derive(Parser)]
-pub struct GetArgs {
-    /// ID of the notebook
-    id: String,
-
-    /// Output of the notebook
-    #[clap(long, short, default_value = "table", arg_enum)]
-    output: SingleNotebookOutput,
-
-    #[clap(from_global)]
-    base_url: Url,
-
-    #[clap(from_global)]
-    config: Option<PathBuf>,
-}
-
-#[derive(Parser)]
-pub struct ListArgs {
-    /// Output of the notebook
-    #[clap(long, short, default_value = "table", arg_enum)]
-    output: NotebookOutput,
-
-    #[clap(from_global)]
-    base_url: Url,
-
-    #[clap(from_global)]
-    config: Option<PathBuf>,
-}
-
-#[derive(Parser)]
-pub struct SearchArgs {
-    /// Labels to search notebooks for (you can specify multiple labels).
-    #[clap(name = "label", short, long)]
-    labels: Vec<KeyValueArgument>,
-
-    /// Output of the notebooks
-    #[clap(long, short, default_value = "table", arg_enum)]
-    output: NotebookOutput,
-
-    #[clap(from_global)]
-    base_url: Url,
-
-    #[clap(from_global)]
-    config: Option<PathBuf>,
-}
-
-#[derive(Parser)]
-pub struct OpenArgs {
-    /// ID of the notebook
-    id: String,
-
-    #[clap(from_global)]
-    base_url: Url,
-}
-
-#[derive(Parser)]
-pub struct DeleteArgs {
-    /// ID of the notebook
-    id: String,
-
-    #[clap(from_global)]
-    base_url: Url,
-
-    #[clap(from_global)]
-    config: Option<PathBuf>,
-}
-
-#[derive(Parser)]
-pub struct AppendCellArgs {
-    /// ID of the notebook
-    id: String,
-
-    /// Append a text cell
-    #[clap(long, conflicts_with_all = &["code"])]
-    text: Option<String>,
-
-    /// Append a code cell
-    #[clap(long, conflicts_with_all = &["text"])]
-    code: Option<String>,
-
-    #[clap(from_global)]
-    base_url: Url,
-
-    #[clap(from_global)]
-    config: Option<PathBuf>,
-
-    /// Output type to display
-    #[clap(long, short, default_value = "table", arg_enum)]
-    output: CellOutput,
-}
-
-/// A generic output for notebook related commands.
-#[derive(ArgEnum, Clone)]
-enum SingleNotebookOutput {
-    /// Output the result as a table
-    Table,
-
-    /// Output the result as a JSON encoded object
-    Json,
-
-    /// Output the notebook as Markdown
-    Markdown,
-}
-
-/// A generic output for notebook related commands.
-#[derive(ArgEnum, Clone)]
-enum NotebookOutput {
-    /// Output the result as a table
-    Table,
-
-    /// Output the result as a JSON encoded object
-    Json,
-}
-
-/// Output for cell related commands
-#[derive(ArgEnum, Clone)]
-enum CellOutput {
-    /// Output the result as a table
-    Table,
-
-    /// Output the result as a JSON encoded object
-    Json,
-}
-
 async fn handle_create_command(args: CreateArgs) -> Result<()> {
     let labels = match args.labels.len() {
         0 => None,
@@ -246,7 +159,7 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
         .unix_timestamp() as f64;
 
     let to = args
-        .from
+        .to
         .unwrap_or_else(OffsetDateTime::now_utc)
         .unix_timestamp() as f64;
 
@@ -265,13 +178,14 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
             labels: Default::default(),
         },
     };
-    let title = if let Some(title) = args.title {
-        title
-    } else if !notebook.title.is_empty() {
-        notebook.title
-    } else {
+
+    let default_title = if notebook.title.is_empty() {
         "New Notebook".to_string()
+    } else {
+        notebook.title
     };
+    let title = interactive::text_req("Title", args.title, Some(default_title.to_string()))?;
+
     let notebook = NewNotebook {
         title,
         time_range: Box::new(TimeRange { from, to }),
@@ -285,18 +199,34 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
     match args.output {
         NotebookOutput::Table => {
             info!("Successfully created new notebook");
-            println!("{}", notebook_url(args.base_url, notebook.id));
+            println!("{}", notebook_url(args.base_url, &notebook.id));
             Ok(())
         }
         NotebookOutput::Json => output_json(&notebook),
     }
 }
 
+#[derive(Parser)]
+pub struct GetArgs {
+    /// ID of the notebook
+    notebook_id: String,
+
+    /// Output of the notebook
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: SingleNotebookOutput,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
 async fn handle_get_command(args: GetArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    trace!(id = ?args.id, "fetching notebook");
+    trace!(notebook_id = ?args.notebook_id, "fetching notebook");
 
-    let notebook = get_notebook(&config, &args.id).await?;
+    let notebook = get_notebook(&config, &args.notebook_id).await?;
 
     match args.output {
         SingleNotebookOutput::Table => output_details(GenericKeyValue::from_notebook(notebook)),
@@ -309,6 +239,19 @@ async fn handle_get_command(args: GetArgs) -> Result<()> {
             Ok(())
         }
     }
+}
+
+#[derive(Parser)]
+pub struct ListArgs {
+    /// Output of the notebook
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: NotebookOutput,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
 }
 
 async fn handle_list_command(args: ListArgs) -> Result<()> {
@@ -327,6 +270,23 @@ async fn handle_list_command(args: ListArgs) -> Result<()> {
         }
         NotebookOutput::Json => output_json(&notebooks),
     }
+}
+
+#[derive(Parser)]
+pub struct SearchArgs {
+    /// Labels to search notebooks for (you can specify multiple labels).
+    #[clap(name = "label", short, long)]
+    labels: Vec<KeyValueArgument>,
+
+    /// Output of the notebooks
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: NotebookOutput,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
 }
 
 async fn handle_search_command(args: SearchArgs) -> Result<()> {
@@ -356,8 +316,23 @@ async fn handle_search_command(args: SearchArgs) -> Result<()> {
     }
 }
 
+#[derive(Parser)]
+pub struct OpenArgs {
+    /// ID of the notebook
+    notebook_id: Option<Base64Uuid>,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
 async fn handle_open_command(args: OpenArgs) -> Result<()> {
-    let url = notebook_url(args.base_url, args.id);
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let notebook_id = interactive::notebook_picker(&config, args.notebook_id).await?;
+
+    let url = notebook_url(args.base_url, &notebook_id.to_string());
     if open(&url).is_err() {
         info!("Please go to {} to view the notebook", url);
     }
@@ -365,9 +340,21 @@ async fn handle_open_command(args: OpenArgs) -> Result<()> {
     Ok(())
 }
 
+#[derive(Parser)]
+pub struct DeleteArgs {
+    /// ID of the notebook
+    notebook_id: Option<Base64Uuid>,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
 async fn handle_delete_command(args: DeleteArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    let notebook_id = args.id;
+    let notebook_id = interactive::notebook_picker(&config, args.notebook_id).await?;
 
     delete_notebook(&config, &notebook_id.to_string())
         .await
@@ -377,8 +364,35 @@ async fn handle_delete_command(args: DeleteArgs) -> Result<()> {
     Ok(())
 }
 
+#[derive(Parser)]
+pub struct AppendCellArgs {
+    /// ID of the notebook
+    #[clap(long, short, env)]
+    notebook_id: Option<Base64Uuid>,
+
+    /// Append a text cell
+    #[clap(long, required_unless_present = "code",  conflicts_with_all = &["code"])]
+    text: Option<String>,
+
+    /// Append a code cell
+    #[clap(long, required_unless_present = "text", conflicts_with_all = &["text"])]
+    code: Option<String>,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+
+    /// Output type to display
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: CellOutput,
+}
+
 async fn handle_append_cell_command(args: AppendCellArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
+
+    let notebook_id = interactive::notebook_picker(&config, args.notebook_id).await?;
 
     let cell = if let Some(content) = args.text {
         Cell::TextCell {
@@ -395,20 +409,23 @@ async fn handle_append_cell_command(args: AppendCellArgs) -> Result<()> {
             read_only: None,
         }
     } else {
-        panic!("Must provide a cell type");
+        unreachable!();
     };
 
-    let cell = notebook_cells_append(&config, &args.id, vec![cell])
+    let cell = notebook_cells_append(&config, &notebook_id.to_string(), vec![cell])
         .await?
         .pop()
         .ok_or_else(|| anyhow!("Expected a single cell"))?;
     match args.output {
         CellOutput::Json => output_json(&cell),
-        CellOutput::Table => output_details(GenericKeyValue::from_cell(cell)),
+        CellOutput::Table => {
+            info!("Created cell:");
+            output_details(GenericKeyValue::from_cell(cell))
+        }
     }
 }
 
-fn notebook_url(base_url: Url, id: String) -> String {
+fn notebook_url(base_url: Url, id: &str) -> String {
     format!("{}notebook/{}", base_url, id)
 }
 

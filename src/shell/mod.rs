@@ -1,3 +1,18 @@
+use self::notebook_writer::NotebookWriter;
+use self::pty_terminal::PtyTerminal;
+use self::shell_launcher::{ShellLauncher, NESTED_SHELL_SESSION_ENV_VAR_NAME};
+use self::terminal_extractor::{PtyOutput, TerminalExtractor};
+use self::terminal_renderer::TerminalRenderer;
+use self::text_renderer::TextRenderer;
+use crate::config::api_client_configuration;
+use crate::interactive;
+use anyhow::Result;
+use base64uuid::Base64Uuid;
+use clap::Parser;
+use std::path::PathBuf;
+use std::time::Duration;
+use tracing::instrument;
+
 mod notebook_writer;
 mod pty_terminal;
 mod shell_launcher;
@@ -6,25 +21,11 @@ mod terminal_extractor;
 mod terminal_renderer;
 mod text_renderer;
 
-use self::{
-    notebook_writer::NotebookWriter,
-    pty_terminal::PtyTerminal,
-    shell_launcher::{ShellLauncher, NESTED_SHELL_SESSION_ENV_VAR_NAME},
-    terminal_extractor::{PtyOutput, TerminalExtractor},
-    terminal_renderer::TerminalRenderer,
-    text_renderer::TextRenderer,
-};
-use crate::config::api_client_configuration;
-use anyhow::Result;
-use clap::Parser;
-use std::{path::PathBuf, time::Duration};
-use tracing::instrument;
-
 #[derive(Parser)]
 pub struct Arguments {
     // ID of the notebook
-    #[clap()]
-    notebook_id: String,
+    #[clap(long, short, env)]
+    notebook_id: Option<Base64Uuid>,
 
     #[clap(from_global)]
     base_url: url::Url,
@@ -44,13 +45,15 @@ pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
     }
 
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    let launcher = ShellLauncher::new(args.notebook_id.clone());
+    let notebook_id = interactive::notebook_picker(&config, args.notebook_id).await?;
+
+    let launcher = ShellLauncher::new(notebook_id.into());
     let mut term_renderer = TerminalRenderer::new(tokio::io::stdout());
     let mut initialized = false;
     let mut interval = tokio::time::interval(Duration::from_millis(250));
 
     let (notebook_writer, (mut terminal, pty_reader)) = tokio::try_join!(
-        NotebookWriter::new(config, args.notebook_id),
+        NotebookWriter::new(config, notebook_id.into()),
         PtyTerminal::new(launcher)
     )?;
 

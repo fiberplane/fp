@@ -1,6 +1,6 @@
 use super::parse_logs::{contains_logs, parse_logs};
-use super::Arguments;
 use anyhow::{anyhow, Context, Error, Result};
+use base64uuid::Base64Uuid;
 use bytes::Bytes;
 use fiberplane::protocols::core;
 use fp_api_client::apis::configuration::Configuration;
@@ -19,7 +19,8 @@ enum CellType {
 }
 
 pub struct CellWriter {
-    args: Arguments,
+    notebook_id: Base64Uuid,
+    command: Vec<String>,
     config: Configuration,
     cell: Option<core::Cell>,
     buffer: Vec<u8>,
@@ -30,9 +31,10 @@ pub struct CellWriter {
 }
 
 impl CellWriter {
-    pub fn new(args: Arguments, config: Configuration) -> Self {
+    pub fn new(config: Configuration, notebook_id: Base64Uuid, command: Vec<String>) -> Self {
         Self {
-            args,
+            notebook_id,
+            command,
             config,
             cell: None,
             buffer: Vec::new(),
@@ -136,7 +138,7 @@ impl CellWriter {
     }
 
     async fn append_cell(&self, cell: Cell) -> Result<core::Cell> {
-        let cell = notebook_cells_append(&self.config, &self.args.notebook_id, vec![cell])
+        let cell = notebook_cells_append(&self.config, &self.notebook_id.to_string(), vec![cell])
             .await
             .with_context(|| "Error appending cell to notebook")?
             .pop()
@@ -150,6 +152,6 @@ impl CellWriter {
         let cwd = current_dir()
             .map(|p| p.display().to_string())
             .unwrap_or_default();
-        format!("{}\n{} ❯ {}", timestamp, cwd, self.args.command.join(" "),)
+        format!("{}\n{} ❯ {}", timestamp, cwd, self.command.join(" "),)
     }
 }
