@@ -1,7 +1,9 @@
 use crate::config::api_client_configuration;
+use crate::interactive;
 use crate::output::{output_details, output_json, GenericKeyValue};
 use crate::templates::NOTEBOOK_ID_REGEX;
 use anyhow::{anyhow, Context, Result};
+use base64uuid::Base64Uuid;
 use clap::{ArgEnum, Parser};
 use directories::ProjectDirs;
 use fiberplane::protocols::{core, formatting};
@@ -43,7 +45,7 @@ enum SubCommand {
 struct MessageArgs {
     /// The notebook to append the message to
     #[clap(long, short, env)]
-    notebook_id: String,
+    notebook_id: Option<Base64Uuid>,
 
     /// The message to append
     message: Vec<String>,
@@ -61,19 +63,20 @@ struct MessageArgs {
 
 #[derive(Parser)]
 struct CrawlArgs {
-    notebook: String,
-
-    #[clap(from_global)]
-    base_url: Url,
-
-    #[clap(from_global)]
-    config: Option<PathBuf>,
+    #[clap(long, short, env)]
+    notebook_id: Option<Base64Uuid>,
 
     #[clap(long, default_value = "10")]
     concurrent_downloads: u8,
 
     #[clap(long, short)]
     out_dir: PathBuf,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
 }
 
 #[derive(ArgEnum, Clone)]
@@ -94,6 +97,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 
 async fn handle_message_command(args: MessageArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
+    let notebook_id = interactive::notebook_picker(&config, args.notebook_id).await?;
     let mut cache = Cache::load().await?;
 
     // If we don't already know the user name, load it from the API and save it
@@ -126,7 +130,7 @@ async fn handle_message_command(args: MessageArgs) -> Result<()> {
         }]),
         read_only: None,
     };
-    let cell = notebook_cells_append(&config, &args.notebook_id, vec![cell])
+    let cell = notebook_cells_append(&config, &notebook_id.to_string(), vec![cell])
         .await
         .with_context(|| "Error appending cell to notebook")?
         .pop()
@@ -167,13 +171,9 @@ async fn handle_crawl_command(args: CrawlArgs) -> Result<()> {
     let mut crawled_notebooks = HashMap::new();
     let mut notebook_titles: HashMap<String, usize> = HashMap::new();
     let mut notebooks_to_crawl = VecDeque::new();
-    let starting_notebook_id = NOTEBOOK_ID_REGEX
-        .captures(&args.notebook)
-        .and_then(|c| c.get(1))
-        .ok_or_else(|| anyhow!("Invalid notebook URL or ID"))?
-        .as_str();
 
     let config = api_client_configuration(args.config, &args.base_url).await?;
+    let starting_notebook_id = interactive::notebook_picker(&config, args.notebook_id).await?;
 
     fs::create_dir_all(&args.out_dir)
         .await

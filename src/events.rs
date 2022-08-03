@@ -1,6 +1,6 @@
 use crate::config::api_client_configuration;
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
-use crate::KeyValueArgument;
+use crate::{interactive, KeyValueArgument};
 use anyhow::Result;
 use base64uuid::Base64Uuid;
 use clap::ArgEnum;
@@ -58,10 +58,10 @@ enum EventOutput {
 struct CreateArguments {
     /// Name of the event
     #[clap(long, alias = "name")]
-    title: String,
+    title: Option<String>,
 
     /// Labels to add to the events (you can specify multiple labels).
-    #[clap(name = "label", short, long, required = true)]
+    #[clap(name = "label", short, long)]
     labels: Vec<KeyValueArgument>,
 
     /// Time at which the event occurred. Leave empty to use current time.
@@ -147,6 +147,18 @@ pub struct DeleteArguments {
 async fn handle_event_create_command(args: CreateArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
+    let key_values: HashMap<String, String> = args
+        .labels
+        .into_iter()
+        .map(|kv| (kv.key, kv.value))
+        .collect();
+    let labels = if !key_values.is_empty() {
+        Some(key_values)
+    } else {
+        None
+    };
+
+    let title = interactive::text_req("Title", args.title, None)?;
     let time = args.time.map(|input| input.format(&Rfc3339).unwrap());
     let workspace_id = args.workspace_id.expect("workspace_id is required");
 
@@ -154,13 +166,8 @@ async fn handle_event_create_command(args: CreateArguments) -> Result<()> {
         &config,
         &workspace_id.to_string(),
         NewEvent {
-            title: args.title,
-            labels: Some(
-                args.labels
-                    .into_iter()
-                    .map(|kv| (kv.key, kv.value))
-                    .collect(),
-            ),
+            title,
+            labels,
             time,
         },
     )

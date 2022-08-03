@@ -1,8 +1,10 @@
 use self::cell_writer::CellWriter;
 use crate::config::api_client_configuration;
+use crate::interactive;
 use crate::output::{output_details, output_json, GenericKeyValue};
 use crate::shell::shell_type::ShellType;
 use anyhow::Result;
+use base64uuid::Base64Uuid;
 use clap::{ArgEnum, Parser, ValueHint};
 use fp_api_client::models::Cell;
 use futures::StreamExt;
@@ -22,7 +24,7 @@ mod timestamp;
 pub struct Arguments {
     /// The notebook to append the message to
     #[clap(long, short, env)]
-    notebook_id: String,
+    notebook_id: Option<Base64Uuid>,
 
     /// The command to run
     #[clap(value_hint = ValueHint::CommandWithArguments, multiple_values = true)]
@@ -55,6 +57,8 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
     let config = api_client_configuration(args.config.clone(), &args.base_url).await?;
     let command = args.command.join(" ");
 
+    let notebook_id = interactive::notebook_picker(&config, args.notebook_id).await?;
+
     let (shell_type, shell_path) = ShellType::auto_detect();
     debug!("Using {:?} to run command: \"{}\"", shell_type, &command);
 
@@ -79,7 +83,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
     let mut stdout = io::stdout();
     let mut stderr = io::stderr();
 
-    let mut cell_writer = CellWriter::new(args.clone(), config);
+    let mut cell_writer = CellWriter::new(config, notebook_id, args.command);
 
     loop {
         tokio::select! {
@@ -118,7 +122,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
         .base_url
         .join("/notebook/")
         .unwrap()
-        .join(&args.notebook_id)
+        .join(&notebook_id.to_string())
         .unwrap();
     if let Some(cell) = &cell {
         url.set_fragment(Some(cell.id()));

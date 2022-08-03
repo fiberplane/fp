@@ -1,4 +1,5 @@
 use crate::config::api_client_configuration;
+use crate::interactive;
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use anyhow::{anyhow, Context, Error, Result};
 use base64uuid::Base64Uuid;
@@ -166,17 +167,17 @@ struct ExpandArguments {
 
 #[derive(Parser)]
 struct ConvertArguments {
-    /// Notebook ID or URL to convert
-    #[clap()]
-    notebook: String,
+    /// Notebook ID
+    #[clap(long, short, env)]
+    notebook_id: Option<Base64Uuid>,
 
     /// Title of the template (defaults to the notebook title)
     #[clap(long)]
     title: Option<String>,
 
     /// Description of the template
-    #[clap(long, default_value = "")]
-    description: String,
+    #[clap(long)]
+    description: Option<String>,
 
     /// Update the given template instead of creating a new one
     #[clap(long)]
@@ -196,18 +197,14 @@ struct ConvertArguments {
 #[derive(Parser)]
 struct CreateArguments {
     /// Title of the template
-    #[clap(long, required = true)]
-    title: String,
+    #[clap(long)]
+    title: Option<String>,
 
     /// Description of the template
-    #[clap(long, default_value = "")]
-    description: String,
-
-    /// Update the given template instead of creating a new one
     #[clap(long)]
-    template_id: Option<Base64Uuid>,
+    description: Option<String>,
 
-    /// Path or URL of template file to expand
+    /// Path or URL of to the template
     #[clap(value_hint = ValueHint::AnyPath)]
     template: String,
 
@@ -226,7 +223,7 @@ struct CreateArguments {
 struct GetArguments {
     /// The ID of the template
     #[clap()]
-    template_id: Base64Uuid,
+    template_id: Option<Base64Uuid>,
 
     /// Output of the template
     #[clap(long, short, default_value = "table", arg_enum)]
@@ -243,7 +240,7 @@ struct GetArguments {
 struct RemoveArguments {
     /// The ID of the template
     #[clap()]
-    template_id: Base64Uuid,
+    template_id: Option<Base64Uuid>,
 
     #[clap(from_global)]
     base_url: Url,
@@ -289,7 +286,7 @@ struct ListExampleArguments {
 #[derive(Parser)]
 struct UpdateArguments {
     /// ID of the template to update
-    template_id: Base64Uuid,
+    template_id: Option<Base64Uuid>,
 
     /// Title of the template
     #[clap(long)]
@@ -492,10 +489,7 @@ async fn expand_template_file(args: ExpandArguments) -> Result<Notebook> {
     } else {
         Vec::new()
     };
-    expander.add_ext_var(
-        "PROXY_DATA_SOURCES".to_string(),
-        serde_json::to_value(&data_sources)?,
-    );
+    expander.set_proxy_data_sources(serde_json::to_value(&data_sources)?);
 
     let template_args = if let Some(args) = args.template_arguments {
         args.0
@@ -521,11 +515,9 @@ async fn expand_template_file(args: ExpandArguments) -> Result<Notebook> {
 async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
     // Load the notebook
     let config = api_client_configuration(args.config.clone(), &args.base_url).await?;
-    let id = &NOTEBOOK_ID_REGEX
-        .captures(&args.notebook)
-        .ok_or_else(|| anyhow!("Notebook URL is invalid"))?[1];
+    let notebook_id = interactive::notebook_picker(&config, args.notebook_id).await?;
 
-    let notebook = get_notebook(&config, id)
+    let notebook = get_notebook(&config, &notebook_id.to_string())
         .await
         .with_context(|| "Error fetching notebook")?;
     let notebook_id = notebook.id.clone();
@@ -534,7 +526,7 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
     let mut notebook: core::NewNotebook = serde_json::to_string(&notebook)
         .and_then(|s| serde_json::from_str(&s))
         .with_context(|| "Error converting from API client model to core model")?;
-    let title = notebook.title.clone();
+    let notebook_title = notebook.title.clone();
 
     // Add image URLs to ImageCells that were uploaded to the Studio.
     //
@@ -557,11 +549,14 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
     // plain strings (rather than JSON objects) so we'll convert it locally instead
     let template = notebook_to_template(notebook);
 
+    let title = interactive::text_opt("Title", args.title, None);
+    let description = interactive::text_opt("Description", args.description, None);
+
     // Create or update the template
     let template = if let Some(template_id) = args.template_id {
         let template = UpdateTemplate {
-            title: args.title,
-            description: Some(args.description),
+            title,
+            description,
             body: Some(template),
         };
         let template = template_update(&config, &template_id.to_string(), template)
@@ -571,8 +566,8 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
         template
     } else {
         let template = NewTemplate {
-            title: args.title.unwrap_or(title),
-            description: args.description,
+            title: title.unwrap_or(notebook_title),
+            description: description.unwrap_or_default(),
             body: template,
         };
         let template = template_create(&config, template)
@@ -594,10 +589,14 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
 
 async fn handle_create_command(args: CreateArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
+
+    let title = interactive::text_req("Title", args.title, Some("".to_owned()))?;
+    let description = interactive::text_req("Description", args.description, Some("".to_owned()))?;
+
     let body = load_template(&args.template).await?;
     let template = NewTemplate {
-        title: args.title,
-        description: args.description,
+        title,
+        description,
         body,
     };
 
@@ -618,7 +617,9 @@ async fn handle_create_command(args: CreateArguments) -> Result<()> {
 
 async fn handle_get_command(args: GetArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    let template = template_get(&config, &args.template_id.to_string()).await?;
+
+    let template_id = interactive::template_picker(&config, args.template_id).await?;
+    let template = template_get(&config, &template_id.to_string()).await?;
 
     match args.output {
         TemplateOutput::Table => output_details(GenericKeyValue::from_template(template)),
@@ -632,7 +633,8 @@ async fn handle_get_command(args: GetArguments) -> Result<()> {
 
 async fn handle_delete_command(args: RemoveArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    let template_id = args.template_id;
+
+    let template_id = interactive::template_picker(&config, args.template_id).await?;
 
     template_delete(&config, &template_id.to_string())
         .await
@@ -664,7 +666,8 @@ async fn handle_list_command(args: ListArguments) -> Result<()> {
 
 async fn handle_update_command(args: UpdateArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    let template_id = &args.template_id.to_string();
+
+    let template_id = interactive::template_picker(&config, args.template_id).await?;
 
     let body = if let Some(template) = args.template {
         Some(template)
@@ -684,7 +687,7 @@ async fn handle_update_command(args: UpdateArguments) -> Result<()> {
         body,
     };
 
-    let template = template_update(&config, template_id, template)
+    let template = template_update(&config, &template_id.to_string(), template)
         .await
         .with_context(|| format!("Error updating template {}", template_id))?;
     info!("Updated template");
