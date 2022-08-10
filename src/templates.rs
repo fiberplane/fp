@@ -7,7 +7,7 @@ use clap::{ArgEnum, Parser, ValueHint};
 use cli_table::Table;
 use fiberplane::protocols::core::{self, Cell, HeadingCell, HeadingType, TextCell, TimeRange};
 use fiberplane::sorting::{SortDirection, TemplateListSortFields};
-use fiberplane_templates::{notebook_to_template, TemplateExpander};
+use fp_templates::{notebook_to_template, TemplateExpander};
 use fp_api_client::apis::default_api::{
     get_notebook, notebook_create, proxy_data_sources_list, template_create, template_delete,
     template_example_expand, template_example_list, template_expand, template_get, template_list,
