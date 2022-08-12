@@ -92,6 +92,9 @@ impl CellWriter {
                     formatting: None,
                     time_range,
                     data,
+                    display_fields: None,
+                    hide_similar_values: None,
+                    expanded_indices: None,
                 };
                 let cell = self.append_cell(cell).await?;
                 self.cell = Some(cell);

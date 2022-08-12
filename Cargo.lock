@@ -146,9 +146,10 @@ checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 [[package]]
 name = "base64uuid"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#a801a0439ffe0fa83dc9d923cf769366e6ea25ff"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=single_player#5fc5795ad87d08ba679b40f44f7615dd26bb1f68"
 dependencies = [
  "base64",
+ "fp-bindgen",
  "serde",
  "thiserror",
  "uuid",
@@ -876,14 +877,17 @@ dependencies = [
 [[package]]
 name = "fiberplane"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#a801a0439ffe0fa83dc9d923cf769366e6ea25ff"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=single_player#5fc5795ad87d08ba679b40f44f7615dd26bb1f68"
 dependencies = [
+ "base64",
+ "base64uuid",
  "clap 3.2.11",
  "fp-bindgen",
  "lazy_static",
  "once_cell",
  "regex",
  "serde",
+ "serde_bytes",
  "strum",
  "strum_macros",
  "thiserror",
@@ -893,27 +897,12 @@ dependencies = [
 [[package]]
 name = "fiberplane-markdown"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#a801a0439ffe0fa83dc9d923cf769366e6ea25ff"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=single_player#5fc5795ad87d08ba679b40f44f7615dd26bb1f68"
 dependencies = [
  "fiberplane",
  "pulldown-cmark",
  "pulldown-cmark-to-cmark",
  "tracing",
-]
-
-[[package]]
-name = "fiberplane-templates"
-version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/templates.git?branch=main#4d07f27b5865144ef63bac97495da9c19a82c9ff"
-dependencies = [
- "fiberplane",
- "jrsonnet-evaluator",
- "jrsonnet-types",
- "lazy_static",
- "regex",
- "serde",
- "serde_json",
- "thiserror",
 ]
 
 [[package]]
@@ -945,7 +934,7 @@ dependencies = [
 
 [[package]]
 name = "fp"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "abort-on-drop",
  "anyhow",
@@ -960,9 +949,9 @@ dependencies = [
  "directories",
  "fiberplane",
  "fiberplane-markdown",
- "fiberplane-templates",
  "fp-api-client",
  "fp-provider-runtime",
+ "fp-templates",
  "futures",
  "futures-util",
  "grok",
@@ -1002,7 +991,7 @@ dependencies = [
 [[package]]
 name = "fp-api-client"
 version = "1.0.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=single_player#58fa041e329ad8f82d381418424a8d10bf839b95"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=single_player#5fc5795ad87d08ba679b40f44f7615dd26bb1f68"
 dependencies = [
  "reqwest",
  "serde",
@@ -1013,9 +1002,9 @@ dependencies = [
 
 [[package]]
 name = "fp-bindgen"
-version = "2.0.0"
+version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "452ea8163d431b1cc799f7b6cbec514c62b901b18ba54778ce363374e64f12fc"
+checksum = "eaa93b5b0597679bc3b8e40fd1e255b9671e52ad8f5955ffd67b3ec2289e3e81"
 dependencies = [
  "Inflector",
  "fp-bindgen-macros",
@@ -1075,6 +1064,21 @@ dependencies = [
  "wasmer-compiler-cranelift",
  "wasmer-compiler-singlepass",
  "wasmer-engine-universal",
+]
+
+[[package]]
+name = "fp-templates"
+version = "0.1.0"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=single_player#5fc5795ad87d08ba679b40f44f7615dd26bb1f68"
+dependencies = [
+ "fiberplane",
+ "jrsonnet-evaluator",
+ "jrsonnet-types",
+ "lazy_static",
+ "regex",
+ "serde",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]
@@ -3358,7 +3362,7 @@ checksum = "42657b1a6f4d817cda8e7a0ace261fe0cc946cf3a80314390b22cc61ae080792"
 [[package]]
 name = "time_util"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#a801a0439ffe0fa83dc9d923cf769366e6ea25ff"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=single_player#5fc5795ad87d08ba679b40f44f7615dd26bb1f68"
 dependencies = [
  "anyhow",
  "serde",
