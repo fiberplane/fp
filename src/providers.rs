@@ -33,15 +33,15 @@ pub struct InvokeArguments {
     pub request: String,
 
     /// Type of query for the provider (available options are set by the provider)
-    #[clap(long, short)]
+    #[clap(long, short = 't')]
     pub query_type: String,
 
     /// Data to be sent to the provider
-    #[clap(long, short = 'd')]
+    #[clap(long, short = 'q')]
     pub query_data: Vec<u8>,
 
     /// Mime type of the query data
-    #[clap(long, short, default_value = "application/x-www-form-urlencoded")]
+    #[clap(long, short = 'm', default_value = "application/x-www-form-urlencoded")]
     pub query_mime_type: String,
 
     /// JSON encoded config that will be sent to the provider
