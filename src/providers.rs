@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
-use fp_provider_runtime::spec::types::{ProviderRequest, ProviderResponse};
+use fp_provider_runtime::spec::types::{Blob, ProviderRequest};
+use serde_bytes::ByteBuf;
 
 #[derive(Parser)]
 pub struct Arguments {
@@ -31,15 +32,34 @@ pub struct InvokeArguments {
     #[clap(long, short)]
     pub request: String,
 
+    /// Type of query for the provider (available options are set by the provider)
+    #[clap(long, short)]
+    pub query_type: String,
+
+    /// Data to be sent to the provider
+    #[clap(long, short = 'd')]
+    pub query_data: Vec<u8>,
+
+    /// Mime type of the query data
+    #[clap(long, short, default_value = "application/x-www-form-urlencoded")]
+    pub query_mime_type: String,
+
     /// JSON encoded config that will be sent to the provider
     #[clap(long, short)]
     pub config: String,
 }
 
 async fn handle_invoke_command(args: InvokeArguments) -> Result<()> {
-    let request: ProviderRequest =
-        serde_json::from_str(&args.request).context("unable to deserialize request")?;
     let config = json_to_messagepack(&args.config).context("unable to deserialize config")?;
+    let request = ProviderRequest {
+        query_type: args.query_type,
+        query_data: Blob {
+            data: ByteBuf::from(args.query_data),
+            mime_type: args.query_mime_type,
+        },
+        config,
+        previous_response: None,
+    };
 
     let wasm_module = std::fs::read(args.provider_path)
         .map_err(|e| anyhow!("unable to read wasm module: {:?}", e))?;
@@ -47,17 +67,23 @@ async fn handle_invoke_command(args: InvokeArguments) -> Result<()> {
     let runtime = fp_provider_runtime::spec::Runtime::new(wasm_module)
         .map_err(|e| anyhow!("unable to create runtime: {:?}", e))?;
 
-    let result = runtime.invoke(request, config).await;
+    let result = runtime.invoke2(request).await;
 
     match result {
-        Ok(ProviderResponse::Error { error: err }) => Err(anyhow!("Provider failed: {:?}", err)),
-        Ok(val) => match serde_json::to_string_pretty(&val) {
-            Ok(val) => {
-                println!("{}", val);
-                Ok(())
+        Ok(Ok(blob)) => {
+            if blob.mime_type.ends_with("json") {
+                let json = serde_json::from_slice(blob.data.as_ref())?;
+                println!("{}", serde_json::to_string_pretty(&json)?);
+            } else if blob.mime_type.ends_with("msgpack") {
+                let value: serde_json::Value = rmp_serde::from_slice(blob.data.as_ref())
+                    .with_context(|| "Unable to transcode MessagePack to JSON")?;
+                println!("{}", serde_json::to_string_pretty(&value)?);
+            } else {
+                println!("{}", base64::encode(blob.data.as_ref()));
             }
-            Err(e) => Err(anyhow!("unable to serialize result: {:?}", e)),
-        },
+            Ok(())
+        }
+        Ok(Err(err)) => Err(anyhow!("Provider failed: {:?}", err)),
         Err(e) => Err(anyhow!("unable to invoke provider: {:?}", e)),
     }
 }

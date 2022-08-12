@@ -9,7 +9,8 @@ build = "build.rs"
 [dependencies]
 abort-on-drop = "0.2.1"
 anyhow = "1.0"
-base64uuid = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main" }
+base64 = "0.13.0"
+base64uuid = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "move-providers" }
 blocking = "1.2.0"
 bytes = "1.1.0"
 clap = { version = "3.2.11", features = ["derive", "env", "wrap_help"] }
@@ -18,11 +19,11 @@ cli-table = "0.4"
 crossterm = { version = "0.23.0", features = ["event-stream"] }
 directories = "4.0.1"
 dialoguer = { version = "0.10.1", features = ["fuzzy-select"] }
-fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main" }
-fiberplane-markdown = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main" }
-fp-api-client = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main" }
-fp-provider-runtime = { git = "ssh://git@github.com/fiberplane/providers.git", branch = "main" }
-fp-templates = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main" }
+fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "move-providers" }
+fiberplane-markdown = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "move-providers" }
+fp-api-client = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "move-providers" }
+fp-provider-runtime = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "move-providers" }
+fp-templates = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "move-providers" }
 futures = "0.3"
 futures-util = "0.3.21"
 grok = "2.0.0"
@@ -49,12 +50,13 @@ reqwest = { version = "0.11.4", default-features = false, features = [
 rmp-serde = "1.0.0"
 rmpv = { version = "1.0.0", features = ["serde"] }
 serde = { version = "1.0.123", features = ["derive"] }
+serde_bytes = "0.11.7"
 serde_json = "1.0"
 sha2 = "0.10.2"
 sysinfo = "0.24.3"
 termwiz = "0.16.0"
 time = { version = "0.3.11", features = ["macros"] }
-time_util = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main" }
+time_util = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "move-providers" }
 tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7.1", features = ["io", "compat"] }
 toml = "0.5.8"
