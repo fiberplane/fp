@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
 use fp_provider_runtime::spec::types::{Blob, ProviderRequest};
 use serde_bytes::ByteBuf;
@@ -76,15 +76,15 @@ async fn handle_invoke_command(args: InvokeArguments) -> Result<()> {
                 println!("{}", serde_json::to_string_pretty(&json)?);
             } else if blob.mime_type.ends_with("msgpack") {
                 let value: serde_json::Value = rmp_serde::from_slice(blob.data.as_ref())
-                    .with_context(|| "Unable to transcode MessagePack to JSON")?;
+                    .context("Unable to transcode MessagePack to JSON")?;
                 println!("{}", serde_json::to_string_pretty(&value)?);
             } else {
                 println!("{}", base64::encode(blob.data.as_ref()));
             }
             Ok(())
         }
-        Ok(Err(err)) => Err(anyhow!("Provider failed: {:?}", err)),
-        Err(e) => Err(anyhow!("unable to invoke provider: {:?}", e)),
+        Ok(Err(err)) => bail!("Provider failed: {:?}", err),
+        Err(e) => bail!("unable to invoke provider: {:?}", e),
     }
 }
 
