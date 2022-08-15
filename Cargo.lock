@@ -146,7 +146,7 @@ checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 [[package]]
 name = "base64uuid"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#4de71e42124af6ebe4390af1e56dc7dcacc7ec46"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=FP-1872-Move-from-serde_bytes-to-bytes#1dd23ba603bbeb4f2ee9ae03b2145baf43b13736"
 dependencies = [
  "base64",
  "serde",
@@ -278,6 +278,9 @@ name = "bytes"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0b3de4a0c5e67e16066a0715723abd91edc2f9001d09c46e1dca929351e130e"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "cache-padded"
@@ -876,16 +879,16 @@ dependencies = [
 [[package]]
 name = "fiberplane"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#4de71e42124af6ebe4390af1e56dc7dcacc7ec46"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=FP-1872-Move-from-serde_bytes-to-bytes#1dd23ba603bbeb4f2ee9ae03b2145baf43b13736"
 dependencies = [
  "base64",
+ "bytes",
  "clap 3.2.11",
  "fp-bindgen",
  "lazy_static",
  "once_cell",
  "regex",
  "serde",
- "serde_bytes",
  "strum",
  "strum_macros",
  "thiserror",
@@ -895,7 +898,7 @@ dependencies = [
 [[package]]
 name = "fiberplane-markdown"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#4de71e42124af6ebe4390af1e56dc7dcacc7ec46"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=FP-1872-Move-from-serde_bytes-to-bytes#1dd23ba603bbeb4f2ee9ae03b2145baf43b13736"
 dependencies = [
  "fiberplane",
  "pulldown-cmark",
@@ -969,7 +972,6 @@ dependencies = [
  "rmp-serde",
  "rmpv",
  "serde",
- "serde_bytes",
  "serde_json",
  "sha2 0.10.2",
  "sysinfo 0.24.3",
@@ -991,7 +993,7 @@ dependencies = [
 [[package]]
 name = "fp-api-client"
 version = "1.0.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#4de71e42124af6ebe4390af1e56dc7dcacc7ec46"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=FP-1872-Move-from-serde_bytes-to-bytes#1dd23ba603bbeb4f2ee9ae03b2145baf43b13736"
 dependencies = [
  "reqwest",
  "serde",
@@ -1002,11 +1004,12 @@ dependencies = [
 
 [[package]]
 name = "fp-bindgen"
-version = "2.0.0"
+version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "452ea8163d431b1cc799f7b6cbec514c62b901b18ba54778ce363374e64f12fc"
+checksum = "2fa6d530dc280f426b5f0e18a20fb5bf08d1d6de5ce74815b25c8b3974db589e"
 dependencies = [
  "Inflector",
+ "bytes",
  "fp-bindgen-macros",
  "http",
  "pretty_assertions",
@@ -1020,9 +1023,9 @@ dependencies = [
 
 [[package]]
 name = "fp-bindgen-macros"
-version = "2.0.1"
+version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df5e0b46107679bcfd8deaac9de16eb9f30c25f49919ef012e58b80e1a1e1d1a"
+checksum = "0bfe1a3b4e53310b3e820122eea2c39eac3053c336fc601508648f1385224b27"
 dependencies = [
  "proc-macro-error",
  "proc-macro2",
@@ -1032,9 +1035,9 @@ dependencies = [
 
 [[package]]
 name = "fp-bindgen-support"
-version = "2.0.1"
+version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3697b499cd3357b4cba75de705d1917e6ebccd9f70098d76a939e64ab91869a"
+checksum = "0b76e1f89914fc755395ed4b25d7a800a047908aada789c6440a2fcc118f79f8"
 dependencies = [
  "fp-bindgen-macros",
  "once_cell",
@@ -1048,8 +1051,9 @@ dependencies = [
 [[package]]
 name = "fp-provider-runtime"
 version = "2.0.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#4de71e42124af6ebe4390af1e56dc7dcacc7ec46"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=FP-1872-Move-from-serde_bytes-to-bytes#1dd23ba603bbeb4f2ee9ae03b2145baf43b13736"
 dependencies = [
+ "bytes",
  "fiberplane",
  "fp-bindgen-support",
  "rand 0.8.5",
@@ -1057,7 +1061,6 @@ dependencies = [
  "rmp-serde",
  "rmpv",
  "serde",
- "serde_bytes",
  "thiserror",
  "tokio",
  "tracing",
@@ -1070,7 +1073,7 @@ dependencies = [
 [[package]]
 name = "fp-templates"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#4de71e42124af6ebe4390af1e56dc7dcacc7ec46"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=FP-1872-Move-from-serde_bytes-to-bytes#1dd23ba603bbeb4f2ee9ae03b2145baf43b13736"
 dependencies = [
  "fiberplane",
  "jrsonnet-evaluator",
@@ -3363,7 +3366,7 @@ checksum = "42657b1a6f4d817cda8e7a0ace261fe0cc946cf3a80314390b22cc61ae080792"
 [[package]]
 name = "time_util"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#4de71e42124af6ebe4390af1e56dc7dcacc7ec46"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=FP-1872-Move-from-serde_bytes-to-bytes#1dd23ba603bbeb4f2ee9ae03b2145baf43b13736"
 dependencies = [
  "anyhow",
  "serde",
