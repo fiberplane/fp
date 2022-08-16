@@ -3,7 +3,6 @@ use clap::Parser;
 use fp_provider_runtime::spec::types::{
     Blob, LegacyProviderRequest, LegacyProviderResponse, ProviderRequest,
 };
-use serde_bytes::ByteBuf;
 
 #[derive(Parser)]
 pub struct Arguments {
@@ -103,7 +102,7 @@ async fn handle_invoke2_command(args: Invoke2Arguments) -> Result<()> {
     let request = ProviderRequest {
         query_type: args.query_type,
         query_data: Blob {
-            data: ByteBuf::from(args.query_data),
+            data: args.query_data.into(),
             mime_type: args.query_mime_type,
         },
         config,
