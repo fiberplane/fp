@@ -52,6 +52,10 @@ enum SubCommand {
 
 #[derive(Parser)]
 struct CreateArguments {
+    /// Workspace to create the trigger in
+    #[clap(long, short, env)]
+    workspace_id: Option<Base64Uuid>,
+
     /// Name of the trigger
     #[clap(long, alias = "name")]
     title: Option<String>,
@@ -161,8 +165,12 @@ async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {
         None
     };
 
+    // NOTE: we capture the workspace here already since we will need it
+    // eventually for the trigger_create call.
+    let workspace_id = interactive::workspace_picker(&config, args.workspace_id).await?;
+    let template_id =
+        interactive::template_picker(&config, args.template_id, Some(workspace_id)).await?;
     let title = interactive::text_req("Title", args.title, None)?;
-    let template_id = interactive::template_picker(&config, args.template_id).await?;
 
     let trigger = NewTrigger {
         title,

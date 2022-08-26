@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use fp_api_client::apis::configuration::Configuration;
 use fp_api_client::apis::default_api::{
-    get_profile, notebook_cell_append_text, notebook_cells_append,
+    notebook_cell_append_text, notebook_cells_append, profile_get,
 };
 use fp_api_client::models::{cell::HeadingType, Annotation, Cell, CellAppendText};
 use once_cell::sync::OnceCell;
@@ -23,7 +23,7 @@ fn get_ts_format() -> &'static (impl time::formatting::Formattable + ?Sized) {
 
 impl NotebookWriter {
     pub async fn new(config: Configuration, notebook_id: String) -> Result<Self> {
-        let user = get_profile(&config).await?;
+        let user = profile_get(&config).await?;
         let header_cell = notebook_cells_append(
             &config,
             &notebook_id,
