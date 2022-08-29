@@ -110,6 +110,10 @@ struct DeleteArguments {
 
 #[derive(Parser)]
 struct ListArguments {
+    /// Workspace to list the triggers for
+    #[clap(long, short, env)]
+    workspace_id: Option<Base64Uuid>,
+
     /// Output of the triggers
     #[clap(long, short, default_value = "table", arg_enum)]
     output: TriggerOutput,
@@ -165,8 +169,6 @@ async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {
         None
     };
 
-    // NOTE: we capture the workspace here already since we will need it
-    // eventually for the trigger_create call.
     let workspace_id = interactive::workspace_picker(&config, args.workspace_id).await?;
     let template_id =
         interactive::template_picker(&config, args.template_id, Some(workspace_id)).await?;
@@ -177,7 +179,7 @@ async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {
         default_arguments,
         template_id: template_id.to_string(),
     };
-    let trigger = trigger_create(&config, trigger)
+    let trigger = trigger_create(&config, &workspace_id.to_string(), trigger)
         .await
         .with_context(|| "Error creating trigger")?;
 
@@ -192,7 +194,7 @@ async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {
 
 async fn handle_trigger_get_command(args: GetArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    let trigger_id = interactive::trigger_picker(&config, args.trigger_id).await?;
+    let trigger_id = interactive::trigger_picker(&config, args.trigger_id, None).await?;
 
     let trigger = trigger_get(&config, &trigger_id.to_string())
         .await
@@ -208,7 +210,7 @@ async fn handle_trigger_get_command(args: GetArguments) -> Result<()> {
 
 async fn handle_trigger_delete_command(args: DeleteArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    let trigger_id = interactive::trigger_picker(&config, args.trigger_id).await?;
+    let trigger_id = interactive::trigger_picker(&config, args.trigger_id, None).await?;
 
     trigger_delete(&config, &trigger_id.to_string())
         .await
@@ -221,7 +223,8 @@ async fn handle_trigger_delete_command(args: DeleteArguments) -> Result<()> {
 
 async fn handle_trigger_list_command(args: ListArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    let mut triggers = trigger_list(&config)
+    let workspace_id = interactive::workspace_picker(&config, args.workspace_id).await?;
+    let mut triggers = trigger_list(&config, &workspace_id.to_string())
         .await
         .with_context(|| "Error getting triggers")?;
 
@@ -239,7 +242,7 @@ async fn handle_trigger_list_command(args: ListArguments) -> Result<()> {
 
 async fn handle_trigger_invoke_command(args: InvokeArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    let trigger_id = interactive::trigger_picker(&config, args.trigger_id).await?;
+    let trigger_id = interactive::trigger_picker(&config, args.trigger_id, None).await?;
     let secret_key = interactive::text_req("Secret Key", args.secret_key, None)?;
 
     let body = serde_json::to_value(&args.template_arguments)?;

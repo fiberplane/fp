@@ -210,17 +210,21 @@ pub async fn template_picker(
 pub async fn trigger_picker(
     config: &Configuration,
     argument: Option<Base64Uuid>,
+    workspace_id: Option<Base64Uuid>,
 ) -> Result<Base64Uuid> {
     // If the user provided an argument, use that. Otherwise show the picker.
     if let Some(id) = argument {
         return Ok(id);
     };
 
+    // No argument was provided, so we need to know the workspace ID.
+    let workspace_id = workspace_picker(config, workspace_id).await?;
+
     let pb = ProgressBar::new_spinner();
     pb.set_message("Fetching triggers");
     pb.enable_steady_tick(100);
 
-    let results = trigger_list(config).await?;
+    let results = trigger_list(config, &workspace_id.to_string()).await?;
 
     pb.finish_and_clear();
 
