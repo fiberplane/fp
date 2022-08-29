@@ -1,5 +1,5 @@
 use crate::config::api_client_configuration;
-use crate::interactive;
+use crate::interactive::{self, workspace_picker};
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use crate::KeyValueArgument;
 use anyhow::{anyhow, Context, Result};
@@ -9,7 +9,7 @@ use cli_table::Table;
 use fiberplane::protocols::core;
 use fiberplane_markdown::{markdown_to_notebook, notebook_to_markdown};
 use fp_api_client::apis::default_api::{
-    delete_notebook, get_notebook, notebook_cells_append, notebook_create, notebook_list,
+    notebook_cells_append, notebook_create, notebook_delete, notebook_get, notebook_list,
     notebook_search,
 };
 use fp_api_client::models::{
@@ -105,6 +105,10 @@ enum CellOutput {
 
 #[derive(Parser)]
 pub struct CreateArgs {
+    /// Workspace to use
+    #[clap(long, short, env)]
+    workspace_id: Option<Base64Uuid>,
+
     /// Title for the new notebook
     #[clap(short, long)]
     title: Option<String>,
@@ -139,6 +143,9 @@ pub struct CreateArgs {
 }
 
 async fn handle_create_command(args: CreateArgs) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+
+    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
     let labels = match args.labels.len() {
         0 => None,
         _ => Some(
@@ -193,8 +200,7 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
         ..notebook
     };
 
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let notebook = notebook_create(&config, notebook).await?;
+    let notebook = notebook_create(&config, &workspace_id.to_string(), notebook).await?;
 
     match args.output {
         NotebookOutput::Table => {
@@ -209,6 +215,7 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
 #[derive(Parser)]
 pub struct GetArgs {
     /// ID of the notebook
+    #[clap(long, short, env)]
     notebook_id: String,
 
     /// Output of the notebook
@@ -226,7 +233,7 @@ async fn handle_get_command(args: GetArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
     trace!(notebook_id = ?args.notebook_id, "fetching notebook");
 
-    let notebook = get_notebook(&config, &args.notebook_id).await?;
+    let notebook = notebook_get(&config, &args.notebook_id).await?;
 
     match args.output {
         SingleNotebookOutput::Table => output_details(GenericKeyValue::from_notebook(notebook)),
@@ -243,6 +250,10 @@ async fn handle_get_command(args: GetArgs) -> Result<()> {
 
 #[derive(Parser)]
 pub struct ListArgs {
+    /// Workspace to use
+    #[clap(long, short, env)]
+    workspace_id: Option<Base64Uuid>,
+
     /// Output of the notebook
     #[clap(long, short, default_value = "table", arg_enum)]
     output: NotebookOutput,
@@ -256,7 +267,9 @@ pub struct ListArgs {
 
 async fn handle_list_command(args: ListArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    let notebooks = notebook_list(&config).await?;
+
+    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let notebooks = notebook_list(&config, &workspace_id.to_string()).await?;
 
     match args.output {
         NotebookOutput::Table => {
@@ -274,6 +287,10 @@ async fn handle_list_command(args: ListArgs) -> Result<()> {
 
 #[derive(Parser)]
 pub struct SearchArgs {
+    /// Workspace to use
+    #[clap(long, short, env)]
+    workspace_id: Option<Base64Uuid>,
+
     /// Labels to search notebooks for (you can specify multiple labels).
     #[clap(name = "label", short, long)]
     labels: Vec<KeyValueArgument>,
@@ -292,6 +309,7 @@ pub struct SearchArgs {
 async fn handle_search_command(args: SearchArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
+    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
     let labels: Option<HashMap<String, String>> = if !args.labels.is_empty() {
         Some(
             args.labels
@@ -303,7 +321,12 @@ async fn handle_search_command(args: SearchArgs) -> Result<()> {
         None
     };
 
-    let notebooks = notebook_search(&config, NotebookSearch { labels }).await?;
+    let notebooks = notebook_search(
+        &config,
+        &workspace_id.to_string(),
+        NotebookSearch { labels },
+    )
+    .await?;
 
     match args.output {
         NotebookOutput::Table => {
@@ -319,6 +342,7 @@ async fn handle_search_command(args: SearchArgs) -> Result<()> {
 #[derive(Parser)]
 pub struct OpenArgs {
     /// ID of the notebook
+    #[clap(long, short, env)]
     notebook_id: Option<Base64Uuid>,
 
     #[clap(from_global)]
@@ -330,7 +354,7 @@ pub struct OpenArgs {
 
 async fn handle_open_command(args: OpenArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    let notebook_id = interactive::notebook_picker(&config, args.notebook_id).await?;
+    let notebook_id = interactive::notebook_picker(&config, args.notebook_id, None).await?;
 
     let url = notebook_url(args.base_url, &notebook_id.to_string());
     if open(&url).is_err() {
@@ -343,6 +367,7 @@ async fn handle_open_command(args: OpenArgs) -> Result<()> {
 #[derive(Parser)]
 pub struct DeleteArgs {
     /// ID of the notebook
+    #[clap(long, short, env)]
     notebook_id: Option<Base64Uuid>,
 
     #[clap(from_global)]
@@ -354,9 +379,9 @@ pub struct DeleteArgs {
 
 async fn handle_delete_command(args: DeleteArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    let notebook_id = interactive::notebook_picker(&config, args.notebook_id).await?;
+    let notebook_id = interactive::notebook_picker(&config, args.notebook_id, None).await?;
 
-    delete_notebook(&config, &notebook_id.to_string())
+    notebook_delete(&config, &notebook_id.to_string())
         .await
         .with_context(|| format!("Error deleting notebook {}", notebook_id))?;
 
@@ -392,7 +417,7 @@ pub struct AppendCellArgs {
 async fn handle_append_cell_command(args: AppendCellArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
-    let notebook_id = interactive::notebook_picker(&config, args.notebook_id).await?;
+    let notebook_id = interactive::notebook_picker(&config, args.notebook_id, None).await?;
 
     let cell = if let Some(content) = args.text {
         Cell::TextCell {
