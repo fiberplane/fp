@@ -74,7 +74,7 @@ pub struct Arguments {
     verbose: bool,
 
     /// Path to log file
-    #[clap(long, global = true, env)]
+    #[clap(long, global = true, env, help_heading = "GLOBAL OPTIONS")]
     log_file: Option<PathBuf>,
 }
 
