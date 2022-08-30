@@ -9,7 +9,7 @@ build = "build.rs"
 [dependencies]
 abort-on-drop = "0.2.1"
 anyhow = "1.0"
-base64uuid = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "single_player" }
+base64uuid = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "single_player_default_workspace" }
 base64 = "0.13.0"
 blocking = "1.2.0"
 bytes = "1.1.0"
@@ -19,11 +19,11 @@ cli-table = "0.4"
 crossterm = { version = "0.23.0", features = ["event-stream"] }
 directories = "4.0.1"
 dialoguer = { version = "0.10.1", features = ["fuzzy-select"] }
-fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "single_player" }
-fiberplane-markdown = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "single_player" }
-fp-api-client = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "single_player" }
-fp-provider-runtime = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "single_player" }
-fp-templates = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "single_player" }
+fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "single_player_default_workspace" }
+fiberplane-markdown = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "single_player_default_workspace" }
+fp-api-client = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "single_player_default_workspace" }
+fp-provider-runtime = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "single_player_default_workspace" }
+fp-templates = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "single_player_default_workspace" }
 futures = "0.3"
 futures-util = "0.3.21"
 grok = "2.0.0"
@@ -55,7 +55,7 @@ sha2 = "0.10.2"
 sysinfo = "0.24.3"
 termwiz = "0.16.0"
 time = { version = "0.3.11", features = ["macros"] }
-time_util = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "single_player" }
+time_util = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "single_player_default_workspace" }
 tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7.1", features = ["io", "compat"] }
 toml = "0.5.8"
