@@ -472,7 +472,7 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
         if let Cell::Image(cell) = cell {
             if let (None, Some(file_id)) = (&cell.url, &cell.file_id) {
                 cell.url = Some(format!(
-                    "{}api/files/{}/{}",
+                    "{}api/notebooks/{}/files/{}",
                     args.base_url, notebook_id, file_id
                 ));
                 cell.file_id = None;
