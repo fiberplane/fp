@@ -4,7 +4,7 @@ use anyhow::Result;
 use base64uuid::Base64Uuid;
 use clap::Parser;
 use fp_api_client::apis::default_api::workspace_invite;
-use fp_api_client::models::InlineObject;
+use fp_api_client::models::NewWorkspaceInvite;
 use std::path::PathBuf;
 use tracing::info;
 use url::Url;
@@ -51,7 +51,7 @@ async fn handle_workspace_invite(args: InviteArgs) -> Result<()> {
     workspace_invite(
         &config,
         &workspace_id.to_string(),
-        InlineObject::new(args.receiver),
+        NewWorkspaceInvite::new(args.receiver),
     )
     .await?;
 
