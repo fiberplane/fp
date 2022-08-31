@@ -37,6 +37,7 @@ mod triggers;
 mod update;
 mod users;
 mod version;
+mod workspaces;
 
 /// The current build manifest associated with this binary
 pub static MANIFEST: Lazy<Manifest> = Lazy::new(Manifest::from_env);
@@ -167,6 +168,12 @@ enum SubCommand {
     #[clap(alias = "user")]
     Users(users::Arguments),
 
+    /// Interact with workspaces
+    ///
+    /// A workspace holds all notebooks, events and relays for a specific user or organization.
+    #[clap(alias = "workspace")]
+    Workspaces(workspaces::Arguments),
+
     /// Display extra version information
     #[clap()]
     Version(version::Arguments),
@@ -236,6 +243,7 @@ async fn main() {
         Tokens(args) => tokens::handle_command(args).await,
         Update(args) => update::handle_command(args).await,
         Users(args) => users::handle_command(args).await,
+        Workspaces(args) => workspaces::handle_command(args).await,
         Version(args) => version::handle_command(args).await,
         Shell(args) => shell::handle_command(args).await,
         Completions { shell } => {
