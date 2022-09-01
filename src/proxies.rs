@@ -312,8 +312,8 @@ impl From<DataSourceAndProxySummary> for DataSourceAndProxySummaryRow {
             name: summary.name,
             _type: summary._type.to_string(),
             status: format!(
-                "{:?}{}",
-                summary.status,
+                "{}{}",
+                summary.status.to_string(),
                 if let Some(error_message) = summary.error_message {
                     format!(" - ({})", error_message)
                 } else {
@@ -337,9 +337,9 @@ impl GenericKeyValue {
                 .iter()
                 .map(|datasource| {
                     format!(
-                        "{} ({:?}): {}{}",
+                        "{} ({}): {}{}",
                         datasource.name,
-                        datasource._type,
+                        datasource._type.to_string(),
                         datasource.status.to_string(),
                         if let Some(error_message) = &datasource.error_message {
                             format!(" - {}", error_message)
