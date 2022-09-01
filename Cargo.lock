@@ -879,11 +879,12 @@ dependencies = [
 [[package]]
 name = "fiberplane"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#7d90d4a5e806d7c10e059ef33f242e1c80c97efb"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=fp-bindgen-singlepass#6cac1d0c5dbb0f3873d9c15feb4d542eeb934596"
 dependencies = [
  "base64",
  "bytes",
  "clap 3.2.11",
+ "form_urlencoded",
  "fp-bindgen",
  "lazy_static",
  "once_cell",
@@ -898,7 +899,7 @@ dependencies = [
 [[package]]
 name = "fiberplane-markdown"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#7d90d4a5e806d7c10e059ef33f242e1c80c97efb"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=fp-bindgen-singlepass#6cac1d0c5dbb0f3873d9c15feb4d542eeb934596"
 dependencies = [
  "fiberplane",
  "pulldown-cmark",
@@ -1051,7 +1052,7 @@ dependencies = [
 [[package]]
 name = "fp-provider-runtime"
 version = "2.0.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#7d90d4a5e806d7c10e059ef33f242e1c80c97efb"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=fp-bindgen-singlepass#6cac1d0c5dbb0f3873d9c15feb4d542eeb934596"
 dependencies = [
  "bytes",
  "fiberplane",
@@ -1065,15 +1066,12 @@ dependencies = [
  "tokio",
  "tracing",
  "wasmer",
- "wasmer-compiler-cranelift",
- "wasmer-compiler-singlepass",
- "wasmer-engine-universal",
 ]
 
 [[package]]
 name = "fp-templates"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#7d90d4a5e806d7c10e059ef33f242e1c80c97efb"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=fp-bindgen-singlepass#6cac1d0c5dbb0f3873d9c15feb4d542eeb934596"
 dependencies = [
  "fiberplane",
  "jrsonnet-evaluator",
@@ -3817,6 +3815,7 @@ dependencies = [
  "wasmer-artifact",
  "wasmer-compiler",
  "wasmer-compiler-cranelift",
+ "wasmer-compiler-singlepass",
  "wasmer-derive",
  "wasmer-engine",
  "wasmer-engine-dylib",
