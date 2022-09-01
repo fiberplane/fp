@@ -307,16 +307,22 @@ pub struct DataSourceAndProxySummaryRow {
 }
 
 impl From<DataSourceAndProxySummary> for DataSourceAndProxySummaryRow {
-    fn from(data_source_and_proxy_summary: DataSourceAndProxySummary) -> Self {
+    fn from(summary: DataSourceAndProxySummary) -> Self {
         Self {
-            name: data_source_and_proxy_summary.name,
-            _type: data_source_and_proxy_summary._type.to_string(),
-            status: data_source_and_proxy_summary
-                .error_message
-                .unwrap_or_else(|| "connected".to_string()),
-            proxy_name: data_source_and_proxy_summary.proxy.name,
-            proxy_id: data_source_and_proxy_summary.proxy.id,
-            proxy_status: data_source_and_proxy_summary.proxy.status.to_string(),
+            name: summary.name,
+            _type: summary._type.to_string(),
+            status: format!(
+                "{:?}{}",
+                summary.status,
+                if let Some(error_message) = summary.error_message {
+                    format!(" - ({})", error_message)
+                } else {
+                    "".to_string()
+                }
+            ),
+            proxy_name: summary.proxy.name,
+            proxy_id: summary.proxy.id,
+            proxy_status: summary.proxy.status.to_string(),
         }
     }
 }
@@ -329,7 +335,19 @@ impl GenericKeyValue {
             proxy
                 .data_sources
                 .iter()
-                .map(|datasource| format!("{} ({:?})", datasource.name, datasource._type))
+                .map(|datasource| {
+                    format!(
+                        "{} ({:?}): {}{}",
+                        datasource.name,
+                        datasource._type,
+                        datasource.status.to_string(),
+                        if let Some(error_message) = &datasource.error_message {
+                            format!(" - {}", error_message)
+                        } else {
+                            String::new()
+                        }
+                    )
+                })
                 .collect::<Vec<String>>()
                 .join("\n")
         };
