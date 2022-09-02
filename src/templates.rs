@@ -746,11 +746,8 @@ async fn handle_validate_command(args: ValidateArguments) -> Result<()> {
                 param
             );
         }
-        Err(TemplateError::InvalidOutput(output)) => {
-            bail!(
-                "Template did not produce a valid Notebook. Output: {}",
-                output
-            )
+        Err(TemplateError::InvalidOutput(err)) => {
+            bail!("Template did not produce a valid Notebook: {:?}", err)
         }
         Err(TemplateError::Evaluation(err)) => {
             bail!("Error evaluating template: {}", err)
