@@ -742,7 +742,7 @@ async fn handle_validate_command(args: ValidateArguments) -> Result<()> {
                 "Cannot validate template because it has required parameters.\n\n\
             You can either provide example arguments to this command or \
             add a default value for the parameter. \
-            For example: function({}='default value') \{...\}",
+            For example: function({}='default value') {{...}}",
                 param
             );
         }
