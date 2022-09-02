@@ -8,10 +8,12 @@ use cli_table::Table;
 use fp_api_client::apis::default_api::{
     proxy_create, proxy_data_sources_list, proxy_delete, proxy_get, proxy_list,
 };
-use fp_api_client::models::{DataSourceAndProxySummary, NewProxy, Proxy, ProxySummary};
+use fp_api_client::models::{
+    DataSourceAndProxySummary, DataSourceConnectionStatus, NewProxy, Proxy, ProxySummary,
+};
 use petname::petname;
-use std::cmp::Ordering;
-use std::path::PathBuf;
+use serde::Serialize;
+use std::{cmp::Ordering, collections::BTreeMap, path::PathBuf};
 use tracing::info;
 use url::Url;
 
@@ -152,19 +154,57 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
     }
 }
 
+#[derive(Debug, Clone, Serialize)]
+struct ProxySummaryWithConnectedDataSources {
+    #[serde(flatten)]
+    proxy: ProxySummary,
+    connected_data_sources: usize,
+    total_data_sources: usize,
+}
+
 async fn handle_list_command(args: ListArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    let mut proxies = proxy_list(&config).await?;
+    let proxies = proxy_list(&config).await?;
+    let data_sources = proxy_data_sources_list(&config).await?;
+
+    // Put all of the proxies in a map so we can easily look them up by ID and add the data source counts
+    let mut proxies: BTreeMap<String, ProxySummaryWithConnectedDataSources> = proxies
+        .into_iter()
+        .map(|proxy| {
+            (
+                proxy.id.clone(),
+                ProxySummaryWithConnectedDataSources {
+                    proxy,
+                    connected_data_sources: 0,
+                    total_data_sources: 0,
+                },
+            )
+        })
+        .collect();
+    // Count the total and connected data sources for each proxy
+    for data_source in data_sources {
+        if let Some(proxy) = proxies.get_mut(&data_source.proxy.id) {
+            proxy.total_data_sources += 1;
+            if data_source.status == DataSourceConnectionStatus::Connected {
+                proxy.connected_data_sources += 1;
+            }
+        }
+    }
+    let mut proxies: Vec<ProxySummaryWithConnectedDataSources> =
+        proxies.into_iter().map(|(_, v)| v).collect();
 
     match args.output {
         ProxyOutput::Table => {
-            // Show connected proxies first, and then sort alphabetically by name
+            // Show connected proxies first, and then sort by the number of data sources
             proxies.sort_by(|a, b| {
                 use fp_api_client::models::ProxyConnectionStatus::*;
-                match (a.status, b.status) {
+                match (a.proxy.status, b.proxy.status) {
                     (Connected, Disconnected) => Ordering::Less,
                     (Disconnected, Connected) => Ordering::Greater,
-                    _ => a.name.cmp(&b.name),
+                    (Connected, Connected) => {
+                        b.connected_data_sources.cmp(&a.connected_data_sources)
+                    }
+                    (Disconnected, Disconnected) => b.total_data_sources.cmp(&a.total_data_sources),
                 }
             });
 
@@ -226,14 +266,21 @@ pub struct ProxySummaryRow {
 
     #[table(title = "Status")]
     pub status: String,
+
+    #[table(title = "Connected Data Sources")]
+    pub data_sources_connected: String,
 }
 
-impl From<ProxySummary> for ProxySummaryRow {
-    fn from(proxy: ProxySummary) -> Self {
+impl From<ProxySummaryWithConnectedDataSources> for ProxySummaryRow {
+    fn from(proxy: ProxySummaryWithConnectedDataSources) -> Self {
         Self {
-            id: proxy.id,
-            name: proxy.name,
-            status: proxy.status.to_string(),
+            name: proxy.proxy.name,
+            id: proxy.proxy.id,
+            status: proxy.proxy.status.to_string(),
+            data_sources_connected: format!(
+                "{} / {}",
+                proxy.connected_data_sources, proxy.total_data_sources
+            ),
         }
     }
 }
@@ -260,16 +307,22 @@ pub struct DataSourceAndProxySummaryRow {
 }
 
 impl From<DataSourceAndProxySummary> for DataSourceAndProxySummaryRow {
-    fn from(data_source_and_proxy_summary: DataSourceAndProxySummary) -> Self {
+    fn from(summary: DataSourceAndProxySummary) -> Self {
         Self {
-            name: data_source_and_proxy_summary.name,
-            _type: data_source_and_proxy_summary._type.to_string(),
-            status: data_source_and_proxy_summary
-                .error_message
-                .unwrap_or_else(|| "connected".to_string()),
-            proxy_name: data_source_and_proxy_summary.proxy.name,
-            proxy_id: data_source_and_proxy_summary.proxy.id,
-            proxy_status: data_source_and_proxy_summary.proxy.status.to_string(),
+            name: summary.name,
+            _type: summary._type.to_string(),
+            status: format!(
+                "{}{}",
+                summary.status.to_string(),
+                if let Some(error_message) = summary.error_message {
+                    format!(" - ({})", error_message)
+                } else {
+                    "".to_string()
+                }
+            ),
+            proxy_name: summary.proxy.name,
+            proxy_id: summary.proxy.id,
+            proxy_status: summary.proxy.status.to_string(),
         }
     }
 }
@@ -282,7 +335,19 @@ impl GenericKeyValue {
             proxy
                 .data_sources
                 .iter()
-                .map(|datasource| format!("{} ({:?})", datasource.name, datasource._type))
+                .map(|datasource| {
+                    format!(
+                        "{} ({}): {}{}",
+                        datasource.name,
+                        datasource._type.to_string(),
+                        datasource.status.to_string(),
+                        if let Some(error_message) = &datasource.error_message {
+                            format!(" - {}", error_message)
+                        } else {
+                            String::new()
+                        }
+                    )
+                })
                 .collect::<Vec<String>>()
                 .join("\n")
         };
