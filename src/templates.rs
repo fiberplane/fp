@@ -1,7 +1,7 @@
 use crate::config::api_client_configuration;
 use crate::interactive;
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
-use anyhow::{anyhow, Context, Error, Result};
+use anyhow::{anyhow, bail, Context, Error, Result};
 use base64uuid::Base64Uuid;
 use clap::{ArgEnum, Parser, ValueHint};
 use cli_table::Table;
@@ -16,7 +16,9 @@ use fp_api_client::models::{
     NewNotebook, NewTemplate, Notebook, Template, TemplateParameter, TemplateSummary,
     UpdateTemplate,
 };
-use fp_templates::{notebook_to_template, TemplateExpander};
+use fp_templates::{
+    expand_template, notebook_to_template, Error as TemplateError, TemplateExpander,
+};
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -74,6 +76,12 @@ enum SubCommand {
     #[clap()]
     Update(UpdateArguments),
 
+    /// Validate a local template
+    ///
+    /// Note that only templates without required parameters can be fully validated.
+    #[clap()]
+    Validate(ValidateArguments),
+
     /// Interact with the official example templates
     #[clap(subcommand)]
     Examples(ExamplesSubCommand),
@@ -111,6 +119,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
             ExamplesSubCommand::List(args) => handle_list_example_command(args).await,
             ExamplesSubCommand::Get(args) => handle_get_example_command(args).await,
         },
+        Validate(args) => handle_validate_command(args).await,
     }
 }
 
@@ -313,6 +322,19 @@ struct UpdateArguments {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+}
+
+#[derive(Parser)]
+struct ValidateArguments {
+    /// Path to the template file or full template body to validate
+    #[clap(value_hint = ValueHint::AnyPath)]
+    template: String,
+
+    /// Optional values to inject into the template
+    ///
+    /// Can be passed as a JSON object or as a comma-separated list of key=value pairs
+    #[clap()]
+    template_arguments: Option<TemplateArguments>,
 }
 
 #[derive(Parser)]
@@ -699,6 +721,37 @@ async fn handle_update_command(args: UpdateArguments) -> Result<()> {
             Ok(())
         }
         TemplateOutput::Json => output_json(&template),
+    }
+}
+
+async fn handle_validate_command(args: ValidateArguments) -> Result<()> {
+    let template = if let Ok(path) = PathBuf::from_str(&args.template) {
+        fs::read_to_string(path).await?
+    } else {
+        args.template
+    };
+    let params = args.template_arguments.unwrap_or_default();
+
+    match expand_template(&template, params.0) {
+        Ok(_) => {
+            info!("Template is valid");
+            Ok(())
+        }
+        Err(TemplateError::MissingArgument(param)) => {
+            bail!(
+                "Cannot validate template because it has required parameters.\n\n\
+            You can either provide example arguments to this command or \
+            add a default value for the parameter. \
+            For example: function({}='default value') {{...}}",
+                param
+            );
+        }
+        Err(TemplateError::InvalidOutput(err)) => {
+            bail!("Template did not produce a valid Notebook: {:?}", err)
+        }
+        Err(TemplateError::Evaluation(err)) => {
+            bail!("Error evaluating template: {}", err)
+        }
     }
 }
 
