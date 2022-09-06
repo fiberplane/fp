@@ -54,6 +54,45 @@ where
     }
 }
 
+/// Get the value from either a CLI argument, interactive input, or from a
+/// default value. If no value is provided by the user and there is no default
+/// value, it will return None.
+///
+/// NOTE: If the user does not specifies a value through a cli argument, the
+/// interactive input will always be shown. This is a limitation that we
+/// currently not check if the invocation is interactive or not.
+pub fn bool_opt<P>(prompt: P, argument: Option<bool>, default: Option<bool>) -> Option<bool>
+where
+    P: Into<String>,
+{
+    if argument.is_some() {
+        return argument;
+    }
+    let prompt = format!("{} (y/n)", prompt.into().trim_end());
+
+    let input = match &default {
+        Some(default) => Input::with_theme(&default_theme())
+            .with_prompt(prompt)
+            .allow_empty(true)
+            .default(if *default { "y" } else { "n" }.to_string())
+            .interact(),
+        None => Input::with_theme(&default_theme())
+            .with_prompt(prompt)
+            .allow_empty(true)
+            .interact(),
+    };
+
+    match input {
+        Ok(input) => match input.to_lowercase().trim() {
+            "y" => Some(true),
+            "n" => Some(false),
+            _ => default,
+        },
+        // TODO: Properly check for the error instead of just returning the default value.
+        Err(_) => default,
+    }
+}
+
 /// Get the value from either a argument, interactive input, or from a default
 /// value. If the user does not supply a value then this function will return an
 /// error. Use `text_opt` if you want to allow a None value.

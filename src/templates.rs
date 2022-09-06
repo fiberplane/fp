@@ -7,13 +7,14 @@ use clap::{ArgEnum, Parser, ValueHint};
 use cli_table::Table;
 use fiberplane::protocols::core::{self, Cell, HeadingCell, HeadingType, TextCell, TimeRange};
 use fiberplane::sorting::{SortDirection, TemplateListSortFields};
+use fp_api_client::apis::configuration::Configuration;
 use fp_api_client::apis::default_api::{
     get_notebook, notebook_create, proxy_data_sources_list, template_create, template_delete,
     template_example_expand, template_example_list, template_expand, template_get, template_list,
-    template_update,
+    template_update, trigger_create,
 };
 use fp_api_client::models::{
-    NewNotebook, NewTemplate, Notebook, Template, TemplateParameter, TemplateSummary,
+    NewNotebook, NewTemplate, NewTrigger, Notebook, Template, TemplateParameter, TemplateSummary,
     UpdateTemplate,
 };
 use fp_templates::{
@@ -192,6 +193,13 @@ struct ConvertArguments {
     #[clap(long)]
     template_id: Option<Base64Uuid>,
 
+    /// Create a trigger for the template
+    ///
+    /// Triggers are Webhook URLs that allow you to expand the template
+    /// from an external service such as an alert system.
+    #[clap(long)]
+    create_trigger: Option<bool>,
+
     /// Output of the template
     #[clap(long, short, default_value = "table", arg_enum)]
     output: TemplateOutput,
@@ -216,6 +224,13 @@ struct CreateArguments {
     /// Path or URL of to the template
     #[clap(value_hint = ValueHint::AnyPath)]
     template: String,
+
+    /// Create a trigger for the template
+    ///
+    /// Triggers are Webhook URLs that allow you to expand the template
+    /// from an external service such as an alert system.
+    #[clap(long)]
+    create_trigger: Option<bool>,
 
     /// Output of the template
     #[clap(long, short, default_value = "table", arg_enum)]
@@ -571,13 +586,13 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
     // plain strings (rather than JSON objects) so we'll convert it locally instead
     let template = notebook_to_template(notebook);
 
-    let title = interactive::text_opt("Title", args.title, None);
-    let description = interactive::text_opt("Description", args.description, None);
+    let title = interactive::text_opt("Template Title", args.title, Some(notebook_title)).unwrap();
+    let description = interactive::text_opt("Template Description", args.description, None);
 
     // Create or update the template
-    let template = if let Some(template_id) = args.template_id {
+    let (template, trigger_url) = if let Some(template_id) = args.template_id {
         let template = UpdateTemplate {
-            title,
+            title: Some(title),
             description,
             body: Some(template),
         };
@@ -585,22 +600,21 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
             .await
             .with_context(|| format!("Error updating template {}", template_id))?;
         info!("Updated template");
-        template
+        (template, None)
     } else {
         let template = NewTemplate {
-            title: title.unwrap_or(notebook_title),
+            title,
             description: description.unwrap_or_default(),
             body: template,
         };
-        let template = template_create(&config, template)
-            .await
-            .with_context(|| "Error creating template")?;
-        info!("Created template");
-        template
+        create_template_and_trigger(&config, args.create_trigger, template).await?
     };
 
     match args.output {
-        TemplateOutput::Table => output_details(GenericKeyValue::from_template(template)),
+        TemplateOutput::Table => output_details(GenericKeyValue::from_template_and_trigger_url(
+            template,
+            trigger_url,
+        )),
         TemplateOutput::Body => {
             println!("{}", template.body);
             Ok(())
@@ -613,7 +627,8 @@ async fn handle_create_command(args: CreateArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
     let title = interactive::text_req("Title", args.title, Some("".to_owned()))?;
-    let description = interactive::text_req("Description", args.description, Some("".to_owned()))?;
+    let description =
+        interactive::text_req("Description", args.description.clone(), Some("".to_owned()))?;
 
     let body = load_template(&args.template).await?;
     let template = NewTemplate {
@@ -622,13 +637,14 @@ async fn handle_create_command(args: CreateArguments) -> Result<()> {
         body,
     };
 
-    let template = template_create(&config, template)
-        .await
-        .with_context(|| "Error creating template")?;
-    info!("Uploaded template");
+    let (template, trigger_url) =
+        create_template_and_trigger(&config, args.create_trigger, template).await?;
 
     match args.output {
-        TemplateOutput::Table => output_details(GenericKeyValue::from_template(template)),
+        TemplateOutput::Table => output_details(GenericKeyValue::from_template_and_trigger_url(
+            template,
+            trigger_url,
+        )),
         TemplateOutput::Body => {
             println!("{}", template.body);
             Ok(())
@@ -872,6 +888,17 @@ impl GenericKeyValue {
             GenericKeyValue::new("Body:", "omitted (use --output=body)"),
         ]
     }
+
+    pub fn from_template_and_trigger_url(
+        template: Template,
+        trigger_url: Option<String>,
+    ) -> Vec<GenericKeyValue> {
+        let mut rows = Self::from_template(template);
+        if let Some(trigger_url) = trigger_url {
+            rows.push(GenericKeyValue::new("Trigger URL:", trigger_url));
+        }
+        rows
+    }
 }
 
 fn format_template_parameters(parameters: Vec<TemplateParameter>) -> String {
@@ -939,4 +966,48 @@ fn format_template_parameters(parameters: Vec<TemplateParameter>) -> String {
     }
 
     result.join("\n")
+}
+
+async fn create_template_and_trigger(
+    config: &Configuration,
+    create_trigger: Option<bool>,
+    template: NewTemplate,
+) -> Result<(Template, Option<String>)> {
+    let create_trigger = interactive::bool_opt(
+        "Create a trigger for this template?",
+        create_trigger,
+        Some(true),
+    )
+    .unwrap_or_default();
+
+    let template = template_create(&config, template)
+        .await
+        .with_context(|| "Error creating template")?;
+    info!("Uploaded template");
+
+    let trigger_url = if create_trigger {
+        let trigger = trigger_create(
+            &config,
+            NewTrigger {
+                title: format!("{} Trigger", &template.title),
+                template_id: template.id.clone(),
+                default_arguments: None,
+            },
+        )
+        .await
+        .context("Error creating trigger")?;
+        let trigger_url = format!(
+            "{}/api/triggers/{}/{}",
+            config.base_path,
+            trigger.id,
+            trigger
+                .secret_key
+                .ok_or(anyhow!("Trigger creation did not return the secret key"))?
+        );
+        Some(trigger_url)
+    } else {
+        None
+    };
+
+    Ok((template, trigger_url))
 }
