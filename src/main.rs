@@ -20,6 +20,7 @@ use url::Url;
 
 mod auth;
 mod config;
+mod create;
 mod events;
 mod experiments;
 mod interactive;
@@ -85,6 +86,9 @@ enum SubCommand {
         #[clap(arg_enum)]
         shell: clap_complete::Shell,
     },
+
+    #[clap()]
+    Create(create::Arguments),
 
     /// Experimental commands 🧪
     ///
@@ -222,6 +226,7 @@ async fn main() {
 
     use SubCommand::*;
     let result = match args.sub_command {
+        Create(args) => create::handle_command(args).await,
         Experiments(args) => experiments::handle_command(args).await,
         Login => auth::handle_login_command(args).await,
         Logout => auth::handle_logout_command(args).await,
