@@ -979,14 +979,14 @@ async fn create_template_and_trigger(
         false,
     );
 
-    let template = template_create(&config, template)
+    let template = template_create(config, template)
         .await
         .with_context(|| "Error creating template")?;
     info!("Uploaded template");
 
     let trigger_url = if create_trigger {
         let trigger = trigger_create(
-            &config,
+            config,
             NewTrigger {
                 title: format!("{} Trigger", &template.title),
                 template_id: template.id.clone(),
@@ -1001,7 +1001,7 @@ async fn create_template_and_trigger(
             trigger.id,
             trigger
                 .secret_key
-                .ok_or(anyhow!("Trigger creation did not return the secret key"))?
+                .ok_or_else(|| anyhow!("Trigger creation did not return the secret key"))?
         );
         Some(trigger_url)
     } else {
