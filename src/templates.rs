@@ -974,9 +974,9 @@ async fn create_template_and_trigger(
     template: NewTemplate,
 ) -> Result<(Template, Option<String>)> {
     let create_trigger = interactive::bool_opt(
-        "Create a trigger for this template?",
+        "Create a Trigger (Webhook URL) for this template?",
         create_trigger,
-        Some(true),
+        Some(false),
     )
     .unwrap_or_default();
 
