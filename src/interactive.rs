@@ -68,16 +68,19 @@ where
     if argument.is_some() {
         return argument;
     }
-    let prompt = format!("{} (y/n)", prompt.into().trim_end());
+    let prompt = prompt.into();
 
     let input = match &default {
-        Some(default) => Input::with_theme(&default_theme())
-            .with_prompt(prompt)
-            .allow_empty(true)
-            .default(if *default { "y" } else { "n" }.to_string())
-            .interact(),
+        Some(default) => {
+            let yn = if *default { "Y/n" } else { "y/N" };
+            Input::with_theme(&default_theme())
+                .with_prompt(format!("{} {}", prompt.trim_end(), yn))
+                .allow_empty(true)
+                .default(if *default { "y" } else { "n" }.to_string())
+                .interact()
+        }
         None => Input::with_theme(&default_theme())
-            .with_prompt(prompt)
+            .with_prompt(format!("{} (y/n)", prompt.trim_end()))
             .allow_empty(true)
             .interact(),
     };
