@@ -178,7 +178,7 @@ struct ExpandArguments {
 #[derive(Parser)]
 struct ConvertArguments {
     /// Notebook ID
-    #[clap(long, short, env)]
+    #[clap()]
     notebook_id: Option<Base64Uuid>,
 
     /// Title of the template (defaults to the notebook title)
