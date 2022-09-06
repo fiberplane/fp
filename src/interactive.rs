@@ -2,7 +2,7 @@ use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
 use base64uuid::Base64Uuid;
-use dialoguer::{theme, FuzzySelect, Input};
+use dialoguer::{theme, FuzzySelect, Input, Select};
 use fp_api_client::apis::default_api::proxy_list;
 use fp_api_client::apis::default_api::template_list;
 use fp_api_client::apis::default_api::trigger_list;
@@ -68,27 +68,24 @@ where
     if argument.is_some() {
         return argument;
     }
-    let prompt = prompt.into();
-
-    let input = match &default {
-        Some(default) => {
-            let yn = if *default { "Y/n" } else { "y/N" };
-            Input::with_theme(&default_theme())
-                .with_prompt(format!("{} {}", prompt.trim_end(), yn))
-                .allow_empty(true)
-                .default(if *default { "y" } else { "n" }.to_string())
-                .interact()
+    let theme = default_theme();
+    let mut select = Select::with_theme(&theme);
+    select.with_prompt(prompt).item("Yes").item("No");
+    match default {
+        Some(true) => {
+            select.default(0);
         }
-        None => Input::with_theme(&default_theme())
-            .with_prompt(format!("{} (y/n)", prompt.trim_end()))
-            .allow_empty(true)
-            .interact(),
-    };
+        Some(false) => {
+            select.default(1);
+        }
+        _ => {}
+    }
+    let input = select.interact();
 
     match input {
-        Ok(input) => match input.to_lowercase().trim() {
-            "y" => Some(true),
-            "n" => Some(false),
+        Ok(input) => match input {
+            0 => Some(true),
+            1 => Some(false),
             _ => default,
         },
         // TODO: Properly check for the error instead of just returning the default value.
