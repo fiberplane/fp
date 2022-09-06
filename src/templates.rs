@@ -973,12 +973,11 @@ async fn create_template_and_trigger(
     create_trigger: Option<bool>,
     template: NewTemplate,
 ) -> Result<(Template, Option<String>)> {
-    let create_trigger = interactive::bool_opt(
+    let create_trigger = interactive::bool_req(
         "Create a Trigger (Webhook URL) for this template?",
         create_trigger,
-        Some(false),
-    )
-    .unwrap_or_default();
+        false,
+    );
 
     let template = template_create(&config, template)
         .await

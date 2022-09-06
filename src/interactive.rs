@@ -54,45 +54,6 @@ where
     }
 }
 
-/// Get the value from either a CLI argument, interactive input, or from a
-/// default value. If no value is provided by the user and there is no default
-/// value, it will return None.
-///
-/// NOTE: If the user does not specifies a value through a cli argument, the
-/// interactive input will always be shown. This is a limitation that we
-/// currently not check if the invocation is interactive or not.
-pub fn bool_opt<P>(prompt: P, argument: Option<bool>, default: Option<bool>) -> Option<bool>
-where
-    P: Into<String>,
-{
-    if argument.is_some() {
-        return argument;
-    }
-    let theme = default_theme();
-    let mut select = Select::with_theme(&theme);
-    select.with_prompt(prompt).item("Yes").item("No");
-    match default {
-        Some(true) => {
-            select.default(0);
-        }
-        Some(false) => {
-            select.default(1);
-        }
-        _ => {}
-    }
-    let input = select.interact();
-
-    match input {
-        Ok(input) => match input {
-            0 => Some(true),
-            1 => Some(false),
-            _ => default,
-        },
-        // TODO: Properly check for the error instead of just returning the default value.
-        Err(_) => default,
-    }
-}
-
 /// Get the value from either a argument, interactive input, or from a default
 /// value. If the user does not supply a value then this function will return an
 /// error. Use `text_opt` if you want to allow a None value.
@@ -107,6 +68,37 @@ where
     match text_opt(prompt, argument, default) {
         Some(value) => Ok(value),
         None => Err(anyhow!("No value provided")),
+    }
+}
+
+/// Get the value from either a CLI argument, interactive input, or from a
+/// default value.
+///
+/// NOTE: If the user does not specify a value through a cli argument, the
+/// interactive input will always be shown. This is a limitation that we
+/// currently do not check if the invocation is interactive or not.
+pub fn bool_req<P>(prompt: P, argument: Option<bool>, default: bool) -> bool
+where
+    P: Into<String>,
+{
+    if let Some(argument) = argument {
+        return argument;
+    }
+
+    let theme = default_theme();
+    let mut select = Select::with_theme(&theme);
+    select.with_prompt(prompt).item("Yes").item("No");
+    if default {
+        select.default(0);
+    } else {
+        select.default(1);
+    }
+    let input = select.interact();
+
+    match input {
+        Ok(0) => true,
+        Ok(1) => false,
+        _ => default,
     }
 }
 
