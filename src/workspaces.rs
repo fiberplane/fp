@@ -1,10 +1,11 @@
 use crate::config::api_client_configuration;
 use crate::interactive::workspace_picker;
+use crate::output::{output_details, output_json, GenericKeyValue};
 use anyhow::Result;
 use base64uuid::Base64Uuid;
-use clap::Parser;
-use fp_api_client::apis::default_api::{workspace_invite, workspace_leave};
-use fp_api_client::models::NewWorkspaceInvite;
+use clap::{ArgEnum, Parser};
+use fp_api_client::apis::default_api::{workspace_create, workspace_invite, workspace_leave};
+use fp_api_client::models::{NewWorkspace, NewWorkspaceInvite, Workspace};
 use std::path::PathBuf;
 use tracing::info;
 use url::Url;
@@ -17,11 +18,39 @@ pub struct Arguments {
 
 #[derive(Parser)]
 enum SubCommand {
+    Create(CreateArgs),
+
     /// Invite a user to a workspace
     Invite(InviteArgs),
 
     /// Leave a workspace
     Leave(LeaveArgs),
+}
+
+#[derive(ArgEnum, Clone)]
+enum WorkspaceOutput {
+    /// Output the details as a table
+    Table,
+
+    /// Output the details as JSON
+    Json,
+}
+
+#[derive(Parser)]
+struct CreateArgs {
+    /// Name of the new workspace
+    #[clap(short, long)]
+    name: String,
+
+    /// Output of the workspace
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: WorkspaceOutput,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
 }
 
 #[derive(Parser)]
@@ -56,8 +85,22 @@ struct LeaveArgs {
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
     match args.sub_command {
+        SubCommand::Create(args) => handle_workspace_create(args).await,
         SubCommand::Invite(args) => handle_workspace_invite(args).await,
         SubCommand::Leave(args) => handle_workspace_leave(args).await,
+    }
+}
+
+async fn handle_workspace_create(args: CreateArgs) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+
+    let workspace = workspace_create(&config, NewWorkspace::new(args.name)).await?;
+
+    info!("Successfully created new workspace");
+
+    match args.output {
+        WorkspaceOutput::Table => output_details(GenericKeyValue::from_workspace(workspace)),
+        WorkspaceOutput::Json => output_json(&workspace),
     }
 }
 
@@ -84,4 +127,14 @@ async fn handle_workspace_leave(args: LeaveArgs) -> Result<()> {
 
     info!("Successfully left workspace");
     Ok(())
+}
+
+impl GenericKeyValue {
+    fn from_workspace(workspace: Workspace) -> Vec<Self> {
+        vec![
+            GenericKeyValue::new("Name:", workspace.name),
+            GenericKeyValue::new("Type:", format!("{:?}", workspace._type)),
+            GenericKeyValue::new("ID:", workspace.id),
+        ]
+    }
 }
