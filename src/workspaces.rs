@@ -18,6 +18,7 @@ pub struct Arguments {
 
 #[derive(Parser)]
 enum SubCommand {
+    /// Create a new workspace
     Create(CreateArgs),
 
     /// Invite a user to a workspace
