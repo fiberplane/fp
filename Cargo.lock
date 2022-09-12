@@ -146,7 +146,7 @@ checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 [[package]]
 name = "base64uuid"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=single_player#9bfac18003ab03cd9d50ec0c7f9dd4d720f58646"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=single_player#43858c9551acc3bf63cf497919d36919cb1761c5"
 dependencies = [
  "base64",
  "fp-bindgen",
@@ -880,7 +880,7 @@ dependencies = [
 [[package]]
 name = "fiberplane"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=single_player#9bfac18003ab03cd9d50ec0c7f9dd4d720f58646"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=single_player#43858c9551acc3bf63cf497919d36919cb1761c5"
 dependencies = [
  "base64",
  "base64uuid",
@@ -901,11 +901,12 @@ dependencies = [
 [[package]]
 name = "fiberplane-markdown"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=single_player#9bfac18003ab03cd9d50ec0c7f9dd4d720f58646"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=single_player#43858c9551acc3bf63cf497919d36919cb1761c5"
 dependencies = [
  "fiberplane",
  "pulldown-cmark",
  "pulldown-cmark-to-cmark",
+ "time",
  "tracing",
 ]
 
@@ -996,7 +997,7 @@ dependencies = [
 [[package]]
 name = "fp-api-client"
 version = "1.0.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=single_player#9bfac18003ab03cd9d50ec0c7f9dd4d720f58646"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=single_player#43858c9551acc3bf63cf497919d36919cb1761c5"
 dependencies = [
  "reqwest",
  "serde",
@@ -1054,7 +1055,7 @@ dependencies = [
 [[package]]
 name = "fp-provider-runtime"
 version = "2.0.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=single_player#9bfac18003ab03cd9d50ec0c7f9dd4d720f58646"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=single_player#43858c9551acc3bf63cf497919d36919cb1761c5"
 dependencies = [
  "bytes",
  "fiberplane",
@@ -1073,7 +1074,7 @@ dependencies = [
 [[package]]
 name = "fp-templates"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=single_player#9bfac18003ab03cd9d50ec0c7f9dd4d720f58646"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=single_player#43858c9551acc3bf63cf497919d36919cb1761c5"
 dependencies = [
  "fiberplane",
  "jrsonnet-evaluator",
@@ -1083,6 +1084,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+ "time",
 ]
 
 [[package]]
@@ -3346,9 +3348,9 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.3.11"
+version = "0.3.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72c91f41dcb2f096c05f0873d667dceec1087ce5bcf984ec8ffb19acddbb3217"
+checksum = "3c3f9a28b618c3a6b9251b6908e9c99e04b9e5c02e6581ccbb67d59c34ef7f9b"
 dependencies = [
  "itoa 1.0.2",
  "libc",
@@ -3366,7 +3368,7 @@ checksum = "42657b1a6f4d817cda8e7a0ace261fe0cc946cf3a80314390b22cc61ae080792"
 [[package]]
 name = "time_util"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=single_player#9bfac18003ab03cd9d50ec0c7f9dd4d720f58646"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=single_player#43858c9551acc3bf63cf497919d36919cb1761c5"
 dependencies = [
  "anyhow",
  "serde",
