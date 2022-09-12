@@ -95,6 +95,9 @@ impl CellWriter {
                     display_fields: None,
                     hide_similar_values: None,
                     expanded_indices: None,
+                    highlighted_indices: None,
+                    selected_indices: None,
+                    visibility_filter: None,
                 };
                 let cell = self.append_cell(cell).await?;
                 self.cell = Some(cell);
