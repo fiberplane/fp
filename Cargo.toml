@@ -76,6 +76,6 @@ vergen = "7"
 #[patch."ssh://git@github.com/fiberplane/fiberplane-rs.git"]
 #fiberplane = { path = "../fiberplane-rs/fiberplane" }
 #fiberplane-markdown = { path = "../fiberplane-rs/fp-markdown" }
-f#p-templates = { path = "../fiberplane-rs/fp-templates" }
+#fp-templates = { path = "../fiberplane-rs/fp-templates" }
 #fp-api-client = { path = "../fiberplane-rs/fp-api-client" }
 #time_util = { path = "../fiberplane-rs/time_util" }
