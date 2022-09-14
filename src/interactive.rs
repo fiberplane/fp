@@ -2,7 +2,7 @@ use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
 use base64uuid::Base64Uuid;
-use dialoguer::{theme, FuzzySelect, Input};
+use dialoguer::{theme, FuzzySelect, Input, Select};
 use fp_api_client::apis::configuration::Configuration;
 use fp_api_client::apis::default_api::{
     notebook_search, proxy_list, template_list, trigger_list, workspace_list, workspace_list_users,
@@ -68,6 +68,37 @@ where
     match text_opt(prompt, argument, default) {
         Some(value) => Ok(value),
         None => Err(anyhow!("No value provided")),
+    }
+}
+
+/// Get the value from either a CLI argument, interactive input, or from a
+/// default value.
+///
+/// NOTE: If the user does not specify a value through a cli argument, the
+/// interactive input will always be shown. This is a limitation that we
+/// currently do not check if the invocation is interactive or not.
+pub fn bool_req<P>(prompt: P, argument: Option<bool>, default: bool) -> bool
+where
+    P: Into<String>,
+{
+    if let Some(argument) = argument {
+        return argument;
+    }
+
+    let theme = default_theme();
+    let mut select = Select::with_theme(&theme);
+    select.with_prompt(prompt).item("Yes").item("No");
+    if default {
+        select.default(0);
+    } else {
+        select.default(1);
+    }
+    let input = select.interact();
+
+    match input {
+        Ok(0) => true,
+        Ok(1) => false,
+        _ => default,
     }
 }
 
