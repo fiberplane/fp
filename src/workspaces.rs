@@ -1,10 +1,12 @@
 use crate::config::api_client_configuration;
-use crate::interactive::workspace_picker;
+use crate::interactive::{workspace_picker, workspace_user_picker};
 use crate::output::{output_details, output_json, GenericKeyValue};
 use anyhow::Result;
 use base64uuid::Base64Uuid;
 use clap::{ArgEnum, Parser};
-use fp_api_client::apis::default_api::{workspace_create, workspace_invite, workspace_leave};
+use fp_api_client::apis::default_api::{
+    workspace_create, workspace_invite, workspace_leave, workspace_user_remove,
+};
 use fp_api_client::models::{NewWorkspace, NewWorkspaceInvite, Workspace};
 use std::path::PathBuf;
 use tracing::info;
@@ -26,6 +28,9 @@ enum SubCommand {
 
     /// Leave a workspace
     Leave(LeaveArgs),
+
+    /// Remove a user from a workspace
+    Remove(RemoveArgs),
 }
 
 #[derive(ArgEnum, Clone)]
@@ -84,11 +89,29 @@ struct LeaveArgs {
     config: Option<PathBuf>,
 }
 
+#[derive(Parser)]
+struct RemoveArgs {
+    /// Workspace to remove the user from
+    #[clap(long, short, env)]
+    workspace_id: Option<Base64Uuid>,
+
+    /// User ID of the user that should be removed from the workspace
+    #[clap(long, short, env)]
+    user_id: Option<Base64Uuid>,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
 pub async fn handle_command(args: Arguments) -> Result<()> {
     match args.sub_command {
         SubCommand::Create(args) => handle_workspace_create(args).await,
         SubCommand::Invite(args) => handle_workspace_invite(args).await,
         SubCommand::Leave(args) => handle_workspace_leave(args).await,
+        SubCommand::Remove(args) => handle_workspace_remove_user(args).await,
     }
 }
 
@@ -127,6 +150,18 @@ async fn handle_workspace_leave(args: LeaveArgs) -> Result<()> {
     workspace_leave(&config, &workspace_id.to_string()).await?;
 
     info!("Successfully left workspace");
+    Ok(())
+}
+
+async fn handle_workspace_remove_user(args: RemoveArgs) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+
+    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let user = workspace_user_picker(&config, &workspace_id, args.user_id).await?;
+
+    workspace_user_remove(&config, &workspace_id.to_string(), &user.to_string()).await?;
+
+    info!("Successfully removed user from workspace");
     Ok(())
 }
 

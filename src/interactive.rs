@@ -5,7 +5,7 @@ use base64uuid::Base64Uuid;
 use dialoguer::{theme, FuzzySelect, Input, Select};
 use fp_api_client::apis::configuration::Configuration;
 use fp_api_client::apis::default_api::{
-    notebook_search, proxy_list, template_list, trigger_list, workspace_list,
+    notebook_search, proxy_list, template_list, trigger_list, workspace_list, workspace_list_users,
 };
 use fp_api_client::models::NotebookSearch;
 use indicatif::ProgressBar;
@@ -381,5 +381,63 @@ pub async fn workspace_picker(
             Ok(Base64Uuid::parse_str(&results[selection].id).context("invalid id was returned")?)
         }
         None => Err(anyhow!("No workspace selected")),
+    }
+}
+
+/// Get a workspace user ID from either a CLI argument, or from a interactive picker.
+///
+/// If the user has not specified the workspace user ID through a CLI argument then it
+/// will retrieve all users from that workspace using the workspace members list endpoint, and allow
+/// the user to select one.
+///
+/// NOTE: This currently does not do any limiting of the result. It will allow
+/// client side filtering.
+/// NOTE: If the user does not specify a value through a cli argument, the
+/// interactive input will always be shown. This is a limitation that we
+/// currently not check if the invocation is interactive or not.
+pub async fn workspace_user_picker(
+    config: &Configuration,
+    workspace: &Base64Uuid,
+    argument: Option<Base64Uuid>,
+) -> Result<Base64Uuid> {
+    // If the user provided an argument, use that. Otherwise show the picker.
+    if let Some(id) = argument {
+        return Ok(id);
+    };
+
+    let pb = ProgressBar::new_spinner();
+    pb.set_message("Fetching workspace users");
+    pb.enable_steady_tick(100);
+
+    let results = workspace_list_users(
+        config,
+        &workspace.to_string(),
+        Some("name"),
+        Some("ascending"),
+    )
+    .await?;
+
+    pb.finish_and_clear();
+
+    if results.is_empty() {
+        return Err(anyhow!("No workspace users found"));
+    }
+
+    let display_items: Vec<_> = results
+        .iter()
+        .map(|user| format!("{} ({})", user.name, user.id))
+        .collect();
+
+    let selection = FuzzySelect::with_theme(&default_theme())
+        .with_prompt("Workspace Member")
+        .items(&display_items)
+        .default(0)
+        .interact_opt()?;
+
+    match selection {
+        Some(selection) => {
+            Ok(Base64Uuid::parse_str(&results[selection].id).context("invalid id was returned")?)
+        }
+        None => Err(anyhow!("No workspace user selected")),
     }
 }
