@@ -1,13 +1,16 @@
 use crate::config::api_client_configuration;
 use crate::interactive::{workspace_picker, workspace_user_picker};
-use crate::output::{output_details, output_json, GenericKeyValue};
+use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use anyhow::Result;
 use base64uuid::Base64Uuid;
 use clap::{ArgEnum, Parser};
+use cli_table::Table;
+use fiberplane::sorting::{SortDirection, WorkspaceInviteListingSortFields};
 use fp_api_client::apis::default_api::{
-    workspace_create, workspace_invite, workspace_leave, workspace_user_remove,
+    workspace_create, workspace_invite, workspace_invite_get, workspace_leave,
+    workspace_user_remove,
 };
-use fp_api_client::models::{NewWorkspace, NewWorkspaceInvite, Workspace};
+use fp_api_client::models::{NewWorkspace, NewWorkspaceInvite, Workspace, WorkspaceInvite};
 use std::path::PathBuf;
 use tracing::info;
 use url::Url;
@@ -26,6 +29,9 @@ enum SubCommand {
     /// Invite a user to a workspace
     Invite(InviteArgs),
 
+    /// List all pending invites
+    ListInvites(ListInviteArgs),
+
     /// Leave a workspace
     Leave(LeaveArgs),
 
@@ -35,6 +41,15 @@ enum SubCommand {
 
 #[derive(ArgEnum, Clone)]
 enum WorkspaceOutput {
+    /// Output the details as a table
+    Table,
+
+    /// Output the details as JSON
+    Json,
+}
+
+#[derive(ArgEnum, Clone)]
+enum PendingInvitesOutput {
     /// Output the details as a table
     Table,
 
@@ -77,6 +92,39 @@ struct InviteArgs {
 }
 
 #[derive(Parser)]
+struct ListInviteArgs {
+    /// Workspace for which pending invites should be displayed
+    #[clap(long, short, env)]
+    workspace_id: Option<Base64Uuid>,
+
+    /// Output of the invites
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: PendingInvitesOutput,
+
+    /// Sort the result according to the following field
+    #[clap(long, arg_enum)]
+    sort_by: Option<WorkspaceInviteListingSortFields>,
+
+    /// Sort the result in the following direction
+    #[clap(long, arg_enum)]
+    sort_direction: Option<SortDirection>,
+
+    /// Page to display
+    #[clap(long)]
+    page: Option<i32>,
+
+    /// Amount of events to display per page
+    #[clap(long)]
+    limit: Option<i32>,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
+#[derive(Parser)]
 struct LeaveArgs {
     /// Workspace to leave from
     #[clap(long, short, env)]
@@ -110,6 +158,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
     match args.sub_command {
         SubCommand::Create(args) => handle_workspace_create(args).await,
         SubCommand::Invite(args) => handle_workspace_invite(args).await,
+        SubCommand::ListInvites(args) => handle_list_invites(args).await,
         SubCommand::Leave(args) => handle_workspace_leave(args).await,
         SubCommand::Remove(args) => handle_workspace_remove_user(args).await,
     }
@@ -143,6 +192,29 @@ async fn handle_workspace_invite(args: InviteArgs) -> Result<()> {
     Ok(())
 }
 
+async fn handle_list_invites(args: ListInviteArgs) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+
+    let invites = workspace_invite_get(
+        &config,
+        &workspace_id.to_string(),
+        args.sort_by.map(Into::into),
+        args.sort_direction.map(Into::into),
+        args.page,
+        args.limit,
+    )
+    .await?;
+
+    match args.output {
+        PendingInvitesOutput::Table => {
+            let rows: Vec<PendingInviteRow> = invites.into_iter().map(Into::into).collect();
+            output_list(rows)
+        }
+        PendingInvitesOutput::Json => output_json(&invites),
+    }
+}
+
 async fn handle_workspace_leave(args: LeaveArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
     let workspace_id = workspace_picker(&config, args.workspace_id).await?;
@@ -172,5 +244,37 @@ impl GenericKeyValue {
             GenericKeyValue::new("Type:", format!("{:?}", workspace._type)),
             GenericKeyValue::new("ID:", workspace.id),
         ]
+    }
+}
+
+#[derive(Table)]
+struct PendingInviteRow {
+    #[table(title = "ID")]
+    id: String,
+
+    #[table(title = "Receiver")]
+    receiver: String,
+
+    #[table(title = "Sender")]
+    sender: String,
+
+    #[table(title = "Created at")]
+    created_at: String,
+
+    #[table(title = "Expires at")]
+    expires_at: String,
+}
+
+impl From<WorkspaceInvite> for PendingInviteRow {
+    fn from(invite: WorkspaceInvite) -> Self {
+        Self {
+            id: invite.id,
+            receiver: invite
+                .receiver
+                .unwrap_or_else(|| "Deleted user".to_string()),
+            sender: invite.sender.unwrap_or_else(|| "Deleted user".to_string()),
+            created_at: invite.created_at.unwrap_or_default(),
+            expires_at: invite.expires_at.unwrap_or_else(|| "Never".to_string()),
+        }
     }
 }
