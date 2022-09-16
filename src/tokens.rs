@@ -28,12 +28,14 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 #[derive(Parser)]
 enum SubCommand {
     /// Create a token
+    #[clap(alias = "add")]
     Create(CreateArguments),
 
     /// Lists all tokens
     List(ListArguments),
 
     /// Deletes a token
+    #[clap(aliases = &["remove", "rm"])]
     Delete(DeleteArguments),
 }
 

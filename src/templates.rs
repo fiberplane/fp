@@ -43,44 +43,37 @@ pub struct Arguments {
 #[derive(Parser)]
 enum SubCommand {
     /// Initializes a blank template and save it in the current directory as template.jsonnet
-    #[clap()]
     Init,
 
     /// Expand a template into a Fiberplane notebook
-    #[clap()]
     Expand(ExpandArguments),
 
     /// Create a template from an existing Fiberplane notebook
-    #[clap()]
     Convert(ConvertArguments),
 
     /// Create a new template
-    #[clap()]
+    #[clap(alias = "add")]
     Create(CreateArguments),
 
     /// Retrieve a single template
     ///
     /// By default, this returns the template metadata.
     /// To retrieve the full template body, use the --output=body flag
-    #[clap()]
     Get(GetArguments),
 
-    /// Remove a template
-    #[clap()]
-    Remove(RemoveArguments),
+    /// Delete a template
+    #[clap(aliases = &["remove", "rm"])]
+    Delete(DeleteArguments),
 
     /// List of the templates that have been uploaded to Fiberplane
-    #[clap()]
     List(ListArguments),
 
     /// Update an existing template
-    #[clap()]
     Update(UpdateArguments),
 
     /// Validate a local template
     ///
     /// Note that only templates without required parameters can be fully validated.
-    #[clap()]
     Validate(ValidateArguments),
 
     /// Interact with the official example templates
@@ -92,15 +85,12 @@ enum SubCommand {
 #[clap(alias = "example")]
 enum ExamplesSubCommand {
     /// Expand one of the example templates
-    #[clap()]
     Expand(ExpandExampleArguments),
 
     /// List the example templates
-    #[clap()]
     List(ListExampleArguments),
 
     /// Get a single example templates
-    #[clap()]
     Get(GetExampleArguments),
 }
 
@@ -111,7 +101,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
         Expand(args) => handle_expand_command(args).await,
         Convert(args) => handle_convert_command(args).await,
         Create(args) => handle_create_command(args).await,
-        Remove(args) => handle_delete_command(args).await,
+        Delete(args) => handle_delete_command(args).await,
         Get(args) => handle_get_command(args).await,
         List(args) => handle_list_command(args).await,
         Update(args) => handle_update_command(args).await,
@@ -165,7 +155,6 @@ struct ExpandArguments {
     /// Values to inject into the template
     ///
     /// Can be passed as a JSON object or as a comma-separated list of key=value pairs
-    #[clap()]
     template_arguments: Option<TemplateArguments>,
 
     #[clap(from_global)]
@@ -246,7 +235,6 @@ struct CreateArguments {
 #[derive(Parser)]
 struct GetArguments {
     /// The ID of the template
-    #[clap()]
     template_id: Option<Base64Uuid>,
 
     /// Output of the template
@@ -261,9 +249,8 @@ struct GetArguments {
 }
 
 #[derive(Parser)]
-struct RemoveArguments {
+struct DeleteArguments {
     /// The ID of the template
-    #[clap()]
     template_id: Option<Base64Uuid>,
 
     #[clap(from_global)]
@@ -348,7 +335,6 @@ struct ValidateArguments {
     /// Optional values to inject into the template
     ///
     /// Can be passed as a JSON object or as a comma-separated list of key=value pairs
-    #[clap()]
     template_arguments: Option<TemplateArguments>,
 }
 
@@ -357,13 +343,11 @@ struct ExpandExampleArguments {
     /// Title or ID of the example template to expand
     ///
     /// The title can be passed as a quoted string ("Incident Response") or as kebab-case ("root-cause-analysis")
-    #[clap()]
     template: String,
 
     /// Values to inject into the template
     ///
     /// Can be passed as a JSON object or as a comma-separated list of key=value pairs
-    #[clap()]
     template_arguments: Option<TemplateArguments>,
 
     #[clap(from_global)]
@@ -378,7 +362,6 @@ struct GetExampleArguments {
     /// Title or ID of the example template to expand
     ///
     /// The title can be passed as a quoted string ("Incident Response") or as kebab-case ("root-cause-analysis")
-    #[clap()]
     template: String,
 
     /// Output of the template
@@ -669,7 +652,7 @@ async fn handle_get_command(args: GetArguments) -> Result<()> {
     }
 }
 
-async fn handle_delete_command(args: RemoveArguments) -> Result<()> {
+async fn handle_delete_command(args: DeleteArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
     let template_id = interactive::template_picker(&config, args.template_id).await?;

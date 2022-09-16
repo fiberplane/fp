@@ -35,12 +35,14 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 #[derive(Parser)]
 enum SubCommand {
     /// Create a trigger
+    #[clap(alias = "add")]
     Create(CreateArguments),
 
     /// Retrieve a trigger
     Get(GetArguments),
 
     /// Delete a trigger
+    #[clap(aliases = &["remove", "rm"])]
     Delete(DeleteArguments),
 
     /// List all triggers
