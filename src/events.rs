@@ -36,12 +36,14 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 #[derive(Parser)]
 enum SubCommand {
     /// Create an event
+    #[clap(alias = "add")]
     Create(CreateArguments),
 
     /// Search for an event
     Search(SearchArguments),
 
     /// Delete an event
+    #[clap(aliases = &["remove", "rm"])]
     Delete(DeleteArguments),
 }
 

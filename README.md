@@ -34,7 +34,7 @@ The CLI offers other commands to help view and manage your organization's proxie
 - `fp proxies list` - shows your proxies' names, IDs, and connection statuses
 - `fp proxies data-sources` - shows the data sources exposed by all of your proxies
 - `fp proxies inspect <proxy_id>` - shows detailed information about a specific proxy
-- `fp proxy remove <proxy_id>` - remove the given proxy
+- `fp proxies delete <proxy_id>` - delete the given proxy
 
 ### Templates
 
