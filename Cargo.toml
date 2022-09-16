@@ -1,6 +1,6 @@
 [package]
 name = "fp"
-version = "0.12.0"
+version = "0.13.0"
 authors = ["Team Fiberplane"]
 edition = "2018"
 build = "build.rs"
@@ -73,8 +73,9 @@ vergen = "7"
 # [patch."ssh://git@github.com/fiberplane/providers.git"]
 # fp-provider-runtime = { path = "../providers/runtimes/fp-provider-runtime/" }
 
-# [patch."ssh://git@github.com/fiberplane/fiberplane-rs.git"]
-# fiberplane = { path = "../fiberplane-rs/fiberplane" }
-# fiberplane-markdown = { path = "../fiberplane-rs/markdown" }
-# fiberplane-templates = { path = "../fiberplane-rs/templates" }
-# time_util = { path = "../fiberplane-rs/time_util" }
+#[patch."ssh://git@github.com/fiberplane/fiberplane-rs.git"]
+#fiberplane = { path = "../fiberplane-rs/fiberplane" }
+#fiberplane-markdown = { path = "../fiberplane-rs/fp-markdown" }
+#fp-templates = { path = "../fiberplane-rs/fp-templates" }
+#fp-api-client = { path = "../fiberplane-rs/fp-api-client" }
+#time_util = { path = "../fiberplane-rs/time_util" }

@@ -146,7 +146,7 @@ checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 [[package]]
 name = "base64uuid"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=FP-1953-Prometheus-2.0#8e9497cf20cbd5f661afb1b278bacd446f8da222"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=FP-1953-Prometheus-2.0#52d693180ac57295df6a820948c6e86311c59ebd"
 dependencies = [
  "base64",
  "serde",
@@ -879,7 +879,7 @@ dependencies = [
 [[package]]
 name = "fiberplane"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=FP-1953-Prometheus-2.0#8e9497cf20cbd5f661afb1b278bacd446f8da222"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=FP-1953-Prometheus-2.0#52d693180ac57295df6a820948c6e86311c59ebd"
 dependencies = [
  "base64",
  "bytes",
@@ -902,7 +902,7 @@ dependencies = [
 [[package]]
 name = "fiberplane-markdown"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=FP-1953-Prometheus-2.0#8e9497cf20cbd5f661afb1b278bacd446f8da222"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=FP-1953-Prometheus-2.0#52d693180ac57295df6a820948c6e86311c59ebd"
 dependencies = [
  "fiberplane",
  "pulldown-cmark",
@@ -940,7 +940,7 @@ dependencies = [
 
 [[package]]
 name = "fp"
-version = "0.12.0"
+version = "0.13.0"
 dependencies = [
  "abort-on-drop",
  "anyhow",
@@ -998,7 +998,7 @@ dependencies = [
 [[package]]
 name = "fp-api-client"
 version = "1.0.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=FP-1953-Prometheus-2.0#8e9497cf20cbd5f661afb1b278bacd446f8da222"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=FP-1953-Prometheus-2.0#52d693180ac57295df6a820948c6e86311c59ebd"
 dependencies = [
  "reqwest",
  "serde",
@@ -1041,9 +1041,9 @@ dependencies = [
 
 [[package]]
 name = "fp-bindgen-support"
-version = "2.1.0"
+version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b76e1f89914fc755395ed4b25d7a800a047908aada789c6440a2fcc118f79f8"
+checksum = "93dfda7c987faf83edf24e57337d688492b1f8f00afebe1da6ae530dcaf0cddf"
 dependencies = [
  "fp-bindgen-macros",
  "once_cell",
@@ -1057,7 +1057,7 @@ dependencies = [
 [[package]]
 name = "fp-provider-runtime"
 version = "2.0.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=FP-1953-Prometheus-2.0#8e9497cf20cbd5f661afb1b278bacd446f8da222"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=FP-1953-Prometheus-2.0#52d693180ac57295df6a820948c6e86311c59ebd"
 dependencies = [
  "bytes",
  "fiberplane",
@@ -1077,7 +1077,7 @@ dependencies = [
 [[package]]
 name = "fp-templates"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=FP-1953-Prometheus-2.0#8e9497cf20cbd5f661afb1b278bacd446f8da222"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=FP-1953-Prometheus-2.0#52d693180ac57295df6a820948c6e86311c59ebd"
 dependencies = [
  "fiberplane",
  "jrsonnet-evaluator",
@@ -3371,7 +3371,7 @@ checksum = "42657b1a6f4d817cda8e7a0ace261fe0cc946cf3a80314390b22cc61ae080792"
 [[package]]
 name = "time_util"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=FP-1953-Prometheus-2.0#8e9497cf20cbd5f661afb1b278bacd446f8da222"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=FP-1953-Prometheus-2.0#52d693180ac57295df6a820948c6e86311c59ebd"
 dependencies = [
  "anyhow",
  "serde",
