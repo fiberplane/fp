@@ -1,7 +1,7 @@
 use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
 use fp_provider_runtime::spec::types::{
-    Blob, LegacyProviderRequest, LegacyProviderResponse, ProviderRequest,
+    Blob, LegacyProviderRequest, LegacyProviderResponse, ProviderConfig, ProviderRequest,
 };
 
 #[derive(Parser)]
@@ -45,7 +45,7 @@ pub struct InvokeArguments {
 async fn handle_invoke_command(args: InvokeArguments) -> Result<()> {
     let request: LegacyProviderRequest =
         serde_json::from_str(&args.request).context("unable to deserialize request")?;
-    let config = json_to_messagepack(&args.config).context("unable to deserialize config")?;
+    let config = parse_config(&args.config).context("unable to deserialize config")?;
 
     let wasm_module = std::fs::read(args.provider_path)
         .map_err(|e| anyhow!("unable to read wasm module: {:?}", e))?;
@@ -98,7 +98,7 @@ pub struct Invoke2Arguments {
 }
 
 async fn handle_invoke2_command(args: Invoke2Arguments) -> Result<()> {
-    let config = json_to_messagepack(&args.config).context("unable to deserialize config")?;
+    let config = parse_config(&args.config).context("unable to deserialize config")?;
     let request = ProviderRequest {
         query_type: args.query_type,
         query_data: Blob {
@@ -120,7 +120,7 @@ async fn handle_invoke2_command(args: Invoke2Arguments) -> Result<()> {
     match result {
         Ok(Ok(blob)) => {
             if blob.mime_type.ends_with("json") {
-                let json = serde_json::from_slice(blob.data.as_ref())?;
+                let json: serde_json::Value = serde_json::from_slice(blob.data.as_ref())?;
                 println!("{}", serde_json::to_string_pretty(&json)?);
             } else if blob.mime_type.ends_with("msgpack") {
                 let value: serde_json::Value = rmp_serde::from_slice(blob.data.as_ref())
@@ -136,8 +136,6 @@ async fn handle_invoke2_command(args: Invoke2Arguments) -> Result<()> {
     }
 }
 
-/// Transcode JSON to messagepack using serde-transcode
-fn json_to_messagepack(json: &str) -> Result<rmpv::Value> {
-    let value: serde_json::Value = serde_json::from_str(json)?;
-    rmpv::ext::to_value(value).map_err(|e| e.into())
+fn parse_config(json: &str) -> Result<ProviderConfig> {
+    serde_json::from_str(json).map_err(serde_json::Error::into)
 }
