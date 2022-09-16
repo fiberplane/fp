@@ -12,7 +12,7 @@ enum State {
     Consume(usize),
 }
 
-#[derive(PartialEq)]
+#[derive(Eq, PartialEq)]
 pub enum PtyOutput<'a> {
     Data(&'a [u8]),
     PromptStart,

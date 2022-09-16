@@ -120,7 +120,7 @@ async fn handle_invoke2_command(args: Invoke2Arguments) -> Result<()> {
     match result {
         Ok(Ok(blob)) => {
             if blob.mime_type.ends_with("json") {
-                let json = serde_json::from_slice(blob.data.as_ref())?;
+                let json: serde_json::Value = serde_json::from_slice(blob.data.as_ref())?;
                 println!("{}", serde_json::to_string_pretty(&json)?);
             } else if blob.mime_type.ends_with("msgpack") {
                 let value: serde_json::Value = rmp_serde::from_slice(blob.data.as_ref())
