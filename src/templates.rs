@@ -239,7 +239,7 @@ struct GetArguments {
 }
 
 #[derive(Parser)]
-struct RemoveArguments {
+struct DeleteArguments {
     /// The ID of the template
     template_id: Option<Base64Uuid>,
 
@@ -595,7 +595,7 @@ async fn handle_get_command(args: GetArguments) -> Result<()> {
     }
 }
 
-async fn handle_delete_command(args: RemoveArguments) -> Result<()> {
+async fn handle_delete_command(args: DeleteArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
     let template_id = interactive::template_picker(&config, args.template_id, None).await?;

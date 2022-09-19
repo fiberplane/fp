@@ -483,7 +483,7 @@ impl GenericKeyValue {
         vec![
             GenericKeyValue::new("Title:", notebook.title),
             GenericKeyValue::new("ID:", notebook.id),
-            GenericKeyValue::new("Created by:", notebook.created_by.name),
+            //GenericKeyValue::new("Created by:", notebook.created_by.name),
             GenericKeyValue::new("Visibility:", visibility),
             GenericKeyValue::new("Updated at:", notebook.updated_at),
             GenericKeyValue::new("Created at:", notebook.created_at),
@@ -513,9 +513,8 @@ pub struct NotebookSummaryRow {
     #[table(title = "ID")]
     pub id: String,
 
-    #[table(title = "Created by")]
-    pub created_by: String,
-
+    //#[table(title = "Created by")]
+    //pub created_by: String,
     #[table(title = "Visibility")]
     pub visibility: String,
 
@@ -535,7 +534,7 @@ impl From<NotebookSummary> for NotebookSummaryRow {
         Self {
             id: notebook.id,
             title: notebook.title,
-            created_by: notebook.created_by.name,
+            //created_by: notebook.created_by.name,
             visibility,
             updated_at: notebook.updated_at,
             created_at: notebook.created_at,
