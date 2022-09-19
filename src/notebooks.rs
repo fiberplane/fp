@@ -34,6 +34,7 @@ pub struct Arguments {
 #[derive(Parser)]
 pub enum SubCommand {
     /// Create a notebook
+    #[clap(alias = "add")]
     Create(CreateArgs),
 
     /// Retrieve a notebook
@@ -50,6 +51,7 @@ pub enum SubCommand {
     Open(OpenArgs),
 
     /// Delete a notebook
+    #[clap(aliases = &["remove", "rm"])]
     Delete(DeleteArgs),
 
     /// Append a cell to the notebook

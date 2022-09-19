@@ -6,7 +6,7 @@ const NGINX_TIMESTAMP_FORMAT: &[FormatItem] = format_description!("[day]/[month 
 
 /// This is a wrapper around `OffsetDateTime` that allows it to be deserialized a variety
 /// of different timestamp formats.
-#[derive(Deserialize, Debug, PartialEq)]
+#[derive(Deserialize, Debug, Eq, PartialEq)]
 #[serde(untagged)]
 pub enum AnyTimestamp {
     #[serde(with = "time::serde::timestamp")]

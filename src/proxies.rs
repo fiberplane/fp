@@ -26,6 +26,7 @@ pub struct Arguments {
 #[derive(Parser)]
 pub enum SubCommand {
     /// Create a new Proxy
+    #[clap(alias = "add")]
     Create(CreateArgs),
 
     /// List all proxies
@@ -39,6 +40,7 @@ pub enum SubCommand {
     Get(GetArgs),
 
     /// Delete a proxy
+    #[clap(aliases = &["remove", "rm"])]
     Delete(DeleteArgs),
 }
 
@@ -252,7 +254,7 @@ async fn handle_delete_command(args: DeleteArgs) -> Result<()> {
 
     proxy_delete(&config, &proxy_id.to_string()).await?;
 
-    info!("Removed proxy");
+    info!("Deleted proxy");
     Ok(())
 }
 
