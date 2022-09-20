@@ -13,13 +13,12 @@ use fp_api_client::apis::default_api::{
     notebook_search,
 };
 use fp_api_client::models::{
-    Cell, Label, NewNotebook, Notebook, NotebookSearch, NotebookSummary, NotebookVisibility,
-    TimeRange,
+    Cell, Label, NewNotebook, NewTimeRange, Notebook, NotebookSearch, NotebookSummary,
+    NotebookVisibility, TimeRange,
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::time::Duration;
-use time::OffsetDateTime;
+use time::{ext::NumericalDuration, format_description::well_known::Rfc3339, OffsetDateTime};
 use time_util::clap_rfc3339;
 use tracing::{info, trace};
 use url::Url;
@@ -154,16 +153,9 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
         ),
     };
 
-    // Currently both `from` and `to` only parse up to second precession.
-    let from = args
-        .from
-        .unwrap_or_else(|| OffsetDateTime::now_utc() - Duration::from_secs(60 * 60))
-        .unix_timestamp() as f64;
-
-    let to = args
-        .to
-        .unwrap_or_else(OffsetDateTime::now_utc)
-        .unix_timestamp() as f64;
+    let now = OffsetDateTime::now_utc();
+    let from = args.from.unwrap_or_else(|| now - 1.hours());
+    let to = args.to.unwrap_or(now);
 
     // Optionally parse the notebook from Markdown
     let notebook = match args.markdown {
@@ -174,7 +166,10 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
         }
         None => NewNotebook {
             title: String::new(),
-            time_range: Box::new(TimeRange { from, to }),
+            time_range: Box::new(NewTimeRange::Absolute(TimeRange {
+                from: from.format(&Rfc3339)?,
+                to: to.format(&Rfc3339)?,
+            })),
             cells: Vec::new(),
             data_sources: None,
             labels: Default::default(),
@@ -190,7 +185,10 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
 
     let notebook = NewNotebook {
         title,
-        time_range: Box::new(TimeRange { from, to }),
+        time_range: Box::new(NewTimeRange::Absolute(TimeRange {
+            from: from.format(&Rfc3339)?,
+            to: to.format(&Rfc3339)?,
+        })),
         labels,
         ..notebook
     };
