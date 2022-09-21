@@ -5,7 +5,7 @@ use anyhow::{anyhow, bail, Context, Error, Result};
 use base64uuid::Base64Uuid;
 use clap::{ArgEnum, Parser, ValueHint};
 use cli_table::Table;
-use fiberplane::protocols::core::{self, Cell, HeadingCell, HeadingType, TextCell, TimeRange};
+use fiberplane::protocols::core::{self, Cell, HeadingCell, HeadingType, TextCell};
 use fiberplane::sorting::{SortDirection, TemplateListSortFields};
 use fp_api_client::apis::configuration::Configuration;
 use fp_api_client::apis::default_api::{
@@ -399,10 +399,7 @@ enum TemplateListOutput {
 async fn handle_init_command() -> Result<()> {
     let notebook = core::NewNotebook {
         title: "Replace me!".to_string(),
-        time_range: TimeRange {
-            from: 0.0,
-            to: 60.0 * 60.0,
-        },
+        time_range: core::NewTimeRange::Relative(core::RelativeTimeRange { minutes: -60 }),
         data_sources: BTreeMap::new(),
         cells: vec![
             Cell::Heading(HeadingCell {

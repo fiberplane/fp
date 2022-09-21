@@ -5,7 +5,7 @@ use bytes::Bytes;
 use fiberplane::protocols::core;
 use fp_api_client::apis::configuration::Configuration;
 use fp_api_client::apis::default_api::notebook_cells_append;
-use fp_api_client::models::{Cell, TimeRange};
+use fp_api_client::models::{Cell, LegacyTimeRange};
 use std::env::current_dir;
 use std::vec;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
@@ -69,11 +69,11 @@ impl CellWriter {
                         data.iter().flat_map(|(_, logs)| logs.iter()).fold(
                             None,
                             |time_range, log| match time_range {
-                                None => Some(TimeRange {
+                                None => Some(LegacyTimeRange {
                                     from: log.timestamp,
                                     to: log.timestamp,
                                 }),
-                                Some(TimeRange { from, to }) => Some(TimeRange {
+                                Some(LegacyTimeRange { from, to }) => Some(LegacyTimeRange {
                                     from: from.min(log.timestamp),
                                     to: to.min(log.timestamp),
                                 }),
