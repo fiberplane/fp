@@ -4,9 +4,12 @@ use anyhow::Result;
 use base64uuid::Base64Uuid;
 use dialoguer::{theme, FuzzySelect, Input, Select};
 use fp_api_client::apis::configuration::Configuration;
+use fp_api_client::apis::default_api::data_source_get;
 use fp_api_client::apis::default_api::{
-    notebook_search, proxy_list, template_list, trigger_list, workspace_list, workspace_list_users,
+    data_source_list, notebook_search, proxy_list, template_list, trigger_list, workspace_list,
+    workspace_list_users,
 };
+use fp_api_client::models::DataSource;
 use fp_api_client::models::NotebookSearch;
 use indicatif::ProgressBar;
 
@@ -318,10 +321,7 @@ pub async fn proxy_picker(
         return Err(anyhow!("No proxies found"));
     }
 
-    let display_items: Vec<_> = results
-        .iter()
-        .map(|proxy| format!("{}", proxy.name))
-        .collect();
+    let display_items: Vec<_> = results.iter().map(|proxy| &proxy.name).collect();
 
     let selection = FuzzySelect::with_theme(&default_theme())
         .with_prompt("Proxy")
@@ -332,6 +332,58 @@ pub async fn proxy_picker(
     match selection {
         Some(selection) => Ok(results[selection].name.clone()),
         None => Err(anyhow!("No proxy selected")),
+    }
+}
+
+/// Get a data source Name from either a CLI argument, or from a interactive picker.
+///
+/// If the user has not specified the data source name through a CLI argument then it
+/// will retrieve recent data sources using the data source list endpoint, and allow
+/// the user to select one.
+///
+/// NOTE: This currently does not do any limiting of the result nor does it do
+/// any sorting. It will allow client side filtering.
+/// NOTE: If the user does not specify a value through a cli argument, the
+/// interactive input will always be shown. This is a limitation that we
+/// currently not check if the invocation is interactive or not.
+pub async fn data_source_picker(
+    config: &Configuration,
+    workspace_id: Option<Base64Uuid>,
+    argument: Option<String>,
+) -> Result<DataSource> {
+    let workspace_id = workspace_picker(config, workspace_id).await?;
+
+    if let Some(name) = argument {
+        let data_source = data_source_get(config, &workspace_id.to_string(), &name).await?;
+        return Ok(data_source);
+    };
+
+    let pb = ProgressBar::new_spinner();
+    pb.set_message("Fetching data sources");
+    pb.enable_steady_tick(100);
+
+    let mut results = data_source_list(config, &workspace_id.to_string()).await?;
+
+    pb.finish_and_clear();
+
+    if results.is_empty() {
+        return Err(anyhow!("No data sources found"));
+    }
+
+    let display_items: Vec<_> = results
+        .iter()
+        .map(|data_source| &data_source.name)
+        .collect();
+
+    let selection = FuzzySelect::with_theme(&default_theme())
+        .with_prompt("Data source")
+        .items(&display_items)
+        .default(0)
+        .interact_opt()?;
+
+    match selection {
+        Some(selection) => Ok(results.remove(selection)),
+        None => Err(anyhow!("No data source selected")),
     }
 }
 
