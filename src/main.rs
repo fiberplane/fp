@@ -20,6 +20,7 @@ use url::Url;
 
 mod auth;
 mod config;
+mod data_sources;
 mod events;
 mod experiments;
 mod interactive;
@@ -86,6 +87,9 @@ enum SubCommand {
         #[clap(arg_enum)]
         shell: clap_complete::Shell,
     },
+
+    #[clap(alias = "data-source")]
+    DataSources(data_sources::Arguments),
 
     /// Experimental commands 🧪
     ///
@@ -229,6 +233,7 @@ async fn main() {
 
     use SubCommand::*;
     let result = match args.sub_command {
+        DataSources(args) => data_sources::handle_command(args).await,
         Experiments(args) => experiments::handle_command(args).await,
         Login => auth::handle_login_command(args).await,
         Logout => auth::handle_logout_command(args).await,

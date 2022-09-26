@@ -13,7 +13,7 @@ use fp_api_client::models::DataSource;
 use fp_api_client::models::NotebookSearch;
 use indicatif::ProgressBar;
 
-fn default_theme() -> impl theme::Theme {
+pub fn default_theme() -> impl theme::Theme {
     theme::SimpleTheme
 }
 
@@ -372,7 +372,7 @@ pub async fn data_source_picker(
 
     let display_items: Vec<_> = results
         .iter()
-        .map(|data_source| &data_source.name)
+        .map(|data_source| format!("{} ({})", &data_source.name, &data_source.provider_type))
         .collect();
 
     let selection = FuzzySelect::with_theme(&default_theme())

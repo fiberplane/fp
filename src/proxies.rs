@@ -329,14 +329,14 @@ pub struct DataSourceAndProxySummaryRow {
     #[table(title = "Name")]
     pub name: String,
 
-    #[table(title = "Type")]
+    #[table(title = "Proxy Name")]
+    pub proxy_name: String,
+
+    #[table(title = "Provider Type")]
     pub provider_type: String,
 
     #[table(title = "Status")]
     pub status: String,
-
-    #[table(title = "Proxy name")]
-    pub proxy_name: String,
 }
 
 impl From<DataSource> for DataSourceAndProxySummaryRow {
