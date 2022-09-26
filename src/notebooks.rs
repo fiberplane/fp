@@ -183,7 +183,7 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
             title: String::new(),
             time_range: Box::new(TimeRange { from, to }),
             cells: Vec::new(),
-            data_sources: None,
+            selected_data_sources: Default::default(),
             labels: Default::default(),
         },
     };

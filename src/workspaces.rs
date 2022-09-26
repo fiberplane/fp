@@ -313,8 +313,9 @@ async fn handle_move_owner(args: MoveOwnerArgs) -> Result<()> {
         &config,
         &workspace_id.to_string(),
         UpdateWorkspace {
-            title: None,
             owner: Some(new_owner.to_string()),
+            title: None,
+            default_data_sources: None,
         },
     )
     .await?;
@@ -333,6 +334,7 @@ async fn handle_change_name(args: ChangeNameArgs) -> Result<()> {
         UpdateWorkspace {
             title: Some(args.new_name),
             owner: None,
+            default_data_sources: None,
         },
     )
     .await?;

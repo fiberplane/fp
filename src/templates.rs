@@ -9,8 +9,8 @@ use fiberplane::protocols::core::{self, Cell, HeadingCell, HeadingType, TextCell
 use fiberplane::sorting::{SortDirection, TemplateListSortFields};
 use fp_api_client::apis::configuration::Configuration;
 use fp_api_client::apis::default_api::{
-    notebook_create, notebook_get, proxy_data_sources_list, template_create, template_delete,
-    template_expand, template_get, template_list, template_update, trigger_create,
+    notebook_create, notebook_get, template_create, template_delete, template_expand, template_get,
+    template_list, template_update, trigger_create,
 };
 use fp_api_client::models::{
     NewNotebook, NewTemplate, NewTrigger, Notebook, Template, TemplateParameter, TemplateSummary,
@@ -347,7 +347,7 @@ async fn handle_init_command() -> Result<()> {
             from: 0.0,
             to: 60.0 * 60.0,
         },
-        data_sources: BTreeMap::new(),
+        selected_data_sources: BTreeMap::new(),
         cells: vec![
             Cell::Heading(HeadingCell {
                 id: "1".to_string(),
@@ -443,12 +443,6 @@ async fn expand_template_file(args: ExpandArguments) -> Result<Notebook> {
     let workspace_id = workspace_picker(&config, args.workspace_id).await?;
 
     let mut expander = TemplateExpander::default();
-
-    // Inject data sources into the template runtime
-    let data_sources = proxy_data_sources_list(&config)
-        .await
-        .with_context(|| "loading proxy data sources")?;
-    expander.set_proxy_data_sources(serde_json::to_value(&data_sources)?);
 
     let template_args = if let Some(args) = args.template_arguments {
         args.0

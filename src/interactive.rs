@@ -295,18 +295,22 @@ pub async fn trigger_picker(
 /// currently not check if the invocation is interactive or not.
 pub async fn proxy_picker(
     config: &Configuration,
-    argument: Option<Base64Uuid>,
-) -> Result<Base64Uuid> {
+    workspace_id: Option<Base64Uuid>,
+    argument: Option<String>,
+) -> Result<String> {
     // If the user provided an argument, use that. Otherwise show the picker.
-    if let Some(id) = argument {
-        return Ok(id);
+    if let Some(name) = argument {
+        return Ok(name);
     };
+
+    // No argument was provided, so we need to know the workspace ID.
+    let workspace_id = workspace_picker(config, workspace_id).await?;
 
     let pb = ProgressBar::new_spinner();
     pb.set_message("Fetching proxies");
     pb.enable_steady_tick(100);
 
-    let results = proxy_list(config).await?;
+    let results = proxy_list(config, &workspace_id.to_string()).await?;
 
     pb.finish_and_clear();
 
@@ -316,7 +320,7 @@ pub async fn proxy_picker(
 
     let display_items: Vec<_> = results
         .iter()
-        .map(|trigger| format!("{} ({})", trigger.name, trigger.id))
+        .map(|proxy| format!("{}", proxy.name))
         .collect();
 
     let selection = FuzzySelect::with_theme(&default_theme())
@@ -326,9 +330,7 @@ pub async fn proxy_picker(
         .interact_opt()?;
 
     match selection {
-        Some(selection) => {
-            Ok(Base64Uuid::parse_str(&results[selection].id).context("invalid id was returned")?)
-        }
+        Some(selection) => Ok(results[selection].name.clone()),
         None => Err(anyhow!("No proxy selected")),
     }
 }
