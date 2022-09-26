@@ -1,10 +1,13 @@
 use crate::config::api_client_configuration;
-use crate::interactive::{data_source_picker, workspace_picker, workspace_user_picker};
+use crate::interactive::{
+    data_source_picker, default_theme, workspace_picker, workspace_user_picker,
+};
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
-use anyhow::Result;
+use anyhow::{bail, Result};
 use base64uuid::Base64Uuid;
 use clap::{ArgEnum, Parser};
 use cli_table::Table;
+use dialoguer::FuzzySelect;
 use fiberplane::sorting::{SortDirection, WorkspaceInviteListingSortFields};
 use fp_api_client::apis::default_api::{
     workspace_create, workspace_get, workspace_invite, workspace_invite_get, workspace_leave,
@@ -42,7 +45,8 @@ enum SubCommand {
     Remove(RemoveArgs),
 
     /// Update workspace settings
-    Update(UpdateArgs),
+    #[clap(subcommand)]
+    Update(UpdateSubCommand),
 }
 
 #[derive(ArgEnum, Clone)]
@@ -161,22 +165,6 @@ struct RemoveArgs {
 }
 
 #[derive(Parser)]
-struct UpdateArgs {
-    /// Workspace to update settings on
-    #[clap(long, short, env, global = true)]
-    workspace_id: Option<Base64Uuid>,
-
-    #[clap(subcommand)]
-    sub_command: UpdateSubCommand,
-
-    #[clap(from_global)]
-    base_url: Url,
-
-    #[clap(from_global)]
-    config: Option<PathBuf>,
-}
-
-#[derive(Parser)]
 enum UpdateSubCommand {
     /// Move ownership of workspace to new owner
     Owner(MoveOwnerArgs),
@@ -232,11 +220,7 @@ enum UpdateDefaultDataSourcesSubCommand {
 
 #[derive(Parser)]
 struct SetDefaultDataSourcesArgs {
-    /// Provider type for which the default data source should be set
-    #[clap(long, short = 'p', env)]
-    provider_type: Option<String>,
-
-    /// ID of the data source which should be set as default
+    /// Name of the data source which should be set as default for the given provider type
     #[clap(long, short, env)]
     data_source_name: Option<String>,
 
@@ -257,7 +241,7 @@ struct SetDefaultDataSourcesArgs {
 #[derive(Parser)]
 struct UnsetDefaultDataSourcesArgs {
     /// Provider type for which the default data source should be unset
-    #[clap(long, short = 'p', env)]
+    #[clap(long, short, env)]
     provider_type: Option<String>,
 
     #[clap(from_global)]
@@ -277,7 +261,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
         SubCommand::ListInvites(args) => handle_list_invites(args).await,
         SubCommand::Leave(args) => handle_workspace_leave(args).await,
         SubCommand::Remove(args) => handle_workspace_remove_user(args).await,
-        SubCommand::Update(args) => match args.sub_command {
+        SubCommand::Update(sub_command) => match sub_command {
             UpdateSubCommand::Owner(args) => handle_move_owner(args).await,
             UpdateSubCommand::Name(args) => handle_change_name(args).await,
             UpdateSubCommand::DefaultDataSources(sub_command) => match sub_command {
@@ -416,7 +400,7 @@ async fn handle_set_default_data_source(args: SetDefaultDataSourcesArgs) -> Resu
         .await?
         .default_data_sources;
     default_data_sources.insert(
-        args.provider_type,
+        data_source.provider_type,
         SelectedDataSource {
             name: data_source.name,
             proxy_name: data_source.proxy_name,
@@ -445,7 +429,21 @@ async fn handle_unset_default_data_source(args: UnsetDefaultDataSourcesArgs) -> 
     let mut default_data_sources = workspace_get(&config, &workspace_id.to_string())
         .await?
         .default_data_sources;
-    default_data_sources.remove(&args.provider_type);
+
+    let mut provider_types: Vec<String> = default_data_sources.keys().cloned().collect();
+
+    let selection = FuzzySelect::with_theme(&default_theme())
+        .with_prompt("Provider type")
+        .items(&provider_types)
+        .default(0)
+        .interact_opt()?;
+
+    let provider_type = match selection {
+        Some(selection) => provider_types.remove(selection),
+        None => bail!("No data source selected"),
+    };
+
+    default_data_sources.remove(&provider_type);
 
     workspace_update(
         &config,
