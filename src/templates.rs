@@ -5,7 +5,9 @@ use anyhow::{anyhow, bail, Context, Error, Result};
 use base64uuid::Base64Uuid;
 use clap::{ArgEnum, Parser, ValueHint};
 use cli_table::Table;
-use fiberplane::protocols::core::{self, Cell, HeadingCell, HeadingType, TextCell, TimeRange};
+use fiberplane::protocols::core::{
+    self, Cell, HeadingCell, HeadingType, NewTimeRange, RelativeTimeRange, TextCell,
+};
 use fiberplane::sorting::{SortDirection, TemplateListSortFields};
 use fp_api_client::apis::configuration::Configuration;
 use fp_api_client::apis::default_api::{
@@ -16,9 +18,7 @@ use fp_api_client::models::{
     NewNotebook, NewTemplate, NewTrigger, Notebook, Template, TemplateParameter, TemplateSummary,
     UpdateTemplate,
 };
-use fp_templates::{
-    expand_template, notebook_to_template, Error as TemplateError, TemplateExpander,
-};
+use fp_templates::{expand_template, notebook_to_template, Error as TemplateError};
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -343,10 +343,7 @@ enum TemplateListOutput {
 async fn handle_init_command() -> Result<()> {
     let notebook = core::NewNotebook {
         title: "Replace me!".to_string(),
-        time_range: TimeRange {
-            from: 0.0,
-            to: 60.0 * 60.0,
-        },
+        time_range: NewTimeRange::Relative(RelativeTimeRange { minutes: -60 }),
         selected_data_sources: BTreeMap::new(),
         cells: vec![
             Cell::Heading(HeadingCell {
@@ -442,17 +439,14 @@ async fn expand_template_file(args: ExpandArguments) -> Result<Notebook> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
     let workspace_id = workspace_picker(&config, args.workspace_id).await?;
 
-    let mut expander = TemplateExpander::default();
-
     let template_args = if let Some(args) = args.template_arguments {
         args.0
     } else {
         HashMap::new()
     };
 
-    let notebook = expander
-        .expand_template(template, template_args)
-        .with_context(|| "expanding template")?;
+    let notebook =
+        expand_template(template, template_args).with_context(|| "expanding template")?;
 
     // Convert to a string and back because the API client
     // has a different model struct than the Rust core types
