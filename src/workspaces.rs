@@ -54,6 +54,15 @@ enum WorkspaceOutput {
 }
 
 #[derive(ArgEnum, Clone)]
+enum NewInviteOutput {
+    /// Output the details as plain text
+    Plain,
+
+    /// Output the details as JSON
+    Json,
+}
+
+#[derive(ArgEnum, Clone)]
 enum PendingInvitesOutput {
     /// Output the details as a table
     Table,
@@ -88,6 +97,10 @@ struct InviteArgs {
     /// Email address of the user which should be invited
     #[clap(name = "email", required = true)]
     receiver: String,
+
+    /// Output of the invite
+    #[clap(long, short, default_value = "plain", arg_enum)]
+    output: NewInviteOutput,
 
     #[clap(from_global)]
     base_url: Url,
@@ -247,7 +260,7 @@ async fn handle_workspace_invite(args: InviteArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
     let workspace_id = workspace_picker(&config, args.workspace_id).await?;
 
-    workspace_invite(
+    let invite = workspace_invite(
         &config,
         &workspace_id.to_string(),
         NewWorkspaceInvite::new(args.receiver),
@@ -255,6 +268,12 @@ async fn handle_workspace_invite(args: InviteArgs) -> Result<()> {
     .await?;
 
     info!("Successfully invited user to workspace");
+
+    match args.output {
+        NewInviteOutput::Plain => info!("Send this url to the invited user: {}", invite.url),
+        NewInviteOutput::Json => output_json(&invite),
+    }
+
     Ok(())
 }
 
