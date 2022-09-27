@@ -271,7 +271,7 @@ async fn handle_workspace_invite(args: InviteArgs) -> Result<()> {
 
     match args.output {
         NewInviteOutput::Plain => info!("Send this url to the invited user: {}", invite.url),
-        NewInviteOutput::Json => output_json(&invite),
+        NewInviteOutput::Json => output_json(&invite)?,
     }
 
     Ok(())
