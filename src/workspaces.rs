@@ -12,6 +12,7 @@ use fp_api_client::apis::default_api::{
 };
 use fp_api_client::models::{
     NewWorkspace, NewWorkspaceInvite, UpdateWorkspace, Workspace, WorkspaceInvite,
+    WorkspaceInviteResponse,
 };
 use std::path::PathBuf;
 use tracing::info;
@@ -56,7 +57,10 @@ enum WorkspaceOutput {
 #[derive(ArgEnum, Clone)]
 enum NewInviteOutput {
     /// Output the details as plain text
-    Plain,
+    InviteUrl,
+
+    /// Output the details as a table
+    Table,
 
     /// Output the details as JSON
     Json,
@@ -99,7 +103,7 @@ struct InviteArgs {
     receiver: String,
 
     /// Output of the invite
-    #[clap(long, short, default_value = "plain", arg_enum)]
+    #[clap(long, short, default_value = "table", arg_enum)]
     output: NewInviteOutput,
 
     #[clap(from_global)]
@@ -267,14 +271,18 @@ async fn handle_workspace_invite(args: InviteArgs) -> Result<()> {
     )
     .await?;
 
-    info!("Successfully invited user to workspace");
-
-    match args.output {
-        NewInviteOutput::Plain => info!("Send this url to the invited user: {}", invite.url),
-        NewInviteOutput::Json => output_json(&invite)?,
+    if !matches!(args.output, NewInviteOutput::InviteUrl) {
+        info!("Successfully invited user to workspace");
     }
 
-    Ok(())
+    match args.output {
+        NewInviteOutput::InviteUrl => {
+            println!("{}", invite.url);
+            Ok(())
+        }
+        NewInviteOutput::Table => output_details(GenericKeyValue::from_invite_response(workspace)),
+        NewInviteOutput::Json => output_json(&invite),
+    }
 }
 
 async fn handle_list_invites(args: ListInviteArgs) -> Result<()> {
@@ -367,6 +375,10 @@ impl GenericKeyValue {
             GenericKeyValue::new("Type:", format!("{:?}", workspace._type)),
             GenericKeyValue::new("ID:", workspace.id),
         ]
+    }
+
+    fn from_invite_response(response: WorkspaceInviteResponse) -> Vec<Self> {
+        vec![GenericKeyValue::new("URL:", response.url)]
     }
 }
 
