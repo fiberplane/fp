@@ -12,6 +12,7 @@ use fp_api_client::apis::default_api::{
 };
 use fp_api_client::models::{
     NewWorkspace, NewWorkspaceInvite, UpdateWorkspace, Workspace, WorkspaceInvite,
+    WorkspaceInviteResponse,
 };
 use std::path::PathBuf;
 use tracing::info;
@@ -54,6 +55,18 @@ enum WorkspaceOutput {
 }
 
 #[derive(ArgEnum, Clone)]
+enum NewInviteOutput {
+    /// Output the details as plain text
+    InviteUrl,
+
+    /// Output the details as a table
+    Table,
+
+    /// Output the details as JSON
+    Json,
+}
+
+#[derive(ArgEnum, Clone)]
 enum PendingInvitesOutput {
     /// Output the details as a table
     Table,
@@ -88,6 +101,10 @@ struct InviteArgs {
     /// Email address of the user which should be invited
     #[clap(name = "email", required = true)]
     receiver: String,
+
+    /// Output of the invite
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: NewInviteOutput,
 
     #[clap(from_global)]
     base_url: Url,
@@ -247,15 +264,25 @@ async fn handle_workspace_invite(args: InviteArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
     let workspace_id = workspace_picker(&config, args.workspace_id).await?;
 
-    workspace_invite(
+    let invite = workspace_invite(
         &config,
         &workspace_id.to_string(),
         NewWorkspaceInvite::new(args.receiver),
     )
     .await?;
 
-    info!("Successfully invited user to workspace");
-    Ok(())
+    if !matches!(args.output, NewInviteOutput::InviteUrl) {
+        info!("Successfully invited user to workspace");
+    }
+
+    match args.output {
+        NewInviteOutput::InviteUrl => {
+            println!("{}", invite.url);
+            Ok(())
+        }
+        NewInviteOutput::Table => output_details(GenericKeyValue::from_invite_response(invite)),
+        NewInviteOutput::Json => output_json(&invite),
+    }
 }
 
 async fn handle_list_invites(args: ListInviteArgs) -> Result<()> {
@@ -348,6 +375,10 @@ impl GenericKeyValue {
             GenericKeyValue::new("Type:", format!("{:?}", workspace._type)),
             GenericKeyValue::new("ID:", workspace.id),
         ]
+    }
+
+    fn from_invite_response(response: WorkspaceInviteResponse) -> Vec<Self> {
+        vec![GenericKeyValue::new("URL:", response.url)]
     }
 }
 
