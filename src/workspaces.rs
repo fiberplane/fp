@@ -280,7 +280,7 @@ async fn handle_workspace_invite(args: InviteArgs) -> Result<()> {
             println!("{}", invite.url);
             Ok(())
         }
-        NewInviteOutput::Table => output_details(GenericKeyValue::from_invite_response(workspace)),
+        NewInviteOutput::Table => output_details(GenericKeyValue::from_invite_response(invite)),
         NewInviteOutput::Json => output_json(&invite),
     }
 }
