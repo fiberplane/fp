@@ -165,14 +165,12 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
     let from = args
         .from
         .unwrap_or_else(|| OffsetDateTime::now_utc() - Duration::from_secs(60 * 60))
-        .format(&Rfc3339)
-        .unwrap();
+        .format(&Rfc3339)?;
 
     let to = args
         .to
         .unwrap_or_else(OffsetDateTime::now_utc)
-        .format(&Rfc3339)
-        .unwrap();
+        .format(&Rfc3339)?;
 
     // Optionally parse the notebook from Markdown
     let notebook = match args.markdown {
