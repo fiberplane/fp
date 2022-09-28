@@ -282,7 +282,10 @@ impl FromStr for Role {
             "read" | "viewer" => Ok(Role::Read),
             "write" | "editor" => Ok(Role::Write),
             "admin" => Ok(Role::Admin),
-            role => bail!("Unknown role: `{}`, accepted values are: `viewer`, `editor` and `admin`", role)
+            role => bail!(
+                "Unknown role: `{}`, accepted values are: `viewer`, `editor` and `admin`",
+                role
+            ),
         }
     }
 }
