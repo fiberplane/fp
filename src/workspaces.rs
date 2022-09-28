@@ -1,20 +1,21 @@
 use crate::config::api_client_configuration;
 use crate::interactive::{workspace_picker, workspace_user_picker};
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
-use anyhow::Result;
+use anyhow::{bail, Result};
 use base64uuid::Base64Uuid;
 use clap::{ArgEnum, Parser};
 use cli_table::Table;
 use fiberplane::sorting::{SortDirection, WorkspaceInviteListingSortFields};
 use fp_api_client::apis::default_api::{
     workspace_create, workspace_invite, workspace_invite_get, workspace_leave, workspace_update,
-    workspace_user_remove,
+    workspace_user_remove, workspace_user_role_update,
 };
 use fp_api_client::models::{
-    NewWorkspace, NewWorkspaceInvite, UpdateWorkspace, Workspace, WorkspaceInvite,
-    WorkspaceInviteResponse,
+    workspace_user_role_update::Role as ApiClientRole, NewWorkspace, NewWorkspaceInvite,
+    UpdateWorkspace, Workspace, WorkspaceInvite, WorkspaceInviteResponse, WorkspaceUserRoleUpdate,
 };
 use std::path::PathBuf;
+use std::str::FromStr;
 use tracing::info;
 use url::Url;
 
@@ -199,6 +200,9 @@ enum UpdateSubCommand {
 
     /// Change name of workspace
     Name(ChangeNameArgs),
+
+    /// Change the role of a workspace member
+    Role(ChangeRoleArgs),
 }
 
 #[derive(Parser)]
@@ -233,6 +237,56 @@ struct ChangeNameArgs {
     config: Option<PathBuf>,
 }
 
+#[derive(Parser)]
+struct ChangeRoleArgs {
+    /// Workspace user of which the role should be changed
+    #[clap(long, short, env)]
+    user_id: Option<Base64Uuid>,
+
+    /// New role that the targeted user should have
+    #[clap(long, short, env)]
+    role: Role,
+
+    #[clap(from_global)]
+    workspace_id: Option<Base64Uuid>,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
+#[derive(ArgEnum, Clone)]
+enum Role {
+    Read,
+    Write,
+    Admin,
+}
+
+impl From<Role> for ApiClientRole {
+    fn from(role: Role) -> Self {
+        match role {
+            Role::Read => ApiClientRole::Read,
+            Role::Write => ApiClientRole::Write,
+            Role::Admin => ApiClientRole::Admin,
+        }
+    }
+}
+
+impl FromStr for Role {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s.trim().to_lowercase().as_str() {
+            "read" | "viewer" => Ok(Role::Read),
+            "write" | "editor" => Ok(Role::Write),
+            "admin" => Ok(Role::Admin),
+            role => bail!("Unknown role: `{}`, accepted values are: `viewer`, `editor` and `admin`", role)
+        }
+    }
+}
+
 pub async fn handle_command(args: Arguments) -> Result<()> {
     match args.sub_command {
         SubCommand::Create(args) => handle_workspace_create(args).await,
@@ -243,6 +297,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
         SubCommand::Update(args) => match args.sub_command {
             UpdateSubCommand::Owner(args) => handle_move_owner(args).await,
             UpdateSubCommand::Name(args) => handle_change_name(args).await,
+            UpdateSubCommand::Role(args) => handle_change_role(args).await,
         },
     }
 }
@@ -365,6 +420,26 @@ async fn handle_change_name(args: ChangeNameArgs) -> Result<()> {
     .await?;
 
     info!("Successfully changed name of workspace");
+    Ok(())
+}
+
+async fn handle_change_role(args: ChangeRoleArgs) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+
+    let target_id = workspace_user_picker(&config, &workspace_id, args.user_id).await?;
+
+    workspace_user_role_update(
+        &config,
+        &workspace_id.to_string(),
+        &target_id.to_string(),
+        WorkspaceUserRoleUpdate {
+            role: args.role.into(),
+        },
+    )
+    .await?;
+
+    info!("Successfully changed role of user");
     Ok(())
 }
 
