@@ -9,22 +9,19 @@ use fiberplane::protocols::core::{self, Cell, HeadingCell, HeadingType, TextCell
 use fiberplane::sorting::{SortDirection, TemplateListSortFields};
 use fp_api_client::apis::configuration::Configuration;
 use fp_api_client::apis::default_api::{
-    notebook_create, notebook_get, proxy_data_sources_list, template_create, template_delete,
-    template_expand, template_get, template_list, template_update, trigger_create,
+    notebook_create, notebook_get, template_create, template_delete, template_expand, template_get,
+    template_list, template_update, trigger_create,
 };
 use fp_api_client::models::{
     NewNotebook, NewTemplate, NewTrigger, Notebook, Template, TemplateParameter, TemplateSummary,
     UpdateTemplate,
 };
-use fp_templates::{
-    expand_template, notebook_to_template, Error as TemplateError, TemplateExpander,
-};
+use fp_templates::{expand_template, notebook_to_template, Error as TemplateError};
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::{BTreeMap, HashMap};
-use std::{env::current_dir, ffi::OsStr, path::PathBuf, str::FromStr};
+use std::{collections::HashMap, env::current_dir, ffi::OsStr, path::PathBuf, str::FromStr};
 use tokio::fs;
 use tracing::{debug, info, warn};
 use url::Url;
@@ -344,7 +341,7 @@ async fn handle_init_command() -> Result<()> {
     let notebook = core::NewNotebook {
         title: "Replace me!".to_string(),
         time_range: core::NewTimeRange::Relative(core::RelativeTimeRange { minutes: -60 }),
-        data_sources: BTreeMap::new(),
+        selected_data_sources: Default::default(),
         cells: vec![
             Cell::Heading(HeadingCell {
                 id: "1".to_string(),
@@ -439,23 +436,14 @@ async fn expand_template_file(args: ExpandArguments) -> Result<Notebook> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
     let workspace_id = workspace_picker(&config, args.workspace_id).await?;
 
-    let mut expander = TemplateExpander::default();
-
-    // Inject data sources into the template runtime
-    let data_sources = proxy_data_sources_list(&config)
-        .await
-        .with_context(|| "loading proxy data sources")?;
-    expander.set_proxy_data_sources(serde_json::to_value(&data_sources)?);
-
     let template_args = if let Some(args) = args.template_arguments {
         args.0
     } else {
         HashMap::new()
     };
 
-    let notebook = expander
-        .expand_template(template, template_args)
-        .with_context(|| "expanding template")?;
+    let notebook =
+        expand_template(template, template_args).with_context(|| "expanding template")?;
 
     // Convert to a string and back because the API client
     // has a different model struct than the Rust core types

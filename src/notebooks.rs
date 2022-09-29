@@ -178,7 +178,7 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
                 to: to.format(&Rfc3339)?,
             })),
             cells: Vec::new(),
-            data_sources: None,
+            selected_data_sources: Default::default(),
             labels: Default::default(),
         },
     };

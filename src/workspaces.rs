@@ -1,18 +1,21 @@
 use crate::config::api_client_configuration;
-use crate::interactive::{workspace_picker, workspace_user_picker};
+use crate::interactive::{
+    data_source_picker, default_theme, workspace_picker, workspace_user_picker,
+};
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
-use anyhow::Result;
+use anyhow::{bail, Result};
 use base64uuid::Base64Uuid;
 use clap::{ArgEnum, Parser};
 use cli_table::Table;
+use dialoguer::FuzzySelect;
 use fiberplane::sorting::{SortDirection, WorkspaceInviteListingSortFields};
 use fp_api_client::apis::default_api::{
-    workspace_create, workspace_invite, workspace_invite_get, workspace_leave, workspace_update,
-    workspace_user_remove,
+    workspace_create, workspace_get, workspace_invite, workspace_invite_get, workspace_leave,
+    workspace_update, workspace_user_remove,
 };
 use fp_api_client::models::{
-    NewWorkspace, NewWorkspaceInvite, UpdateWorkspace, Workspace, WorkspaceInvite,
-    WorkspaceInviteResponse,
+    NewWorkspace, NewWorkspaceInvite, SelectedDataSource, UpdateWorkspace, Workspace,
+    WorkspaceInvite, WorkspaceInviteResponse,
 };
 use std::path::PathBuf;
 use tracing::info;
@@ -42,7 +45,8 @@ enum SubCommand {
     Remove(RemoveArgs),
 
     /// Update workspace settings
-    Update(UpdateArgs),
+    #[clap(subcommand)]
+    Update(UpdateSubCommand),
 }
 
 #[derive(ArgEnum, Clone)]
@@ -177,28 +181,16 @@ struct RemoveArgs {
 }
 
 #[derive(Parser)]
-struct UpdateArgs {
-    /// Workspace to update settings on
-    #[clap(long, short, env, global = true)]
-    workspace_id: Option<Base64Uuid>,
-
-    #[clap(subcommand)]
-    sub_command: UpdateSubCommand,
-
-    #[clap(from_global)]
-    base_url: Url,
-
-    #[clap(from_global)]
-    config: Option<PathBuf>,
-}
-
-#[derive(Parser)]
 enum UpdateSubCommand {
     /// Move ownership of workspace to new owner
     Owner(MoveOwnerArgs),
 
     /// Change name of workspace
     Name(ChangeNameArgs),
+
+    /// Change the default data sources
+    #[clap(subcommand)]
+    DefaultDataSources(UpdateDefaultDataSourcesSubCommand),
 }
 
 #[derive(Parser)]
@@ -233,6 +225,51 @@ struct ChangeNameArgs {
     config: Option<PathBuf>,
 }
 
+#[derive(Parser)]
+enum UpdateDefaultDataSourcesSubCommand {
+    /// Set the default data source for the given provider type
+    Set(SetDefaultDataSourcesArgs),
+
+    /// Unset the default data source for the given provider type
+    Unset(UnsetDefaultDataSourcesArgs),
+}
+
+#[derive(Parser)]
+struct SetDefaultDataSourcesArgs {
+    /// Name of the data source which should be set as default for the given provider type
+    #[clap(long, short, env)]
+    data_source_name: Option<String>,
+
+    /// If the data source is a proxy data source, the name of the proxy
+    #[clap(long, short, env)]
+    proxy_name: Option<String>,
+
+    #[clap(from_global)]
+    workspace_id: Option<Base64Uuid>,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
+#[derive(Parser)]
+struct UnsetDefaultDataSourcesArgs {
+    /// Provider type for which the default data source should be unset
+    #[clap(long, short, env)]
+    provider_type: Option<String>,
+
+    #[clap(from_global)]
+    workspace_id: Option<Base64Uuid>,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
 pub async fn handle_command(args: Arguments) -> Result<()> {
     match args.sub_command {
         SubCommand::Create(args) => handle_workspace_create(args).await,
@@ -240,9 +277,17 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
         SubCommand::ListInvites(args) => handle_list_invites(args).await,
         SubCommand::Leave(args) => handle_workspace_leave(args).await,
         SubCommand::Remove(args) => handle_workspace_remove_user(args).await,
-        SubCommand::Update(args) => match args.sub_command {
+        SubCommand::Update(sub_command) => match sub_command {
             UpdateSubCommand::Owner(args) => handle_move_owner(args).await,
             UpdateSubCommand::Name(args) => handle_change_name(args).await,
+            UpdateSubCommand::DefaultDataSources(sub_command) => match sub_command {
+                UpdateDefaultDataSourcesSubCommand::Set(args) => {
+                    handle_set_default_data_source(args).await
+                }
+                UpdateDefaultDataSourcesSubCommand::Unset(args) => {
+                    handle_unset_default_data_source(args).await
+                }
+            },
         },
     }
 }
@@ -340,8 +385,9 @@ async fn handle_move_owner(args: MoveOwnerArgs) -> Result<()> {
         &config,
         &workspace_id.to_string(),
         UpdateWorkspace {
-            title: None,
             owner: Some(new_owner.to_string()),
+            name: None,
+            default_data_sources: None,
         },
     )
     .await?;
@@ -358,13 +404,85 @@ async fn handle_change_name(args: ChangeNameArgs) -> Result<()> {
         &config,
         &workspace_id.to_string(),
         UpdateWorkspace {
-            title: Some(args.new_name),
+            name: Some(args.new_name),
             owner: None,
+            default_data_sources: None,
         },
     )
     .await?;
 
     info!("Successfully changed name of workspace");
+    Ok(())
+}
+
+async fn handle_set_default_data_source(args: SetDefaultDataSourcesArgs) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+
+    let data_source =
+        data_source_picker(&config, Some(workspace_id), args.data_source_name).await?;
+
+    let mut default_data_sources = workspace_get(&config, &workspace_id.to_string())
+        .await?
+        .default_data_sources;
+    default_data_sources.insert(
+        data_source.provider_type,
+        SelectedDataSource {
+            name: data_source.name,
+            proxy_name: data_source.proxy_name,
+        },
+    );
+
+    workspace_update(
+        &config,
+        &workspace_id.to_string(),
+        UpdateWorkspace {
+            default_data_sources: Some(default_data_sources),
+            name: None,
+            owner: None,
+        },
+    )
+    .await?;
+
+    info!("Successfully set default data source for workspace");
+    Ok(())
+}
+
+async fn handle_unset_default_data_source(args: UnsetDefaultDataSourcesArgs) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+
+    let mut default_data_sources = workspace_get(&config, &workspace_id.to_string())
+        .await?
+        .default_data_sources;
+
+    let mut provider_types: Vec<String> = default_data_sources.keys().cloned().collect();
+
+    let selection = FuzzySelect::with_theme(&default_theme())
+        .with_prompt("Provider type")
+        .items(&provider_types)
+        .default(0)
+        .interact_opt()?;
+
+    let provider_type = match selection {
+        Some(selection) => provider_types.remove(selection),
+        None => bail!("No data source selected"),
+    };
+
+    default_data_sources.remove(&provider_type);
+
+    workspace_update(
+        &config,
+        &workspace_id.to_string(),
+        UpdateWorkspace {
+            default_data_sources: Some(default_data_sources),
+            name: None,
+            owner: None,
+        },
+    )
+    .await?;
+
+    info!("Successfully unset default data source for workspace");
     Ok(())
 }
 
@@ -374,6 +492,26 @@ impl GenericKeyValue {
             GenericKeyValue::new("Name:", workspace.name),
             GenericKeyValue::new("Type:", format!("{:?}", workspace._type)),
             GenericKeyValue::new("ID:", workspace.id),
+            GenericKeyValue::new(
+                "Default Data Sources:",
+                workspace
+                    .default_data_sources
+                    .iter()
+                    .map(|(name, data_source)| {
+                        format!(
+                            "{} -> {}{}",
+                            name,
+                            data_source.name,
+                            if let Some(proxy_name) = &data_source.proxy_name {
+                                format!(" (Proxy: {})", proxy_name)
+                            } else {
+                                "".to_string()
+                            }
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            ),
         ]
     }
 
