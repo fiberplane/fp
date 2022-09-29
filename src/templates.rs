@@ -5,9 +5,7 @@ use anyhow::{anyhow, bail, Context, Error, Result};
 use base64uuid::Base64Uuid;
 use clap::{ArgEnum, Parser, ValueHint};
 use cli_table::Table;
-use fiberplane::protocols::core::{
-    self, Cell, HeadingCell, HeadingType, NewTimeRange, RelativeTimeRange, TextCell,
-};
+use fiberplane::protocols::core::{self, Cell, HeadingCell, HeadingType, TextCell};
 use fiberplane::sorting::{SortDirection, TemplateListSortFields};
 use fp_api_client::apis::configuration::Configuration;
 use fp_api_client::apis::default_api::{
@@ -23,8 +21,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::{BTreeMap, HashMap};
-use std::{env::current_dir, ffi::OsStr, path::PathBuf, str::FromStr};
+use std::{collections::HashMap, env::current_dir, ffi::OsStr, path::PathBuf, str::FromStr};
 use tokio::fs;
 use tracing::{debug, info, warn};
 use url::Url;
@@ -343,8 +340,8 @@ enum TemplateListOutput {
 async fn handle_init_command() -> Result<()> {
     let notebook = core::NewNotebook {
         title: "Replace me!".to_string(),
-        time_range: NewTimeRange::Relative(RelativeTimeRange { minutes: -60 }),
-        selected_data_sources: BTreeMap::new(),
+        time_range: core::NewTimeRange::Relative(core::RelativeTimeRange { minutes: -60 }),
+        selected_data_sources: Default::default(),
         cells: vec![
             Cell::Heading(HeadingCell {
                 id: "1".to_string(),

@@ -18,8 +18,7 @@ use fp_api_client::models::{
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::time::Duration;
-use time::{format_description::well_known::Rfc3339, OffsetDateTime};
+use time::{ext::NumericalDuration, format_description::well_known::Rfc3339, OffsetDateTime};
 use time_util::clap_rfc3339;
 use tracing::{info, trace};
 use url::Url;
@@ -161,16 +160,9 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
         ),
     };
 
-    // Currently both `from` and `to` only parse up to second precession.
-    let from = args
-        .from
-        .unwrap_or_else(|| OffsetDateTime::now_utc() - Duration::from_secs(60 * 60))
-        .format(&Rfc3339)?;
-
-    let to = args
-        .to
-        .unwrap_or_else(OffsetDateTime::now_utc)
-        .format(&Rfc3339)?;
+    let now = OffsetDateTime::now_utc();
+    let from = args.from.unwrap_or_else(|| now - 1.hours());
+    let to = args.to.unwrap_or(now);
 
     // Optionally parse the notebook from Markdown
     let notebook = match args.markdown {
@@ -182,8 +174,8 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
         None => NewNotebook {
             title: String::new(),
             time_range: Box::new(NewTimeRange::Absolute(TimeRange {
-                from: from.clone(),
-                to: to.clone(),
+                from: from.format(&Rfc3339)?,
+                to: to.format(&Rfc3339)?,
             })),
             cells: Vec::new(),
             selected_data_sources: Default::default(),
@@ -200,7 +192,10 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
 
     let notebook = NewNotebook {
         title,
-        time_range: Box::new(NewTimeRange::Absolute(TimeRange { from, to })),
+        time_range: Box::new(NewTimeRange::Absolute(TimeRange {
+            from: from.format(&Rfc3339)?,
+            to: to.format(&Rfc3339)?,
+        })),
         labels,
         ..notebook
     };
