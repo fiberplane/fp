@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+use std::fmt::Display;
 use crate::config::api_client_configuration;
 use crate::interactive::{
     data_source_picker, default_theme, workspace_picker, workspace_user_picker,
@@ -8,10 +10,12 @@ use base64uuid::Base64Uuid;
 use clap::{ArgEnum, Parser};
 use cli_table::Table;
 use dialoguer::FuzzySelect;
-use fiberplane::sorting::{SortDirection, WorkspaceInviteListingSortFields};
+use fiberplane::sorting::{
+    SortDirection, WorkspaceInviteListingSortFields, WorkspaceListingSortFields,
+};
 use fp_api_client::apis::default_api::{
     workspace_create, workspace_get, workspace_invite, workspace_invite_get, workspace_leave,
-    workspace_update, workspace_user_remove,
+    workspace_list, workspace_update, workspace_user_remove,
 };
 use fp_api_client::models::{
     NewWorkspace, NewWorkspaceInvite, SelectedDataSource, UpdateWorkspace, Workspace,
@@ -34,6 +38,9 @@ enum SubCommand {
 
     /// Invite a user to a workspace
     Invite(InviteArgs),
+
+    /// List all workspaces of which you're a member
+    List(ListArgs),
 
     /// List all pending invites
     ListInvites(ListInviteArgs),
@@ -63,6 +70,15 @@ enum NewInviteOutput {
     /// Output the details as plain text
     InviteUrl,
 
+    /// Output the details as a table
+    Table,
+
+    /// Output the details as JSON
+    Json,
+}
+
+#[derive(ArgEnum, Clone)]
+enum WorkspaceListOutput {
     /// Output the details as a table
     Table,
 
@@ -109,6 +125,35 @@ struct InviteArgs {
     /// Output of the invite
     #[clap(long, short, default_value = "table", arg_enum)]
     output: NewInviteOutput,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
+#[derive(Parser)]
+struct ListArgs {
+    /// Output of the workspaces
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: WorkspaceListOutput,
+
+    /// Sort the result according to the following field
+    #[clap(long, arg_enum)]
+    sort_by: Option<WorkspaceListingSortFields>,
+
+    /// Sort the result in the following direction
+    #[clap(long, arg_enum)]
+    sort_direction: Option<SortDirection>,
+
+    /// Page to display
+    #[clap(long)]
+    page: Option<i32>,
+
+    /// Amount of events to display per page
+    #[clap(long)]
+    limit: Option<i32>,
 
     #[clap(from_global)]
     base_url: Url,
@@ -274,6 +319,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
     match args.sub_command {
         SubCommand::Create(args) => handle_workspace_create(args).await,
         SubCommand::Invite(args) => handle_workspace_invite(args).await,
+        SubCommand::List(args) => handle_workspace_list(args).await,
         SubCommand::ListInvites(args) => handle_list_invites(args).await,
         SubCommand::Leave(args) => handle_workspace_leave(args).await,
         SubCommand::Remove(args) => handle_workspace_remove_user(args).await,
@@ -327,6 +373,25 @@ async fn handle_workspace_invite(args: InviteArgs) -> Result<()> {
         }
         NewInviteOutput::Table => output_details(GenericKeyValue::from_invite_response(invite)),
         NewInviteOutput::Json => output_json(&invite),
+    }
+}
+
+async fn handle_workspace_list(args: ListArgs) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+
+    let list = workspace_list(
+        &config,
+        args.sort_by.map(Into::into),
+        args.sort_direction.map(Into::into),
+    )
+    .await?;
+
+    match args.output {
+        WorkspaceListOutput::Table => {
+            let rows: Vec<WorkspaceRow> = list.into_iter().map(Into::into).collect();
+            output_list(rows)
+        }
+        WorkspaceListOutput::Json => output_json(&list),
     }
 }
 
@@ -550,4 +615,58 @@ impl From<WorkspaceInvite> for PendingInviteRow {
             expires_at: invite.expires_at.unwrap_or_else(|| "Never".to_string()),
         }
     }
+}
+
+#[derive(Table)]
+struct WorkspaceRow {
+    #[table(title = "ID")]
+    pub id: String,
+
+    #[table(title = "Name")]
+    pub name: String,
+
+    #[table(title = "Type")]
+    pub _type: String,
+
+    #[table(title = "Default Data Sources", display_fn = "print_data_sources")]
+    pub default_data_sources: HashMap<String, SelectedDataSource>,
+
+    #[table(title = "Created at")]
+    pub created_at: String,
+
+    #[table(title = "Updated at")]
+    pub updated_at: String,
+}
+
+impl From<Workspace> for WorkspaceRow {
+    fn from(workspace: Workspace) -> Self {
+        Self {
+            id: workspace.id,
+            name: workspace.name,
+            _type: format!("{:?}", workspace._type),
+            default_data_sources: workspace.default_data_sources,
+            created_at: workspace.created_at,
+            updated_at: workspace.updated_at
+        }
+    }
+}
+
+fn print_data_sources(input: &HashMap<String, SelectedDataSource>) -> impl Display {
+    let mut output = String::new();
+    let mut iterator = input.iter().peekable();
+
+    while let Some((key, value)) = iterator.next() {
+        output.push_str(key);
+
+        if let Some(proxy_name) = &value.proxy_name {
+            output.push('=');
+            output.push_str(proxy_name);
+        }
+
+        if iterator.peek().is_some() {
+            output.push_str(", ");
+        }
+    }
+
+    output
 }
