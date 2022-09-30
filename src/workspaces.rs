@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-use std::fmt::Display;
 use crate::config::api_client_configuration;
 use crate::interactive::{
     data_source_picker, default_theme, workspace_picker, workspace_user_picker,
@@ -21,6 +19,8 @@ use fp_api_client::models::{
     NewWorkspace, NewWorkspaceInvite, SelectedDataSource, UpdateWorkspace, Workspace,
     WorkspaceInvite, WorkspaceInviteResponse,
 };
+use std::collections::HashMap;
+use std::fmt::Display;
 use std::path::PathBuf;
 use tracing::info;
 use url::Url;
@@ -646,7 +646,7 @@ impl From<Workspace> for WorkspaceRow {
             _type: format!("{:?}", workspace._type),
             default_data_sources: workspace.default_data_sources,
             created_at: workspace.created_at,
-            updated_at: workspace.updated_at
+            updated_at: workspace.updated_at,
         }
     }
 }
