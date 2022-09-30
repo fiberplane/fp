@@ -20,6 +20,7 @@ use url::Url;
 
 mod auth;
 mod config;
+mod data_sources;
 mod events;
 mod experiments;
 mod interactive;
@@ -37,6 +38,7 @@ mod triggers;
 mod update;
 mod users;
 mod version;
+mod workspaces;
 
 /// The current build manifest associated with this binary
 pub static MANIFEST: Lazy<Manifest> = Lazy::new(Manifest::from_env);
@@ -85,6 +87,9 @@ enum SubCommand {
         #[clap(arg_enum)]
         shell: clap_complete::Shell,
     },
+
+    #[clap(alias = "data-source")]
+    DataSources(data_sources::Arguments),
 
     /// Experimental commands 🧪
     ///
@@ -167,6 +172,12 @@ enum SubCommand {
     #[clap(alias = "user")]
     Users(users::Arguments),
 
+    /// Interact with workspaces
+    ///
+    /// A workspace holds all notebooks, events and relays for a specific user or organization.
+    #[clap(alias = "workspace")]
+    Workspaces(workspaces::Arguments),
+
     /// Display extra version information
     #[clap()]
     Version(version::Arguments),
@@ -222,6 +233,7 @@ async fn main() {
 
     use SubCommand::*;
     let result = match args.sub_command {
+        DataSources(args) => data_sources::handle_command(args).await,
         Experiments(args) => experiments::handle_command(args).await,
         Login => auth::handle_login_command(args).await,
         Logout => auth::handle_logout_command(args).await,
@@ -236,6 +248,7 @@ async fn main() {
         Tokens(args) => tokens::handle_command(args).await,
         Update(args) => update::handle_command(args).await,
         Users(args) => users::handle_command(args).await,
+        Workspaces(args) => workspaces::handle_command(args).await,
         Version(args) => version::handle_command(args).await,
         Shell(args) => shell::handle_command(args).await,
         Completions { shell } => {

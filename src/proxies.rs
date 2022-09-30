@@ -1,15 +1,15 @@
 use crate::config::api_client_configuration;
-use crate::interactive;
+use crate::interactive::{self, workspace_picker};
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use anyhow::{anyhow, Result};
 use base64uuid::Base64Uuid;
 use clap::{ArgEnum, Parser};
 use cli_table::Table;
 use fp_api_client::apis::default_api::{
-    proxy_create, proxy_data_sources_list, proxy_delete, proxy_get, proxy_list,
+    data_source_list, proxy_create, proxy_delete, proxy_get, proxy_list,
 };
 use fp_api_client::models::{
-    DataSourceAndProxySummary, DataSourceConnectionStatus, NewProxy, Proxy, ProxySummary,
+    DataSource, DataSourceConnectionStatus, NewProxy, Proxy, ProxySummary,
 };
 use petname::petname;
 use serde::Serialize;
@@ -46,8 +46,14 @@ pub enum SubCommand {
 
 #[derive(Parser)]
 pub struct CreateArgs {
+    /// Workspace to use
+    #[clap(long, short, env)]
+    workspace_id: Option<Base64Uuid>,
+
     /// Proxy name, leave empty to auto-generate a name
     name: Option<String>,
+
+    description: Option<String>,
 
     /// Output of the proxy
     #[clap(long, short, default_value = "table", arg_enum)]
@@ -62,6 +68,10 @@ pub struct CreateArgs {
 
 #[derive(Parser)]
 pub struct ListArgs {
+    /// Workspace to use
+    #[clap(long, short, env)]
+    workspace_id: Option<Base64Uuid>,
+
     /// Output of the proxy
     #[clap(long, short, default_value = "table", arg_enum)]
     output: ProxyOutput,
@@ -75,6 +85,10 @@ pub struct ListArgs {
 
 #[derive(Parser)]
 pub struct DataSourcesArgs {
+    /// Workspace to use
+    #[clap(long, short, env)]
+    workspace_id: Option<Base64Uuid>,
+
     /// Output of the proxy
     #[clap(long, short, default_value = "table", arg_enum)]
     output: ProxyOutput,
@@ -88,8 +102,12 @@ pub struct DataSourcesArgs {
 
 #[derive(Parser)]
 pub struct GetArgs {
+    /// Workspace to use
+    #[clap(long, short, env)]
+    workspace_id: Option<Base64Uuid>,
+
     /// ID of the proxy
-    proxy_id: Option<Base64Uuid>,
+    proxy_name: Option<String>,
 
     /// Output of the proxy
     #[clap(long, short, default_value = "table", arg_enum)]
@@ -104,8 +122,12 @@ pub struct GetArgs {
 
 #[derive(Parser)]
 pub struct DeleteArgs {
-    /// ID of the proxy
-    proxy_id: Option<Base64Uuid>,
+    /// Workspace to use
+    #[clap(long, short, env)]
+    workspace_id: Option<Base64Uuid>,
+
+    /// Name of the proxy
+    proxy_name: Option<String>,
 
     #[clap(from_global)]
     base_url: Url,
@@ -138,10 +160,18 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 async fn handle_create_command(args: CreateArgs) -> Result<()> {
     let name = args.name.unwrap_or_else(|| petname(2, "-"));
     let config = api_client_configuration(args.config, &args.base_url).await?;
+    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
 
-    let proxy = proxy_create(&config, NewProxy { name })
-        .await
-        .map_err(|e| anyhow!(format!("Error adding proxy: {:?}", e)))?;
+    let proxy = proxy_create(
+        &config,
+        &workspace_id.to_string(),
+        NewProxy {
+            name,
+            description: args.description,
+        },
+    )
+    .await
+    .map_err(|e| anyhow!(format!("Error adding proxy: {:?}", e)))?;
 
     match args.output {
         ProxyOutput::Table => {
@@ -166,15 +196,16 @@ struct ProxySummaryWithConnectedDataSources {
 
 async fn handle_list_command(args: ListArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    let proxies = proxy_list(&config).await?;
-    let data_sources = proxy_data_sources_list(&config).await?;
+    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let proxies = proxy_list(&config, &workspace_id.to_string()).await?;
+    let data_sources = data_source_list(&config, &workspace_id.to_string()).await?;
 
     // Put all of the proxies in a map so we can easily look them up by ID and add the data source counts
     let mut proxies: BTreeMap<String, ProxySummaryWithConnectedDataSources> = proxies
         .into_iter()
         .map(|proxy| {
             (
-                proxy.id.clone(),
+                proxy.name.clone(),
                 ProxySummaryWithConnectedDataSources {
                     proxy,
                     connected_data_sources: 0,
@@ -185,10 +216,12 @@ async fn handle_list_command(args: ListArgs) -> Result<()> {
         .collect();
     // Count the total and connected data sources for each proxy
     for data_source in data_sources {
-        if let Some(proxy) = proxies.get_mut(&data_source.proxy.id) {
-            proxy.total_data_sources += 1;
-            if data_source.status == DataSourceConnectionStatus::Connected {
-                proxy.connected_data_sources += 1;
+        if let Some(proxy_name) = data_source.proxy_name {
+            if let Some(proxy) = proxies.get_mut(&proxy_name) {
+                proxy.total_data_sources += 1;
+                if data_source.status == Some(DataSourceConnectionStatus::Connected) {
+                    proxy.connected_data_sources += 1;
+                }
             }
         }
     }
@@ -220,9 +253,11 @@ async fn handle_list_command(args: ListArgs) -> Result<()> {
 
 async fn handle_get_command(args: GetArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    let proxy_id = interactive::proxy_picker(&config, args.proxy_id).await?;
+    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let proxy_name =
+        interactive::proxy_picker(&config, Some(workspace_id), args.proxy_name).await?;
 
-    let proxy = proxy_get(&config, &proxy_id.to_string()).await?;
+    let proxy = proxy_get(&config, &workspace_id.to_string(), &proxy_name.to_string()).await?;
 
     match args.output {
         ProxyOutput::Table => {
@@ -235,7 +270,8 @@ async fn handle_get_command(args: GetArgs) -> Result<()> {
 
 async fn handle_data_sources_command(args: DataSourcesArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    let data_sources = proxy_data_sources_list(&config).await?;
+    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let data_sources = data_source_list(&config, &workspace_id.to_string()).await?;
 
     match args.output {
         ProxyOutput::Table => {
@@ -250,9 +286,10 @@ async fn handle_data_sources_command(args: DataSourcesArgs) -> Result<()> {
 
 async fn handle_delete_command(args: DeleteArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    let proxy_id = interactive::proxy_picker(&config, args.proxy_id).await?;
+    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let name = interactive::proxy_picker(&config, Some(workspace_id), args.proxy_name).await?;
 
-    proxy_delete(&config, &proxy_id.to_string()).await?;
+    proxy_delete(&config, &workspace_id.to_string(), &name).await?;
 
     info!("Deleted proxy");
     Ok(())
@@ -292,39 +329,28 @@ pub struct DataSourceAndProxySummaryRow {
     #[table(title = "Name")]
     pub name: String,
 
-    #[table(title = "Type")]
-    pub _type: String,
+    #[table(title = "Proxy Name")]
+    pub proxy_name: String,
+
+    #[table(title = "Provider Type")]
+    pub provider_type: String,
 
     #[table(title = "Status")]
     pub status: String,
-
-    #[table(title = "Proxy name")]
-    pub proxy_name: String,
-
-    #[table(title = "Proxy ID")]
-    pub proxy_id: String,
-
-    #[table(title = "Proxy status")]
-    pub proxy_status: String,
 }
 
-impl From<DataSourceAndProxySummary> for DataSourceAndProxySummaryRow {
-    fn from(summary: DataSourceAndProxySummary) -> Self {
+impl From<DataSource> for DataSourceAndProxySummaryRow {
+    fn from(data_source: DataSource) -> Self {
+        let status = match data_source.status {
+            Some(DataSourceConnectionStatus::Connected) => "Connected".to_string(),
+            Some(DataSourceConnectionStatus::Error { .. }) => "Error".to_string(),
+            None => String::new(),
+        };
         Self {
-            name: summary.name,
-            _type: summary._type.to_string(),
-            status: format!(
-                "{}{}",
-                summary.status.to_string(),
-                if let Some(error_message) = summary.error_message {
-                    format!(" - ({})", error_message)
-                } else {
-                    "".to_string()
-                }
-            ),
-            proxy_name: summary.proxy.name,
-            proxy_id: summary.proxy.id,
-            proxy_status: summary.proxy.status.to_string(),
+            name: data_source.name,
+            provider_type: data_source.provider_type,
+            status,
+            proxy_name: data_source.proxy_name.unwrap_or_default(),
         }
     }
 }
@@ -341,10 +367,10 @@ impl GenericKeyValue {
                     format!(
                         "{} ({}): {}{}",
                         datasource.name,
-                        datasource._type.to_string(),
-                        datasource.status.to_string(),
-                        if let Some(error_message) = &datasource.error_message {
-                            format!(" - {}", error_message)
+                        datasource.provider_type.to_string(),
+                        datasource.status.map(|s| s.to_string()).unwrap_or_default(),
+                        if let Some(error) = &datasource.error {
+                            format!(" - {}", serde_json::to_string(error).unwrap())
                         } else {
                             String::new()
                         }

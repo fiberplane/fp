@@ -3,14 +3,17 @@ use anyhow::Context;
 use anyhow::Result;
 use base64uuid::Base64Uuid;
 use dialoguer::{theme, FuzzySelect, Input, Select};
-use fp_api_client::apis::default_api::proxy_list;
-use fp_api_client::apis::default_api::template_list;
-use fp_api_client::apis::default_api::trigger_list;
-use fp_api_client::apis::{configuration::Configuration, default_api::notebook_search};
+use fp_api_client::apis::configuration::Configuration;
+use fp_api_client::apis::default_api::data_source_get;
+use fp_api_client::apis::default_api::{
+    data_source_list, notebook_search, proxy_list, template_list, trigger_list, workspace_list,
+    workspace_list_users,
+};
+use fp_api_client::models::DataSource;
 use fp_api_client::models::NotebookSearch;
 use indicatif::ProgressBar;
 
-fn default_theme() -> impl theme::Theme {
+pub fn default_theme() -> impl theme::Theme {
     theme::SimpleTheme
 }
 
@@ -108,6 +111,10 @@ where
 /// will retrieve recent notebooks using the notebook search endpoint, and allow
 /// the user to select one.
 ///
+/// This will also ask for the workspace ID if it is not passed in as an
+/// argument. If multiple pickers require the workspace ID, it is recommended to
+/// do this once and then pass it to the other pickers as an argument.
+///
 /// NOTE: This currently does not do any limiting of the result nor does it do
 /// any sorting. It will allow client side filtering.
 /// NOTE: If the user does not specifies a value through a cli argument, the
@@ -116,17 +123,26 @@ where
 pub async fn notebook_picker(
     config: &Configuration,
     argument: Option<Base64Uuid>,
+    workspace_id: Option<Base64Uuid>,
 ) -> Result<Base64Uuid> {
     // If the user provided an argument, use that. Otherwise show the picker.
     if let Some(id) = argument {
         return Ok(id);
     };
 
+    // No argument was provided, so we need to know the workspace ID.
+    let workspace_id = workspace_picker(config, workspace_id).await?;
+
     let pb = ProgressBar::new_spinner();
     pb.set_message("Fetching recent notebooks");
     pb.enable_steady_tick(100);
 
-    let results = notebook_search(config, NotebookSearch { labels: None }).await?;
+    let results = notebook_search(
+        config,
+        &workspace_id.to_string(),
+        NotebookSearch { labels: None },
+    )
+    .await?;
 
     pb.finish_and_clear();
 
@@ -167,17 +183,27 @@ pub async fn notebook_picker(
 pub async fn template_picker(
     config: &Configuration,
     argument: Option<Base64Uuid>,
+    workspace_id: Option<Base64Uuid>,
 ) -> Result<Base64Uuid> {
     // If the user provided an argument, use that. Otherwise show the picker.
     if let Some(id) = argument {
         return Ok(id);
     };
 
+    // No argument was provided, so we need to know the workspace ID.
+    let workspace_id = workspace_picker(config, workspace_id).await?;
+
     let pb = ProgressBar::new_spinner();
     pb.set_message("Fetching templates");
     pb.enable_steady_tick(100);
 
-    let results = template_list(config, Some("updated_at"), Some("descending")).await?;
+    let results = template_list(
+        config,
+        &workspace_id.to_string(),
+        Some("updated_at"),
+        Some("descending"),
+    )
+    .await?;
 
     pb.finish_and_clear();
 
@@ -218,17 +244,21 @@ pub async fn template_picker(
 pub async fn trigger_picker(
     config: &Configuration,
     argument: Option<Base64Uuid>,
+    workspace_id: Option<Base64Uuid>,
 ) -> Result<Base64Uuid> {
     // If the user provided an argument, use that. Otherwise show the picker.
     if let Some(id) = argument {
         return Ok(id);
     };
 
+    // No argument was provided, so we need to know the workspace ID.
+    let workspace_id = workspace_picker(config, workspace_id).await?;
+
     let pb = ProgressBar::new_spinner();
     pb.set_message("Fetching triggers");
     pb.enable_steady_tick(100);
 
-    let results = trigger_list(config).await?;
+    let results = trigger_list(config, &workspace_id.to_string()).await?;
 
     pb.finish_and_clear();
 
@@ -268,18 +298,22 @@ pub async fn trigger_picker(
 /// currently not check if the invocation is interactive or not.
 pub async fn proxy_picker(
     config: &Configuration,
-    argument: Option<Base64Uuid>,
-) -> Result<Base64Uuid> {
+    workspace_id: Option<Base64Uuid>,
+    argument: Option<String>,
+) -> Result<String> {
     // If the user provided an argument, use that. Otherwise show the picker.
-    if let Some(id) = argument {
-        return Ok(id);
+    if let Some(name) = argument {
+        return Ok(name);
     };
+
+    // No argument was provided, so we need to know the workspace ID.
+    let workspace_id = workspace_picker(config, workspace_id).await?;
 
     let pb = ProgressBar::new_spinner();
     pb.set_message("Fetching proxies");
     pb.enable_steady_tick(100);
 
-    let results = proxy_list(config).await?;
+    let results = proxy_list(config, &workspace_id.to_string()).await?;
 
     pb.finish_and_clear();
 
@@ -287,10 +321,7 @@ pub async fn proxy_picker(
         return Err(anyhow!("No proxies found"));
     }
 
-    let display_items: Vec<_> = results
-        .iter()
-        .map(|trigger| format!("{} ({})", trigger.name, trigger.id))
-        .collect();
+    let display_items: Vec<_> = results.iter().map(|proxy| &proxy.name).collect();
 
     let selection = FuzzySelect::with_theme(&default_theme())
         .with_prompt("Proxy")
@@ -299,9 +330,168 @@ pub async fn proxy_picker(
         .interact_opt()?;
 
     match selection {
+        Some(selection) => Ok(results[selection].name.clone()),
+        None => Err(anyhow!("No proxy selected")),
+    }
+}
+
+/// Get a data source Name from either a CLI argument, or from a interactive picker.
+///
+/// If the user has not specified the data source name through a CLI argument then it
+/// will retrieve recent data sources using the data source list endpoint, and allow
+/// the user to select one.
+///
+/// NOTE: This currently does not do any limiting of the result nor does it do
+/// any sorting. It will allow client side filtering.
+/// NOTE: If the user does not specify a value through a cli argument, the
+/// interactive input will always be shown. This is a limitation that we
+/// currently not check if the invocation is interactive or not.
+pub async fn data_source_picker(
+    config: &Configuration,
+    workspace_id: Option<Base64Uuid>,
+    argument: Option<String>,
+) -> Result<DataSource> {
+    let workspace_id = workspace_picker(config, workspace_id).await?;
+
+    if let Some(name) = argument {
+        let data_source = data_source_get(config, &workspace_id.to_string(), &name).await?;
+        return Ok(data_source);
+    };
+
+    let pb = ProgressBar::new_spinner();
+    pb.set_message("Fetching data sources");
+    pb.enable_steady_tick(100);
+
+    let mut results = data_source_list(config, &workspace_id.to_string()).await?;
+
+    pb.finish_and_clear();
+
+    if results.is_empty() {
+        return Err(anyhow!("No data sources found"));
+    }
+
+    let display_items: Vec<_> = results
+        .iter()
+        .map(|data_source| format!("{} ({})", &data_source.name, &data_source.provider_type))
+        .collect();
+
+    let selection = FuzzySelect::with_theme(&default_theme())
+        .with_prompt("Data source")
+        .items(&display_items)
+        .default(0)
+        .interact_opt()?;
+
+    match selection {
+        Some(selection) => Ok(results.remove(selection)),
+        None => Err(anyhow!("No data source selected")),
+    }
+}
+
+/// Get a workspace ID from either a CLI argument, or from a interactive picker.
+///
+/// If the user has not specified the template ID through a CLI argument then it
+/// will retrieve recent templates using the template list endpoint, and allow
+/// the user to select one.
+///
+/// NOTE: This currently does not do any limiting of the result. It will allow
+/// client side filtering.
+/// NOTE: If the user does not specifies a value through a cli argument, the
+/// interactive input will always be shown. This is a limitation that we
+/// currently not check if the invocation is interactive or not.
+pub async fn workspace_picker(
+    config: &Configuration,
+    argument: Option<Base64Uuid>,
+) -> Result<Base64Uuid> {
+    // If the user provided an argument, use that. Otherwise show the picker.
+    if let Some(id) = argument {
+        return Ok(id);
+    };
+
+    let pb = ProgressBar::new_spinner();
+    pb.set_message("Fetching workspaces");
+    pb.enable_steady_tick(100);
+
+    let results = workspace_list(config, Some("name"), Some("ascending")).await?;
+
+    pb.finish_and_clear();
+
+    if results.is_empty() {
+        return Err(anyhow!("No workspaces found"));
+    }
+
+    let display_items: Vec<_> = results
+        .iter()
+        .map(|template| format!("{} ({})", template.name, template.id))
+        .collect();
+
+    let selection = FuzzySelect::with_theme(&default_theme())
+        .with_prompt("Workspace")
+        .items(&display_items)
+        .default(0)
+        .interact_opt()?;
+
+    match selection {
         Some(selection) => {
             Ok(Base64Uuid::parse_str(&results[selection].id).context("invalid id was returned")?)
         }
-        None => Err(anyhow!("No proxy selected")),
+        None => Err(anyhow!("No workspace selected")),
+    }
+}
+
+/// Get a workspace user ID from either a CLI argument, or from a interactive picker.
+///
+/// If the user has not specified the workspace user ID through a CLI argument then it
+/// will retrieve all users from that workspace using the workspace members list endpoint, and allow
+/// the user to select one.
+///
+/// NOTE: This currently does not do any limiting of the result. It will allow
+/// client side filtering.
+/// NOTE: If the user does not specify a value through a cli argument, the
+/// interactive input will always be shown. This is a limitation that we
+/// currently not check if the invocation is interactive or not.
+pub async fn workspace_user_picker(
+    config: &Configuration,
+    workspace: &Base64Uuid,
+    argument: Option<Base64Uuid>,
+) -> Result<Base64Uuid> {
+    // If the user provided an argument, use that. Otherwise show the picker.
+    if let Some(id) = argument {
+        return Ok(id);
+    };
+
+    let pb = ProgressBar::new_spinner();
+    pb.set_message("Fetching workspace users");
+    pb.enable_steady_tick(100);
+
+    let results = workspace_list_users(
+        config,
+        &workspace.to_string(),
+        Some("name"),
+        Some("ascending"),
+    )
+    .await?;
+
+    pb.finish_and_clear();
+
+    if results.is_empty() {
+        return Err(anyhow!("No workspace users found"));
+    }
+
+    let display_items: Vec<_> = results
+        .iter()
+        .map(|user| format!("{} ({})", user.name, user.id))
+        .collect();
+
+    let selection = FuzzySelect::with_theme(&default_theme())
+        .with_prompt("Workspace Member")
+        .items(&display_items)
+        .default(0)
+        .interact_opt()?;
+
+    match selection {
+        Some(selection) => {
+            Ok(Base64Uuid::parse_str(&results[selection].id).context("invalid id was returned")?)
+        }
+        None => Err(anyhow!("No workspace user selected")),
     }
 }

@@ -9,8 +9,8 @@ build = "build.rs"
 [dependencies]
 abort-on-drop = "0.2.1"
 anyhow = "1.0"
-base64 = "0.13.0"
 base64uuid = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main" }
+base64 = "0.13.0"
 blocking = "1.2.0"
 bytes = "1.1.0"
 clap = { version = "3.2.11", features = ["derive", "env", "wrap_help"] }
@@ -70,12 +70,11 @@ webbrowser = "0.7.1"
 anyhow = "1.0"
 vergen = "7"
 
-# [patch."ssh://git@github.com/fiberplane/providers.git"]
-# fp-provider-runtime = { path = "../providers/runtimes/fp-provider-runtime/" }
-
-#[patch."ssh://git@github.com/fiberplane/fiberplane-rs.git"]
-#fiberplane = { path = "../fiberplane-rs/fiberplane" }
-#fiberplane-markdown = { path = "../fiberplane-rs/fp-markdown" }
-#fp-templates = { path = "../fiberplane-rs/fp-templates" }
-#fp-api-client = { path = "../fiberplane-rs/fp-api-client" }
-#time_util = { path = "../fiberplane-rs/time_util" }
+# [patch."ssh://git@github.com/fiberplane/fiberplane-rs.git"]
+# base64uuid = { path = "../fiberplane-rs/base64uuid" }
+# fp-provider-runtime = { path = "../fiberplane-rs/fp-provider-protocol/fp-provider-runtime" }
+# fiberplane = { path = "../fiberplane-rs/fiberplane" }
+# fiberplane-markdown = { path = "../fiberplane-rs/fp-markdown" }
+# fp-api-client = { path = "../fiberplane-rs/fp-api-client" }
+# fp-templates = { path = "../fiberplane-rs/fp-templates" }
+# time_util = { path = "../fiberplane-rs/time_util" }

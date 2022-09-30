@@ -1,4 +1,5 @@
 use crate::config::api_client_configuration;
+use crate::interactive::workspace_picker;
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use crate::{interactive, KeyValueArgument};
 use anyhow::Result;
@@ -74,6 +75,10 @@ struct CreateArguments {
     #[clap(long, short, default_value = "table", arg_enum)]
     output: EventOutput,
 
+    /// Workspace to create the event in.
+    #[clap(long, short, env)]
+    workspace_id: Option<Base64Uuid>,
+
     #[clap(from_global)]
     base_url: Url,
 
@@ -99,6 +104,10 @@ pub struct SearchArguments {
     #[clap(long, short, default_value = "table", arg_enum)]
     output: EventOutput,
 
+    /// Workspace to search for events in.
+    #[clap(long, short, env)]
+    workspace_id: Option<Base64Uuid>,
+
     /// Sort the result according to the following field
     #[clap(long, arg_enum)]
     sort_by: Option<EventSortFields>,
@@ -114,18 +123,6 @@ pub struct SearchArguments {
     /// Amount of events to display per page
     #[clap(long)]
     limit: Option<i32>,
-
-    #[clap(from_global)]
-    base_url: Url,
-
-    #[clap(from_global)]
-    config: Option<PathBuf>,
-}
-
-#[derive(Parser)]
-pub struct DeleteArguments {
-    /// ID of the event that should be deleted
-    id: Base64Uuid,
 
     #[clap(from_global)]
     base_url: Url,
@@ -150,9 +147,11 @@ async fn handle_event_create_command(args: CreateArguments) -> Result<()> {
 
     let title = interactive::text_req("Title", args.title, None)?;
     let time = args.time.map(|input| input.format(&Rfc3339).unwrap());
+    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
 
     let event = event_create(
         &config,
+        &workspace_id.to_string(),
         NewEvent {
             title,
             labels,
@@ -172,8 +171,11 @@ async fn handle_event_create_command(args: CreateArguments) -> Result<()> {
 async fn handle_event_search_command(args: SearchArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
+    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+
     let events = event_list(
         &config,
+        &workspace_id.to_string(),
         args.start.format(&Rfc3339)?,
         args.end.format(&Rfc3339)?,
         Some(
@@ -196,6 +198,18 @@ async fn handle_event_search_command(args: SearchArguments) -> Result<()> {
         }
         EventOutput::Json => output_json(&events),
     }
+}
+
+#[derive(Parser)]
+pub struct DeleteArguments {
+    /// ID of the event that should be deleted
+    id: Base64Uuid,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
 }
 
 async fn handle_event_delete_command(args: DeleteArguments) -> Result<()> {

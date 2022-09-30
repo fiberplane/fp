@@ -8,7 +8,7 @@ use clap::{ArgEnum, Parser};
 use directories::ProjectDirs;
 use fiberplane::protocols::{core, formatting};
 use fiberplane_markdown::notebook_to_markdown;
-use fp_api_client::apis::default_api::{get_notebook, get_profile, notebook_cells_append};
+use fp_api_client::apis::default_api::{notebook_cells_append, notebook_get, profile_get};
 use fp_api_client::models::{Annotation, Cell};
 use lazy_static::lazy_static;
 use regex::{Regex, Replacer};
@@ -97,14 +97,14 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 
 async fn handle_message_command(args: MessageArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    let notebook_id = interactive::notebook_picker(&config, args.notebook_id).await?;
+    let notebook_id = interactive::notebook_picker(&config, args.notebook_id, None).await?;
     let mut cache = Cache::load().await?;
 
     // If we don't already know the user name, load it from the API and save it
     let (user_id, name) = match (cache.user_id, cache.user_name) {
         (Some(user_id), Some(user_name)) => (user_id, user_name),
         _ => {
-            let user = get_profile(&config)
+            let user = profile_get(&config)
                 .await
                 .with_context(|| "Error getting user profile")?;
             cache.user_name = Some(user.name.clone());
@@ -173,7 +173,8 @@ async fn handle_crawl_command(args: CrawlArgs) -> Result<()> {
     let mut notebooks_to_crawl = VecDeque::new();
 
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    let starting_notebook_id = interactive::notebook_picker(&config, args.notebook_id).await?;
+    let starting_notebook_id =
+        interactive::notebook_picker(&config, args.notebook_id, None).await?;
 
     fs::create_dir_all(&args.out_dir)
         .await
@@ -186,7 +187,7 @@ async fn handle_crawl_command(args: CrawlArgs) -> Result<()> {
             continue;
         }
         crawl_index += 1;
-        let notebook = match get_notebook(&config, &notebook_id).await {
+        let notebook = match notebook_get(&config, &notebook_id).await {
             Ok(notebook) => notebook,
             Err(err) => {
                 // TODO differentiate between 404 and other errors

@@ -57,7 +57,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
     let config = api_client_configuration(args.config.clone(), &args.base_url).await?;
     let command = args.command.join(" ");
 
-    let notebook_id = interactive::notebook_picker(&config, args.notebook_id).await?;
+    let notebook_id = interactive::notebook_picker(&config, args.notebook_id, None).await?;
 
     let (shell_type, shell_path) = ShellType::auto_detect();
     debug!("Using {:?} to run command: \"{}\"", shell_type, &command);
