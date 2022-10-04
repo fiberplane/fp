@@ -1,6 +1,6 @@
 use crate::config::api_client_configuration;
 use crate::interactive::{
-    data_source_picker, default_theme, workspace_picker, workspace_user_picker,
+    data_source_picker, default_theme, text_req, workspace_picker, workspace_user_picker,
 };
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use anyhow::{bail, Result};
@@ -10,13 +10,14 @@ use cli_table::Table;
 use dialoguer::FuzzySelect;
 use fiberplane::sorting::{
     SortDirection, WorkspaceInviteListingSortFields, WorkspaceListingSortFields,
+    WorkspaceMembershipSortFields,
 };
 use fp_api_client::apis::default_api::{
     workspace_create, workspace_get, workspace_invite, workspace_invite_get, workspace_leave,
-    workspace_list, workspace_update, workspace_user_remove,
+    workspace_list, workspace_list_users, workspace_update, workspace_user_remove,
 };
 use fp_api_client::models::{
-    NewWorkspace, NewWorkspaceInvite, SelectedDataSource, UpdateWorkspace, Workspace,
+    NewWorkspace, NewWorkspaceInvite, SelectedDataSource, UpdateWorkspace, User, Workspace,
     WorkspaceInvite, WorkspaceInviteResponse,
 };
 use std::collections::HashMap;
@@ -36,70 +37,83 @@ enum SubCommand {
     /// Create a new workspace
     Create(CreateArgs),
 
-    /// Invite a user to a workspace
-    Invite(InviteArgs),
-
     /// List all workspaces of which you're a member
     List(ListArgs),
-
-    /// List all pending invites
-    ListInvites(ListInviteArgs),
 
     /// Leave a workspace
     Leave(LeaveArgs),
 
-    /// Remove a user from a workspace
-    Remove(RemoveArgs),
+    /// Create, list and delete invites for a workspace
+    #[clap(subcommand)]
+    Invites(InvitesSubCommand),
+
+    /// List and remove users from a workspace
+    #[clap(subcommand)]
+    Users(UsersSubCommand),
 
     /// Update workspace settings
     #[clap(subcommand)]
     Update(UpdateSubCommand),
 }
 
-#[derive(ArgEnum, Clone)]
-enum WorkspaceOutput {
-    /// Output the details as a table
-    Table,
+#[derive(Parser)]
+enum InvitesSubCommand {
+    /// Create a new invitation to join a workspace
+    #[clap(aliases = &["invite"])]
+    Create(InviteCreateArgs),
 
-    /// Output the details as JSON
-    Json,
+    /// List all pending invites for a workspace
+    List(InviteListArgs),
+
+    /// Delete a pending invite from a workspace
+    #[clap(aliases = &["remove", "rm"])]
+    Delete(InviteDeleteArgs),
 }
 
-#[derive(ArgEnum, Clone)]
-enum NewInviteOutput {
-    /// Output the details as plain text
-    InviteUrl,
+#[derive(Parser)]
+enum UsersSubCommand {
+    /// List the users that part of a workspace
+    List(UserListArgs),
 
-    /// Output the details as a table
-    Table,
-
-    /// Output the details as JSON
-    Json,
+    /// Delete a user from a workspace
+    #[clap(aliases = &["remove", "rm"])]
+    Delete(UserDeleteArgs),
 }
 
-#[derive(ArgEnum, Clone)]
-enum WorkspaceListOutput {
-    /// Output the details as a table
-    Table,
-
-    /// Output the details as JSON
-    Json,
-}
-
-#[derive(ArgEnum, Clone)]
-enum PendingInvitesOutput {
-    /// Output the details as a table
-    Table,
-
-    /// Output the details as JSON
-    Json,
+pub async fn handle_command(args: Arguments) -> Result<()> {
+    match args.sub_command {
+        SubCommand::Create(args) => handle_workspace_create(args).await,
+        SubCommand::List(args) => handle_workspace_list(args).await,
+        SubCommand::Leave(args) => handle_workspace_leave(args).await,
+        SubCommand::Invites(sub_command) => match sub_command {
+            InvitesSubCommand::Create(args) => handle_invite_create(args).await,
+            InvitesSubCommand::List(args) => handle_invite_list(args).await,
+            InvitesSubCommand::Delete(args) => handle_invite_delete(args).await,
+        },
+        SubCommand::Users(sub_command) => match sub_command {
+            UsersSubCommand::List(args) => handle_user_list(args).await,
+            UsersSubCommand::Delete(args) => handle_user_delete(args).await,
+        },
+        SubCommand::Update(sub_command) => match sub_command {
+            UpdateSubCommand::Owner(args) => handle_move_owner(args).await,
+            UpdateSubCommand::Name(args) => handle_change_name(args).await,
+            UpdateSubCommand::DefaultDataSources(sub_command) => match sub_command {
+                UpdateDefaultDataSourcesSubCommand::Set(args) => {
+                    handle_set_default_data_source(args).await
+                }
+                UpdateDefaultDataSourcesSubCommand::Unset(args) => {
+                    handle_unset_default_data_source(args).await
+                }
+            },
+        },
+    }
 }
 
 #[derive(Parser)]
 struct CreateArgs {
     /// Name of the new workspace
     #[clap(short, long)]
-    name: String,
+    name: Option<String>,
 
     /// Output of the workspace
     #[clap(long, short, default_value = "table", arg_enum)]
@@ -112,25 +126,19 @@ struct CreateArgs {
     config: Option<PathBuf>,
 }
 
-#[derive(Parser)]
-struct InviteArgs {
-    /// Workspace to invite the user to
-    #[clap(long, short, env)]
-    workspace_id: Option<Base64Uuid>,
+async fn handle_workspace_create(args: CreateArgs) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
 
-    /// Email address of the user which should be invited
-    #[clap(name = "email", required = true)]
-    receiver: String,
+    let name = text_req("Name", args.name, None)?;
 
-    /// Output of the invite
-    #[clap(long, short, default_value = "table", arg_enum)]
-    output: NewInviteOutput,
+    let workspace = workspace_create(&config, NewWorkspace::new(name)).await?;
 
-    #[clap(from_global)]
-    base_url: Url,
+    info!("Successfully created new workspace");
 
-    #[clap(from_global)]
-    config: Option<PathBuf>,
+    match args.output {
+        WorkspaceOutput::Table => output_details(GenericKeyValue::from_workspace(workspace)),
+        WorkspaceOutput::Json => output_json(&workspace),
+    }
 }
 
 #[derive(Parser)]
@@ -162,8 +170,98 @@ struct ListArgs {
     config: Option<PathBuf>,
 }
 
+async fn handle_workspace_list(args: ListArgs) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+
+    let list = workspace_list(
+        &config,
+        args.sort_by.map(Into::into),
+        args.sort_direction.map(Into::into),
+    )
+    .await?;
+
+    match args.output {
+        WorkspaceListOutput::Table => {
+            let rows: Vec<WorkspaceRow> = list.into_iter().map(Into::into).collect();
+            output_list(rows)
+        }
+        WorkspaceListOutput::Json => output_json(&list),
+    }
+}
+
 #[derive(Parser)]
-struct ListInviteArgs {
+struct LeaveArgs {
+    /// Workspace to leave from
+    #[clap(long, short, env)]
+    workspace_id: Option<Base64Uuid>,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
+async fn handle_workspace_leave(args: LeaveArgs) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+
+    workspace_leave(&config, &workspace_id.to_string()).await?;
+
+    info!("Successfully left workspace");
+    Ok(())
+}
+
+#[derive(Parser)]
+struct InviteCreateArgs {
+    /// Workspace to invite the user to
+    #[clap(long, short, env)]
+    workspace_id: Option<Base64Uuid>,
+
+    /// Email address of the user which should be invited
+    #[clap(name = "email", required = true)]
+    email: Option<String>,
+
+    /// Output of the invite
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: NewInviteOutput,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
+async fn handle_invite_create(args: InviteCreateArgs) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+
+    let email = text_req("Email", args.email, None)?;
+
+    let invite = workspace_invite(
+        &config,
+        &workspace_id.to_string(),
+        NewWorkspaceInvite::new(email),
+    )
+    .await?;
+
+    if !matches!(args.output, NewInviteOutput::InviteUrl) {
+        info!("Successfully invited user to workspace");
+    }
+
+    match args.output {
+        NewInviteOutput::InviteUrl => {
+            println!("{}", invite.url);
+            Ok(())
+        }
+        NewInviteOutput::Table => output_details(GenericKeyValue::from_invite_response(invite)),
+        NewInviteOutput::Json => output_json(&invite),
+    }
+}
+
+#[derive(Parser)]
+struct InviteListArgs {
     /// Workspace for which pending invites should be displayed
     #[clap(long, short, env)]
     workspace_id: Option<Base64Uuid>,
@@ -195,11 +293,61 @@ struct ListInviteArgs {
     config: Option<PathBuf>,
 }
 
+async fn handle_invite_list(args: InviteListArgs) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+
+    let invites = workspace_invite_get(
+        &config,
+        &workspace_id.to_string(),
+        args.sort_by.map(Into::into),
+        args.sort_direction.map(Into::into),
+        args.page,
+        args.limit,
+    )
+    .await?;
+
+    match args.output {
+        PendingInvitesOutput::Table => {
+            let rows: Vec<PendingInviteRow> = invites.into_iter().map(Into::into).collect();
+            output_list(rows)
+        }
+        PendingInvitesOutput::Json => output_json(&invites),
+    }
+}
+
 #[derive(Parser)]
-struct LeaveArgs {
-    /// Workspace to leave from
+struct InviteDeleteArgs {}
+
+async fn handle_invite_delete(_: InviteDeleteArgs) -> Result<()> {
+    unimplemented!()
+}
+
+#[derive(Parser)]
+struct UserListArgs {
+    /// Workspace for which pending invites should be displayed
     #[clap(long, short, env)]
     workspace_id: Option<Base64Uuid>,
+
+    /// Output of the invites
+    #[clap(long, short, default_value = "table", arg_enum)]
+    output: UserListOutput,
+
+    /// Sort the result according to the following field
+    #[clap(long, arg_enum)]
+    sort_by: Option<WorkspaceMembershipSortFields>,
+
+    /// Sort the result in the following direction
+    #[clap(long, arg_enum)]
+    sort_direction: Option<SortDirection>,
+
+    /// Page to display
+    #[clap(long)]
+    page: Option<i32>,
+
+    /// Amount of events to display per page
+    #[clap(long)]
+    limit: Option<i32>,
 
     #[clap(from_global)]
     base_url: Url,
@@ -208,8 +356,29 @@ struct LeaveArgs {
     config: Option<PathBuf>,
 }
 
+async fn handle_user_list(args: UserListArgs) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+
+    let users = workspace_list_users(
+        &config,
+        &workspace_id.to_string(),
+        args.sort_by.map(Into::into),
+        args.sort_direction.map(Into::into),
+    )
+    .await?;
+
+    match args.output {
+        UserListOutput::Table => {
+            let rows: Vec<UserRow> = users.into_iter().map(Into::into).collect();
+            output_list(rows)
+        }
+        UserListOutput::Json => output_json(&users),
+    }
+}
+
 #[derive(Parser)]
-struct RemoveArgs {
+struct UserDeleteArgs {
     /// Workspace to remove the user from
     #[clap(long, short, env)]
     workspace_id: Option<Base64Uuid>,
@@ -223,6 +392,18 @@ struct RemoveArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+}
+
+async fn handle_user_delete(args: UserDeleteArgs) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+
+    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let user = workspace_user_picker(&config, &workspace_id, args.user_id).await?;
+
+    workspace_user_remove(&config, &workspace_id.to_string(), &user.to_string()).await?;
+
+    info!("Successfully removed user from workspace");
+    Ok(())
 }
 
 #[derive(Parser)]
@@ -313,131 +494,6 @@ struct UnsetDefaultDataSourcesArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
-}
-
-pub async fn handle_command(args: Arguments) -> Result<()> {
-    match args.sub_command {
-        SubCommand::Create(args) => handle_workspace_create(args).await,
-        SubCommand::Invite(args) => handle_workspace_invite(args).await,
-        SubCommand::List(args) => handle_workspace_list(args).await,
-        SubCommand::ListInvites(args) => handle_list_invites(args).await,
-        SubCommand::Leave(args) => handle_workspace_leave(args).await,
-        SubCommand::Remove(args) => handle_workspace_remove_user(args).await,
-        SubCommand::Update(sub_command) => match sub_command {
-            UpdateSubCommand::Owner(args) => handle_move_owner(args).await,
-            UpdateSubCommand::Name(args) => handle_change_name(args).await,
-            UpdateSubCommand::DefaultDataSources(sub_command) => match sub_command {
-                UpdateDefaultDataSourcesSubCommand::Set(args) => {
-                    handle_set_default_data_source(args).await
-                }
-                UpdateDefaultDataSourcesSubCommand::Unset(args) => {
-                    handle_unset_default_data_source(args).await
-                }
-            },
-        },
-    }
-}
-
-async fn handle_workspace_create(args: CreateArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-
-    let workspace = workspace_create(&config, NewWorkspace::new(args.name)).await?;
-
-    info!("Successfully created new workspace");
-
-    match args.output {
-        WorkspaceOutput::Table => output_details(GenericKeyValue::from_workspace(workspace)),
-        WorkspaceOutput::Json => output_json(&workspace),
-    }
-}
-
-async fn handle_workspace_invite(args: InviteArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
-
-    let invite = workspace_invite(
-        &config,
-        &workspace_id.to_string(),
-        NewWorkspaceInvite::new(args.receiver),
-    )
-    .await?;
-
-    if !matches!(args.output, NewInviteOutput::InviteUrl) {
-        info!("Successfully invited user to workspace");
-    }
-
-    match args.output {
-        NewInviteOutput::InviteUrl => {
-            println!("{}", invite.url);
-            Ok(())
-        }
-        NewInviteOutput::Table => output_details(GenericKeyValue::from_invite_response(invite)),
-        NewInviteOutput::Json => output_json(&invite),
-    }
-}
-
-async fn handle_workspace_list(args: ListArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-
-    let list = workspace_list(
-        &config,
-        args.sort_by.map(Into::into),
-        args.sort_direction.map(Into::into),
-    )
-    .await?;
-
-    match args.output {
-        WorkspaceListOutput::Table => {
-            let rows: Vec<WorkspaceRow> = list.into_iter().map(Into::into).collect();
-            output_list(rows)
-        }
-        WorkspaceListOutput::Json => output_json(&list),
-    }
-}
-
-async fn handle_list_invites(args: ListInviteArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
-
-    let invites = workspace_invite_get(
-        &config,
-        &workspace_id.to_string(),
-        args.sort_by.map(Into::into),
-        args.sort_direction.map(Into::into),
-        args.page,
-        args.limit,
-    )
-    .await?;
-
-    match args.output {
-        PendingInvitesOutput::Table => {
-            let rows: Vec<PendingInviteRow> = invites.into_iter().map(Into::into).collect();
-            output_list(rows)
-        }
-        PendingInvitesOutput::Json => output_json(&invites),
-    }
-}
-
-async fn handle_workspace_leave(args: LeaveArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
-
-    workspace_leave(&config, &workspace_id.to_string()).await?;
-
-    info!("Successfully left workspace");
-    Ok(())
-}
-
-async fn handle_workspace_remove_user(args: RemoveArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
-    let user = workspace_user_picker(&config, &workspace_id, args.user_id).await?;
-
-    workspace_user_remove(&config, &workspace_id.to_string(), &user.to_string()).await?;
-
-    info!("Successfully removed user from workspace");
-    Ok(())
 }
 
 async fn handle_move_owner(args: MoveOwnerArgs) -> Result<()> {
@@ -551,6 +607,54 @@ async fn handle_unset_default_data_source(args: UnsetDefaultDataSourcesArgs) -> 
     Ok(())
 }
 
+#[derive(ArgEnum, Clone)]
+enum WorkspaceOutput {
+    /// Output the details as a table
+    Table,
+
+    /// Output the details as JSON
+    Json,
+}
+
+#[derive(ArgEnum, Clone)]
+enum NewInviteOutput {
+    /// Output the details as plain text
+    InviteUrl,
+
+    /// Output the details as a table
+    Table,
+
+    /// Output the details as JSON
+    Json,
+}
+
+#[derive(ArgEnum, Clone)]
+enum WorkspaceListOutput {
+    /// Output the details as a table
+    Table,
+
+    /// Output the details as JSON
+    Json,
+}
+
+#[derive(ArgEnum, Clone)]
+enum PendingInvitesOutput {
+    /// Output the details as a table
+    Table,
+
+    /// Output the details as JSON
+    Json,
+}
+
+#[derive(ArgEnum, Clone)]
+enum UserListOutput {
+    /// Output the details as a table
+    Table,
+
+    /// Output the details as JSON
+    Json,
+}
+
 impl GenericKeyValue {
     fn from_workspace(workspace: Workspace) -> Vec<Self> {
         vec![
@@ -647,6 +751,28 @@ impl From<Workspace> for WorkspaceRow {
             default_data_sources: workspace.default_data_sources,
             created_at: workspace.created_at,
             updated_at: workspace.updated_at,
+        }
+    }
+}
+
+#[derive(Table)]
+struct UserRow {
+    #[table(title = "ID")]
+    pub id: String,
+
+    #[table(title = "Name")]
+    pub name: String,
+
+    #[table(title = "Email")]
+    pub email: String,
+}
+
+impl From<User> for UserRow {
+    fn from(user: User) -> Self {
+        Self {
+            id: user.id,
+            name: user.name,
+            email: user.email.unwrap_or_else(|| "unknown".to_string()),
         }
     }
 }
