@@ -167,7 +167,7 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
         &config,
         &workspace_id.to_string(),
         NewProxy {
-            name: name.into(),
+            name,
             description: args.description,
         },
     )
