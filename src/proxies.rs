@@ -371,7 +371,7 @@ impl GenericKeyValue {
                     format!(
                         "{} ({}): {}{}",
                         datasource.name,
-                        datasource.provider_type.to_string(),
+                        datasource.provider_type,
                         datasource.status.map(|s| s.to_string()).unwrap_or_default(),
                         if let Some(error) = &datasource.error {
                             format!(" - {}", serde_json::to_string(error).unwrap())
