@@ -5,6 +5,7 @@ use anyhow::{anyhow, Result};
 use base64uuid::Base64Uuid;
 use clap::{ArgEnum, Parser};
 use cli_table::Table;
+use fiberplane::protocols::names::Name;
 use fp_api_client::apis::default_api::{
     data_source_list, proxy_create, proxy_delete, proxy_get, proxy_list,
 };
@@ -51,7 +52,7 @@ pub struct CreateArgs {
     workspace_id: Option<Base64Uuid>,
 
     /// Proxy name, leave empty to auto-generate a name
-    name: Option<String>,
+    name: Option<Name>,
 
     description: Option<String>,
 
@@ -107,7 +108,7 @@ pub struct GetArgs {
     workspace_id: Option<Base64Uuid>,
 
     /// ID of the proxy
-    proxy_name: Option<String>,
+    proxy_name: Option<Name>,
 
     /// Output of the proxy
     #[clap(long, short, default_value = "table", arg_enum)]
@@ -127,7 +128,7 @@ pub struct DeleteArgs {
     workspace_id: Option<Base64Uuid>,
 
     /// Name of the proxy
-    proxy_name: Option<String>,
+    proxy_name: Option<Name>,
 
     #[clap(from_global)]
     base_url: Url,
@@ -158,7 +159,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 }
 
 async fn handle_create_command(args: CreateArgs) -> Result<()> {
-    let name = args.name.unwrap_or_else(|| petname(2, "-"));
+    let name = args.name.map(Into::into).unwrap_or_else(|| petname(2, "-"));
     let config = api_client_configuration(args.config, &args.base_url).await?;
     let workspace_id = workspace_picker(&config, args.workspace_id).await?;
 
@@ -166,7 +167,7 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
         &config,
         &workspace_id.to_string(),
         NewProxy {
-            name,
+            name: name.into(),
             description: args.description,
         },
     )
@@ -255,7 +256,8 @@ async fn handle_get_command(args: GetArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
     let workspace_id = workspace_picker(&config, args.workspace_id).await?;
     let proxy_name =
-        interactive::proxy_picker(&config, Some(workspace_id), args.proxy_name).await?;
+        interactive::proxy_picker(&config, Some(workspace_id), args.proxy_name.map(Into::into))
+            .await?;
 
     let proxy = proxy_get(&config, &workspace_id.to_string(), &proxy_name.to_string()).await?;
 
@@ -287,7 +289,9 @@ async fn handle_data_sources_command(args: DataSourcesArgs) -> Result<()> {
 async fn handle_delete_command(args: DeleteArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
     let workspace_id = workspace_picker(&config, args.workspace_id).await?;
-    let name = interactive::proxy_picker(&config, Some(workspace_id), args.proxy_name).await?;
+    let name =
+        interactive::proxy_picker(&config, Some(workspace_id), args.proxy_name.map(Into::into))
+            .await?;
 
     proxy_delete(&config, &workspace_id.to_string(), &name).await?;
 
