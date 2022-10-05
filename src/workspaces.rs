@@ -13,8 +13,9 @@ use fiberplane::sorting::{
     WorkspaceMembershipSortFields,
 };
 use fp_api_client::apis::default_api::{
-    workspace_create, workspace_get, workspace_invite, workspace_invite_get, workspace_leave,
-    workspace_list, workspace_list_users, workspace_update, workspace_user_remove,
+    workspace_create, workspace_get, workspace_invite, workspace_invite_delete,
+    workspace_invite_get, workspace_leave, workspace_list, workspace_update, workspace_user_remove,
+    workspace_users_list,
 };
 use fp_api_client::models::{
     NewWorkspace, NewWorkspaceInvite, SelectedDataSource, UpdateWorkspace, User, Workspace,
@@ -317,10 +318,25 @@ async fn handle_invite_list(args: InviteListArgs) -> Result<()> {
 }
 
 #[derive(Parser)]
-struct InviteDeleteArgs {}
+struct InviteDeleteArgs {
+    /// Invitation ID to delete
+    #[clap(long, short, env)]
+    invite_id: Base64Uuid,
 
-async fn handle_invite_delete(_: InviteDeleteArgs) -> Result<()> {
-    unimplemented!()
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
+async fn handle_invite_delete(args: InviteDeleteArgs) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+
+    workspace_invite_delete(&config, &args.invite_id.to_string()).await?;
+
+    info!("Successfully deleted invitation from workspace");
+    Ok(())
 }
 
 #[derive(Parser)]
@@ -360,7 +376,7 @@ async fn handle_user_list(args: UserListArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
     let workspace_id = workspace_picker(&config, args.workspace_id).await?;
 
-    let users = workspace_list_users(
+    let users = workspace_users_list(
         &config,
         &workspace_id.to_string(),
         args.sort_by.map(Into::into),

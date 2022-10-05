@@ -7,7 +7,7 @@ use fp_api_client::apis::configuration::Configuration;
 use fp_api_client::apis::default_api::data_source_get;
 use fp_api_client::apis::default_api::{
     data_source_list, notebook_search, proxy_list, template_list, trigger_list, workspace_list,
-    workspace_list_users,
+    workspace_users_list,
 };
 use fp_api_client::models::DataSource;
 use fp_api_client::models::NotebookSearch;
@@ -463,7 +463,7 @@ pub async fn workspace_user_picker(
     pb.set_message("Fetching workspace users");
     pb.enable_steady_tick(100);
 
-    let results = workspace_list_users(
+    let results = workspace_users_list(
         config,
         &workspace.to_string(),
         Some("name"),
