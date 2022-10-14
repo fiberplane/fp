@@ -100,18 +100,12 @@ impl FromStr for TemplateArguments {
         } else {
             let mut args = HashMap::new();
             for kv in s.split([';', ',']) {
-                let mut parts = kv.trim().split([':', '=']);
-                let key = parts
-                    .next()
-                    .ok_or_else(|| anyhow!("missing key"))?
-                    .to_string();
-                let value = Value::String(
-                    parts
-                        .next()
-                        .ok_or_else(|| anyhow!("missing value"))?
-                        .to_string(),
-                );
-                args.insert(key, value);
+                let (key, value) = kv
+                    .trim()
+                    .split_once([':', '='])
+                    .ok_or_else(|| anyhow!("missing delimiter"))?;
+
+                args.insert(key.to_string(), Value::String(value.to_string()));
             }
             args
         };
