@@ -8,6 +8,7 @@ use base64uuid::Base64Uuid;
 use clap::{ArgEnum, Parser};
 use cli_table::Table;
 use dialoguer::FuzzySelect;
+use fiberplane::protocols::core::AuthzRoles;
 use fiberplane::sorting::{
     SortDirection, WorkspaceInviteListingSortFields, WorkspaceListingSortFields,
     WorkspaceMembershipSortFields,
@@ -15,11 +16,12 @@ use fiberplane::sorting::{
 use fp_api_client::apis::default_api::{
     workspace_create, workspace_get, workspace_invite, workspace_invite_delete,
     workspace_invite_get, workspace_leave, workspace_list, workspace_update, workspace_user_remove,
-    workspace_users_list,
+    workspace_user_update, workspace_users_list,
 };
+use fp_api_client::models::workspace_user_update::Role;
 use fp_api_client::models::{
     NewWorkspace, NewWorkspaceInvite, SelectedDataSource, UpdateWorkspace, User, Workspace,
-    WorkspaceInvite, WorkspaceInviteResponse,
+    WorkspaceInvite, WorkspaceInviteResponse, WorkspaceUserUpdate,
 };
 use std::collections::HashMap;
 use std::fmt::Display;
@@ -48,7 +50,7 @@ enum SubCommand {
     #[clap(subcommand)]
     Invites(InvitesSubCommand),
 
-    /// List and remove users from a workspace
+    /// List, update and remove users from a workspace
     #[clap(subcommand)]
     Users(UsersSubCommand),
 
@@ -76,6 +78,9 @@ enum UsersSubCommand {
     /// List the users that part of a workspace
     List(UserListArgs),
 
+    /// Update the user within a workspace
+    Update(UserUpdateArgs),
+
     /// Delete a user from a workspace
     #[clap(aliases = &["remove", "rm"])]
     Delete(UserDeleteArgs),
@@ -93,6 +98,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
         },
         SubCommand::Users(sub_command) => match sub_command {
             UsersSubCommand::List(args) => handle_user_list(args).await,
+            UsersSubCommand::Update(args) => handle_user_update(args).await,
             UsersSubCommand::Delete(args) => handle_user_delete(args).await,
         },
         SubCommand::Update(sub_command) => match sub_command {
@@ -391,6 +397,52 @@ async fn handle_user_list(args: UserListArgs) -> Result<()> {
         }
         UserListOutput::Json => output_json(&users),
     }
+}
+
+#[derive(Parser)]
+struct UserUpdateArgs {
+    /// New role which should be assigned to the specified user
+    #[clap(long, arg_enum)]
+    role: Option<AuthzRoles>,
+
+    /// Workspace to update the user in
+    #[clap(long, short, env)]
+    workspace_id: Option<Base64Uuid>,
+
+    /// User ID of the user that should be updated within the workspace
+    #[clap(long, short, env)]
+    user_id: Option<Base64Uuid>,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
+async fn handle_user_update(args: UserUpdateArgs) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+
+    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let user = workspace_user_picker(&config, &workspace_id, args.user_id).await?;
+
+    workspace_user_update(
+        &config,
+        &workspace_id.to_string(),
+        &user.to_string(),
+        WorkspaceUserUpdate {
+            // Once we have our own openapi client implemented this will be literally just `args.role` (without the `.map`)
+            role: args.role.map(|role| match role {
+                AuthzRoles::Read => Role::Read,
+                AuthzRoles::Write => Role::Write,
+                AuthzRoles::Admin => Role::Admin,
+            }),
+        },
+    )
+    .await?;
+
+    info!("Successfully updated user within workspace");
+    Ok(())
 }
 
 #[derive(Parser)]
