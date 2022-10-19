@@ -3374,7 +3374,7 @@ checksum = "42657b1a6f4d817cda8e7a0ace261fe0cc946cf3a80314390b22cc61ae080792"
 [[package]]
 name = "time_util"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=Remove-regex-dependency#d5c2935b2adcfc8fdadfd49852fcc4995aefaa3f"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#d5c2935b2adcfc8fdadfd49852fcc4995aefaa3f"
 dependencies = [
  "anyhow",
  "serde",
