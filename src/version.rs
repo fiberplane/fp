@@ -4,20 +4,20 @@ use crate::{
     MANIFEST,
 };
 use anyhow::Result;
-use clap::{ArgEnum, Parser};
+use clap::{Parser, ValueEnum};
 use tracing::{debug, error, info};
 
 #[derive(Parser)]
 pub struct Arguments {
     /// output type to use
-    #[clap(long, short, default_value = "version", arg_enum)]
+    #[clap(long, short, default_value = "version", value_enum)]
     pub output: OutputType,
 
     #[clap(from_global)]
     pub disable_version_check: bool,
 }
 
-#[derive(ArgEnum, Clone)]
+#[derive(ValueEnum, Clone)]
 pub enum OutputType {
     /// Only display the version
     Version,

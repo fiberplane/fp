@@ -1,7 +1,7 @@
 use crate::config::api_client_configuration;
 use crate::output::{output_details, output_json, GenericKeyValue};
 use anyhow::Result;
-use clap::{ArgEnum, Parser};
+use clap::{Parser, ValueEnum};
 use fp_api_client::apis::default_api::profile_get;
 use fp_api_client::models::Profile;
 use std::path::PathBuf;
@@ -19,7 +19,7 @@ enum SubCommand {
     Profile(GetArgs),
 }
 
-#[derive(ArgEnum, Clone)]
+#[derive(ValueEnum, Clone)]
 enum ProfileOutput {
     /// Output the details as a table
     Table,
@@ -31,7 +31,7 @@ enum ProfileOutput {
 #[derive(Parser)]
 struct GetArgs {
     /// Output of the template
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "table", value_enum)]
     output: ProfileOutput,
 
     #[clap(from_global)]

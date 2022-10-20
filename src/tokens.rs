@@ -1,7 +1,7 @@
 use crate::config::api_client_configuration;
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use anyhow::Result;
-use clap::{ArgEnum, Parser};
+use clap::{Parser, ValueEnum};
 use cli_table::Table;
 use fiberplane::sorting::{SortDirection, TokenListSortFields};
 use fp_api_client::apis::default_api::{token_create, token_delete, token_list};
@@ -39,7 +39,7 @@ enum SubCommand {
     Delete(DeleteArguments),
 }
 
-#[derive(ArgEnum, Clone)]
+#[derive(ValueEnum, Clone)]
 enum TokenCreateOutput {
     /// Output the details as a table
     Table,
@@ -51,7 +51,7 @@ enum TokenCreateOutput {
     Token,
 }
 
-#[derive(ArgEnum, Clone)]
+#[derive(ValueEnum, Clone)]
 enum TokenListOutput {
     /// Output the details as a table
     Table,
@@ -67,7 +67,7 @@ struct CreateArguments {
     name: String,
 
     /// Output of the token
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "table", value_enum)]
     output: TokenCreateOutput,
 
     #[clap(from_global)]
@@ -80,15 +80,15 @@ struct CreateArguments {
 #[derive(Parser)]
 pub struct ListArguments {
     /// Output of the token
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "table", value_enum)]
     output: TokenListOutput,
 
     /// Sort the result according to the following field
-    #[clap(long, arg_enum)]
+    #[clap(long, value_enum)]
     sort_by: Option<TokenListSortFields>,
 
     /// Sort the result in the following direction
-    #[clap(long, arg_enum)]
+    #[clap(long, value_enum)]
     sort_direction: Option<SortDirection>,
 
     /// Page to display

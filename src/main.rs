@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Context, Error, Result};
-use clap::{AppSettings, IntoApp, Parser};
+use clap::{CommandFactory, Parser};
 use clap_complete::{generate, Shell};
 use directories::ProjectDirs;
 use manifest::Manifest;
@@ -48,7 +48,7 @@ pub static MANIFEST: Lazy<Manifest> = Lazy::new(Manifest::from_env);
 const VERSION_CHECK_DURATION: u64 = 60 * 60 * 24; // 24 hours
 
 #[derive(Parser)]
-#[clap(author, about, version, setting = AppSettings::PropagateVersion)]
+#[clap(author, about, version, propagate_version = true)]
 pub struct Arguments {
     #[clap(subcommand)]
     sub_command: SubCommand,
@@ -59,24 +59,24 @@ pub struct Arguments {
         default_value = "https://fiberplane.com",
         env = "API_BASE",
         global = true,
-        help_heading = "GLOBAL OPTIONS"
+        help_heading = "Global options"
     )]
     base_url: Url,
 
     /// Path to Fiberplane config file
-    #[clap(long, global = true, env, help_heading = "GLOBAL OPTIONS")]
+    #[clap(long, global = true, env, help_heading = "Global options")]
     config: Option<PathBuf>,
 
     /// Disables the version check
-    #[clap(long, global = true, env, help_heading = "GLOBAL OPTIONS")]
+    #[clap(long, global = true, env, help_heading = "Global options")]
     disable_version_check: bool,
 
     /// Display verbose logs
-    #[clap(short, long, global = true, env, help_heading = "GLOBAL OPTIONS")]
+    #[clap(short, long, global = true, env, help_heading = "Global options")]
     verbose: bool,
 
     /// Path to log file
-    #[clap(long, global = true, env, help_heading = "GLOBAL OPTIONS")]
+    #[clap(long, global = true, env, help_heading = "Global options")]
     log_file: Option<PathBuf>,
 }
 
@@ -84,14 +84,14 @@ pub struct Arguments {
 enum SubCommand {
     /// Generate fp shell completions for your shell and print to stdout
     Completions {
-        #[clap(arg_enum)]
+        #[clap(value_enum)]
         shell: clap_complete::Shell,
     },
 
     #[clap(alias = "data-source")]
     DataSources(data_sources::Arguments),
 
-    /// Experimental commands 🧪
+    /// Experimental commands
     ///
     /// These commands are not stable and may change at any time.
     #[clap(aliases = &["experiment", "x"])]
@@ -193,7 +193,7 @@ async fn main() {
         match Arguments::try_parse() {
             Ok(arguments) => arguments,
             Err(err) => match err.kind() {
-                clap::ErrorKind::DisplayVersion => {
+                clap::error::ErrorKind::DisplayVersion => {
                     version::output_version().await;
                     process::exit(0);
                 }
@@ -397,6 +397,7 @@ pub async fn background_version_check() -> Result<Option<String>> {
     }
 }
 
+#[derive(Clone)]
 pub struct KeyValueArgument {
     pub key: String,
     pub value: String,
@@ -423,7 +424,7 @@ impl FromStr for KeyValueArgument {
 }
 
 fn generate_completions(shell: Shell) -> String {
-    let mut app = Arguments::into_app();
+    let mut app = Arguments::command();
     let app_name = app.get_name().to_string();
     let mut output = Vec::new();
     generate(shell, &mut app, app_name, &mut output);
