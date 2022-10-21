@@ -14,7 +14,7 @@ use fiberplane::sorting::{
     WorkspaceMembershipSortFields,
 };
 use fp_api_client::apis::default_api::{
-    workspace_create, workspace_get, workspace_invite, workspace_invite_delete,
+    workspace_create, workspace_delete, workspace_get, workspace_invite, workspace_invite_delete,
     workspace_invite_get, workspace_leave, workspace_list, workspace_update, workspace_user_remove,
     workspace_user_update, workspace_users_list,
 };
@@ -39,6 +39,9 @@ pub struct Arguments {
 enum SubCommand {
     /// Create a new workspace
     Create(CreateArgs),
+
+    /// Delete a workspace
+    Delete(DeleteArgs),
 
     /// List all workspaces of which you're a member
     List(ListArgs),
@@ -89,6 +92,7 @@ enum UsersSubCommand {
 pub async fn handle_command(args: Arguments) -> Result<()> {
     match args.sub_command {
         SubCommand::Create(args) => handle_workspace_create(args).await,
+        SubCommand::Delete(args) => handle_workspace_delete(args).await,
         SubCommand::List(args) => handle_workspace_list(args).await,
         SubCommand::Leave(args) => handle_workspace_leave(args).await,
         SubCommand::Invites(sub_command) => match sub_command {
@@ -146,6 +150,29 @@ async fn handle_workspace_create(args: CreateArgs) -> Result<()> {
         WorkspaceOutput::Table => output_details(GenericKeyValue::from_workspace(workspace)),
         WorkspaceOutput::Json => output_json(&workspace),
     }
+}
+
+#[derive(Parser)]
+struct DeleteArgs {
+    /// Workspace to delete
+    #[clap(long, short, env)]
+    workspace_id: Option<Base64Uuid>,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
+async fn handle_workspace_delete(args: DeleteArgs) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+
+    workspace_delete(&config, &workspace_id.to_string()).await?;
+
+    info!("Successfully deleted workspace");
+    Ok(())
 }
 
 #[derive(Parser)]
