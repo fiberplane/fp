@@ -111,6 +111,13 @@ enum SubCommand {
     #[clap(alias = "label")]
     Labels(labels::Arguments),
 
+    /// Create a new notebook in a workspace and open it in a browser.
+    ///
+    /// If you are looking for a programmatic way to create a notebook and
+    /// expect json response, then use `fp notebooks create -o json` instead.
+    #[clap(alias = "create")]
+    New(NewArguments),
+
     /// Interact with notebooks
     ///
     /// Notebooks are the main resource that Studio exposes.
@@ -238,6 +245,7 @@ async fn main() {
         Login => auth::handle_login_command(args).await,
         Logout => auth::handle_logout_command(args).await,
         Labels(args) => labels::handle_command(args).await,
+        New(args) => handle_new_command(args).await,
         Notebooks(args) => notebooks::handle_command(args).await,
         Providers(args) => providers::handle_command(args).await,
         Proxies(args) => proxies::handle_command(args).await,
@@ -449,11 +457,22 @@ fn generate_completions(shell: Shell) -> String {
     }
 }
 
-#[test]
-fn generating_completions() {
-    // Check that this works
-    generate_completions(Shell::Bash);
+#[derive(Parser)]
+struct NewArguments {}
 
-    let zsh_completions = generate_completions(Shell::Zsh);
-    assert_eq!(zsh_completions.lines().next().unwrap(), "#compdef _fp fp");
+async fn handle_new_command(args: NewArguments) -> Result<()> {
+    todo!()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn generating_completions() {
+        // Check that this works
+        generate_completions(Shell::Bash);
+
+        let zsh_completions = generate_completions(Shell::Zsh);
+        assert_eq!(zsh_completions.lines().next().unwrap(), "#compdef _fp fp");
+    }
 }
