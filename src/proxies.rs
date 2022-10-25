@@ -3,7 +3,7 @@ use crate::interactive::{self, workspace_picker};
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use anyhow::{anyhow, Result};
 use base64uuid::Base64Uuid;
-use clap::{ArgEnum, Parser};
+use clap::{Parser, ValueEnum};
 use cli_table::Table;
 use fiberplane::protocols::names::Name;
 use fp_api_client::apis::default_api::{
@@ -57,7 +57,7 @@ pub struct CreateArgs {
     description: Option<String>,
 
     /// Output of the proxy
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "table", value_enum)]
     output: ProxyOutput,
 
     #[clap(from_global)]
@@ -74,7 +74,7 @@ pub struct ListArgs {
     workspace_id: Option<Base64Uuid>,
 
     /// Output of the proxy
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "table", value_enum)]
     output: ProxyOutput,
 
     #[clap(from_global)]
@@ -91,7 +91,7 @@ pub struct DataSourcesArgs {
     workspace_id: Option<Base64Uuid>,
 
     /// Output of the proxy
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "table", value_enum)]
     output: ProxyOutput,
 
     #[clap(from_global)]
@@ -111,7 +111,7 @@ pub struct GetArgs {
     proxy_name: Option<Name>,
 
     /// Output of the proxy
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "table", value_enum)]
     output: ProxyOutput,
 
     #[clap(from_global)]
@@ -138,7 +138,7 @@ pub struct DeleteArgs {
 }
 
 /// A generic output for proxy related commands.
-#[derive(ArgEnum, Clone)]
+#[derive(ValueEnum, Clone)]
 enum ProxyOutput {
     /// Output the result as a table
     Table,

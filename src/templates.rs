@@ -3,7 +3,7 @@ use crate::interactive::{self, workspace_picker};
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use anyhow::{anyhow, bail, Context, Error, Result};
 use base64uuid::Base64Uuid;
-use clap::{ArgEnum, Parser, ValueHint};
+use clap::{Parser, ValueEnum, ValueHint};
 use cli_table::Table;
 use fiberplane::protocols::core::{self, Cell, HeadingCell, HeadingType, TextCell};
 use fiberplane::sorting::{SortDirection, TemplateListSortFields};
@@ -88,7 +88,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
     }
 }
 
-#[derive(Serialize, Deserialize, Default, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub struct TemplateArguments(pub HashMap<String, Value>);
 
 impl FromStr for TemplateArguments {
@@ -167,7 +167,7 @@ struct ConvertArguments {
     create_trigger: Option<bool>,
 
     /// Output of the template
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "table", value_enum)]
     output: TemplateOutput,
 
     #[clap(from_global)]
@@ -203,7 +203,7 @@ struct CreateArguments {
     create_trigger: Option<bool>,
 
     /// Output of the template
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "table", value_enum)]
     output: TemplateOutput,
 
     #[clap(from_global)]
@@ -219,7 +219,7 @@ struct GetArguments {
     template_id: Option<Base64Uuid>,
 
     /// Output of the template
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "table", value_enum)]
     output: TemplateOutput,
 
     #[clap(from_global)]
@@ -248,15 +248,15 @@ struct ListArguments {
     workspace_id: Option<Base64Uuid>,
 
     /// Output of the templates
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "table", value_enum)]
     output: TemplateListOutput,
 
     /// Sort the result according to the following field
-    #[clap(long, arg_enum)]
+    #[clap(long, value_enum)]
     sort_by: Option<TemplateListSortFields>,
 
     /// Sort the result in the following direction
-    #[clap(long, arg_enum)]
+    #[clap(long, value_enum)]
     sort_direction: Option<SortDirection>,
 
     #[clap(from_global)]
@@ -280,7 +280,7 @@ struct UpdateArguments {
     description: Option<String>,
 
     /// The body of the template
-    #[clap(long, conflicts_with = "template-path")]
+    #[clap(long, conflicts_with = "template_path")]
     template: Option<String>,
 
     /// Path to the template body file
@@ -288,7 +288,7 @@ struct UpdateArguments {
     template_path: Option<PathBuf>,
 
     /// Output of the template
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "table", value_enum)]
     output: TemplateOutput,
 
     #[clap(from_global)]
@@ -310,7 +310,7 @@ struct ValidateArguments {
     template_arguments: Option<TemplateArguments>,
 }
 
-#[derive(ArgEnum, Clone)]
+#[derive(ValueEnum, Clone)]
 enum TemplateOutput {
     /// Output the details of the template as a table (excluding body)
     Table,
@@ -322,7 +322,7 @@ enum TemplateOutput {
     Json,
 }
 
-#[derive(ArgEnum, Clone, Debug)]
+#[derive(ValueEnum, Clone, Debug)]
 enum TemplateListOutput {
     /// Output the values as a table
     Table,

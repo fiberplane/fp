@@ -3,7 +3,7 @@ use crate::interactive::{self, workspace_picker};
 use crate::output::{output_json, output_string_list};
 use anyhow::Result;
 use base64uuid::Base64Uuid;
-use clap::{ArgEnum, Parser};
+use clap::{Parser, ValueEnum};
 use fp_api_client::apis::default_api::{label_keys_list, label_values_list};
 use std::path::PathBuf;
 use url::Url;
@@ -40,7 +40,7 @@ pub struct ListKeysArgs {
     prefix: Option<String>,
 
     /// Output of the notebook
-    #[clap(long, short, default_value = "list", arg_enum)]
+    #[clap(long, short, default_value = "list", value_enum)]
     output: ListKeysOutput,
 
     /// Workspace to use
@@ -52,7 +52,7 @@ pub struct ListKeysArgs {
     config: Option<PathBuf>,
 }
 
-#[derive(ArgEnum, Clone)]
+#[derive(ValueEnum, Clone)]
 enum ListKeysOutput {
     /// Output the keys as a list
     List,
@@ -87,7 +87,7 @@ pub struct ListValuesArgs {
     prefix: Option<String>,
 
     /// Output of the notebook
-    #[clap(long, short, default_value = "list", arg_enum)]
+    #[clap(long, short, default_value = "list", value_enum)]
     output: ListValuesOutput,
 
     #[clap(from_global)]
@@ -97,7 +97,7 @@ pub struct ListValuesArgs {
     config: Option<PathBuf>,
 }
 
-#[derive(ArgEnum, Clone)]
+#[derive(ValueEnum, Clone)]
 enum ListValuesOutput {
     /// Output the values as a list
     List,

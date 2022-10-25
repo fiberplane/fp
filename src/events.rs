@@ -4,8 +4,7 @@ use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use crate::{interactive, KeyValueArgument};
 use anyhow::Result;
 use base64uuid::Base64Uuid;
-use clap::ArgEnum;
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use cli_table::Table;
 use fiberplane::sorting::{EventSortFields, SortDirection};
 use fp_api_client::apis::default_api::{event_create, event_delete, event_list};
@@ -48,7 +47,7 @@ enum SubCommand {
     Delete(DeleteArguments),
 }
 
-#[derive(ArgEnum, Clone)]
+#[derive(ValueEnum, Clone)]
 enum EventOutput {
     /// Output the details as a table
     Table,
@@ -68,11 +67,11 @@ struct CreateArguments {
     labels: Vec<KeyValueArgument>,
 
     /// Time at which the event occurred. Leave empty to use current time.
-    #[clap(long, parse(try_from_str = clap_rfc3339::parse_rfc3339))]
+    #[clap(long, value_parser = clap_rfc3339::parse_rfc3339)]
     time: Option<OffsetDateTime>,
 
     /// Output of the event
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "table", value_enum)]
     output: EventOutput,
 
     /// Workspace to create the event in.
@@ -93,15 +92,15 @@ pub struct SearchArguments {
     labels: Vec<KeyValueArgument>,
 
     /// Start time to search for events for
-    #[clap(long, parse(try_from_str = clap_rfc3339::parse_rfc3339), required = true)]
+    #[clap(long, value_parser = clap_rfc3339::parse_rfc3339, required = true)]
     start: OffsetDateTime,
 
     /// End time to search for events for
-    #[clap(long, parse(try_from_str = clap_rfc3339::parse_rfc3339), required = true)]
+    #[clap(long, value_parser = clap_rfc3339::parse_rfc3339, required = true)]
     end: OffsetDateTime,
 
     /// Output of the event
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "table", value_enum)]
     output: EventOutput,
 
     /// Workspace to search for events in.
@@ -109,11 +108,11 @@ pub struct SearchArguments {
     workspace_id: Option<Base64Uuid>,
 
     /// Sort the result according to the following field
-    #[clap(long, arg_enum)]
+    #[clap(long, value_enum)]
     sort_by: Option<EventSortFields>,
 
     /// Sort the result in the following direction
-    #[clap(long, arg_enum)]
+    #[clap(long, value_enum)]
     sort_direction: Option<SortDirection>,
 
     /// Page to display

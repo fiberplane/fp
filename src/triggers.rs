@@ -4,7 +4,7 @@ use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use crate::templates::TemplateArguments;
 use anyhow::{Context, Result};
 use base64uuid::Base64Uuid;
-use clap::{ArgEnum, Parser};
+use clap::{Parser, ValueEnum};
 use cli_table::Table;
 use fp_api_client::apis::configuration::Configuration;
 use fp_api_client::apis::default_api::{
@@ -72,7 +72,7 @@ struct CreateArguments {
     default_arguments: Option<TemplateArguments>,
 
     /// Output of the trigger
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "table", value_enum)]
     output: TriggerOutput,
 
     #[clap(from_global)]
@@ -88,7 +88,7 @@ struct GetArguments {
     trigger_id: Option<Base64Uuid>,
 
     /// Output of the trigger
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "table", value_enum)]
     output: TriggerOutput,
 
     #[clap(from_global)]
@@ -117,7 +117,7 @@ struct ListArguments {
     workspace_id: Option<Base64Uuid>,
 
     /// Output of the triggers
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "table", value_enum)]
     output: TriggerOutput,
 
     #[clap(from_global)]
@@ -138,7 +138,7 @@ struct InvokeArguments {
     secret_key: Option<String>,
 
     /// Output of the triggers
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "table", value_enum)]
     output: TriggerOutput,
 
     /// Values to inject into the template.
@@ -154,7 +154,7 @@ struct InvokeArguments {
 }
 
 /// A generic output for trigger related commands.
-#[derive(ArgEnum, Clone)]
+#[derive(ValueEnum, Clone)]
 enum TriggerOutput {
     /// Output the result as a table
     Table,

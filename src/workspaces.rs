@@ -5,7 +5,7 @@ use crate::interactive::{
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use anyhow::{bail, Result};
 use base64uuid::Base64Uuid;
-use clap::{ArgEnum, Parser};
+use clap::{Parser, ValueEnum};
 use cli_table::Table;
 use dialoguer::FuzzySelect;
 use fiberplane::protocols::core::AuthzRoles;
@@ -127,7 +127,7 @@ struct CreateArgs {
     name: Option<String>,
 
     /// Output of the workspace
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "table", value_enum)]
     output: WorkspaceOutput,
 
     #[clap(from_global)]
@@ -178,15 +178,15 @@ async fn handle_workspace_delete(args: DeleteArgs) -> Result<()> {
 #[derive(Parser)]
 struct ListArgs {
     /// Output of the workspaces
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "table", value_enum)]
     output: WorkspaceListOutput,
 
     /// Sort the result according to the following field
-    #[clap(long, arg_enum)]
+    #[clap(long, value_enum)]
     sort_by: Option<WorkspaceListingSortFields>,
 
     /// Sort the result in the following direction
-    #[clap(long, arg_enum)]
+    #[clap(long, value_enum)]
     sort_direction: Option<SortDirection>,
 
     /// Page to display
@@ -257,7 +257,7 @@ struct InviteCreateArgs {
     email: Option<String>,
 
     /// Output of the invite
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "table", value_enum)]
     output: NewInviteOutput,
 
     #[clap(from_global)]
@@ -301,15 +301,15 @@ struct InviteListArgs {
     workspace_id: Option<Base64Uuid>,
 
     /// Output of the invites
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "table", value_enum)]
     output: PendingInvitesOutput,
 
     /// Sort the result according to the following field
-    #[clap(long, arg_enum)]
+    #[clap(long, value_enum)]
     sort_by: Option<WorkspaceInviteListingSortFields>,
 
     /// Sort the result in the following direction
-    #[clap(long, arg_enum)]
+    #[clap(long, value_enum)]
     sort_direction: Option<SortDirection>,
 
     /// Page to display
@@ -379,15 +379,15 @@ struct UserListArgs {
     workspace_id: Option<Base64Uuid>,
 
     /// Output of the invites
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "table", value_enum)]
     output: UserListOutput,
 
     /// Sort the result according to the following field
-    #[clap(long, arg_enum)]
+    #[clap(long, value_enum)]
     sort_by: Option<WorkspaceMembershipSortFields>,
 
     /// Sort the result in the following direction
-    #[clap(long, arg_enum)]
+    #[clap(long, value_enum)]
     sort_direction: Option<SortDirection>,
 
     /// Page to display
@@ -429,7 +429,7 @@ async fn handle_user_list(args: UserListArgs) -> Result<()> {
 #[derive(Parser)]
 struct UserUpdateArgs {
     /// New role which should be assigned to the specified user
-    #[clap(long, arg_enum)]
+    #[clap(long, value_enum)]
     role: Option<AuthzRoles>,
 
     /// Workspace to update the user in
@@ -702,7 +702,7 @@ async fn handle_unset_default_data_source(args: UnsetDefaultDataSourcesArgs) -> 
     Ok(())
 }
 
-#[derive(ArgEnum, Clone)]
+#[derive(ValueEnum, Clone)]
 enum WorkspaceOutput {
     /// Output the details as a table
     Table,
@@ -711,7 +711,7 @@ enum WorkspaceOutput {
     Json,
 }
 
-#[derive(ArgEnum, Clone)]
+#[derive(ValueEnum, Clone)]
 enum NewInviteOutput {
     /// Output the details as plain text
     InviteUrl,
@@ -723,7 +723,7 @@ enum NewInviteOutput {
     Json,
 }
 
-#[derive(ArgEnum, Clone)]
+#[derive(ValueEnum, Clone)]
 enum WorkspaceListOutput {
     /// Output the details as a table
     Table,
@@ -732,7 +732,7 @@ enum WorkspaceListOutput {
     Json,
 }
 
-#[derive(ArgEnum, Clone)]
+#[derive(ValueEnum, Clone)]
 enum PendingInvitesOutput {
     /// Output the details as a table
     Table,
@@ -741,7 +741,7 @@ enum PendingInvitesOutput {
     Json,
 }
 
-#[derive(ArgEnum, Clone)]
+#[derive(ValueEnum, Clone)]
 enum UserListOutput {
     /// Output the details as a table
     Table,

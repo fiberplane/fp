@@ -4,7 +4,7 @@ use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use crate::KeyValueArgument;
 use anyhow::{anyhow, Context, Result};
 use base64uuid::Base64Uuid;
-use clap::{ArgEnum, Parser, ValueHint};
+use clap::{Parser, ValueEnum, ValueHint};
 use cli_table::Table;
 use fiberplane::protocols::core;
 use fiberplane_markdown::{markdown_to_notebook, notebook_to_markdown};
@@ -72,7 +72,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 }
 
 /// A generic output for notebook related commands.
-#[derive(ArgEnum, Clone)]
+#[derive(ValueEnum, Clone)]
 enum SingleNotebookOutput {
     /// Output the result as a table
     Table,
@@ -85,7 +85,7 @@ enum SingleNotebookOutput {
 }
 
 /// A generic output for notebook related commands.
-#[derive(ArgEnum, Clone)]
+#[derive(ValueEnum, Clone)]
 enum NotebookOutput {
     /// Output the result as a table
     Table,
@@ -95,7 +95,7 @@ enum NotebookOutput {
 }
 
 /// Output for cell related commands
-#[derive(ArgEnum, Clone)]
+#[derive(ValueEnum, Clone)]
 enum CellOutput {
     /// Output the result as a table
     Table,
@@ -119,11 +119,11 @@ pub struct CreateArgs {
     labels: Vec<KeyValueArgument>,
 
     /// Start time to be passed into the new notebook (RFC3339). Leave empty to use 60 minutes ago.
-    #[clap(long, parse(try_from_str = clap_rfc3339::parse_rfc3339))]
+    #[clap(long, value_parser = clap_rfc3339::parse_rfc3339)]
     from: Option<OffsetDateTime>,
 
     /// End time to be passed into the new notebook (RFC3339). Leave empty to use the current time.
-    #[clap(long, parse(try_from_str = clap_rfc3339::parse_rfc3339))]
+    #[clap(long, value_parser = clap_rfc3339::parse_rfc3339)]
     to: Option<OffsetDateTime>,
 
     /// Create the notebook from the given Markdown
@@ -133,7 +133,7 @@ pub struct CreateArgs {
     markdown: Option<String>,
 
     /// Output of the notebook
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "table", value_enum)]
     output: NotebookOutput,
 
     #[clap(from_global)]
@@ -219,7 +219,7 @@ pub struct GetArgs {
     notebook_id: String,
 
     /// Output of the notebook
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "table", value_enum)]
     output: SingleNotebookOutput,
 
     #[clap(from_global)]
@@ -255,7 +255,7 @@ pub struct ListArgs {
     workspace_id: Option<Base64Uuid>,
 
     /// Output of the notebook
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "table", value_enum)]
     output: NotebookOutput,
 
     #[clap(from_global)]
@@ -296,7 +296,7 @@ pub struct SearchArgs {
     labels: Vec<KeyValueArgument>,
 
     /// Output of the notebooks
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "table", value_enum)]
     output: NotebookOutput,
 
     #[clap(from_global)]
@@ -410,7 +410,7 @@ pub struct AppendCellArgs {
     config: Option<PathBuf>,
 
     /// Output type to display
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "table", value_enum)]
     output: CellOutput,
 }
 

@@ -5,7 +5,7 @@ use crate::output::{output_details, output_json, GenericKeyValue};
 use crate::shell::shell_type::ShellType;
 use anyhow::Result;
 use base64uuid::Base64Uuid;
-use clap::{ArgEnum, Parser, ValueHint};
+use clap::{Parser, ValueEnum, ValueHint};
 use fp_api_client::models::Cell;
 use futures::StreamExt;
 use std::io::ErrorKind;
@@ -27,7 +27,7 @@ pub struct Arguments {
     notebook_id: Option<Base64Uuid>,
 
     /// The command to run
-    #[clap(value_hint = ValueHint::CommandWithArguments, multiple_values = true)]
+    #[clap(value_hint = ValueHint::CommandWithArguments, num_args = 1..)]
     command: Vec<String>,
 
     #[clap(from_global)]
@@ -37,11 +37,11 @@ pub struct Arguments {
     config: Option<PathBuf>,
 
     /// Output type to display
-    #[clap(long, short, default_value = "command", arg_enum)]
+    #[clap(long, short, default_value = "command", value_enum)]
     output: ExecOutput,
 }
 
-#[derive(ArgEnum, Clone, PartialEq)]
+#[derive(ValueEnum, Clone, PartialEq)]
 enum ExecOutput {
     /// Output the result of the command
     Command,

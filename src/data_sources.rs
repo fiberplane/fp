@@ -1,6 +1,6 @@
 use anyhow::Result;
 use base64uuid::Base64Uuid;
-use clap::{ArgEnum, Parser};
+use clap::{Parser, ValueEnum};
 use cli_table::Table;
 use fiberplane::protocols::names::Name;
 use fp_api_client::apis::default_api::{
@@ -41,7 +41,7 @@ enum SubCommand {
     Update(UpdateSubCommand),
 }
 
-#[derive(ArgEnum, Clone, Debug)]
+#[derive(ValueEnum, Clone, Debug)]
 enum DataSourceOutput {
     /// Output the values as a table
     Table,
@@ -81,11 +81,11 @@ struct CreateArgs {
     provider_type: String,
 
     /// Provider configuration
-    #[clap(short, long)]
+    #[clap(long)]
     provider_config: ProviderConfig,
 
     /// Output of the notebook
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "table", value_enum)]
     output: DataSourceOutput,
 
     #[clap(from_global)]
@@ -106,7 +106,7 @@ struct GetArgs {
     name: Option<Name>,
 
     /// Output of the notebook
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "table", value_enum)]
     output: DataSourceOutput,
 
     #[clap(from_global)]
@@ -157,7 +157,7 @@ struct UpdateProviderConfigArgs {
     provider_config: ProviderConfig,
 
     /// Output of the notebook
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "table", value_enum)]
     output: DataSourceOutput,
 
     #[clap(from_global)]
@@ -182,7 +182,7 @@ struct UpdateDescriptionArgs {
     description: String,
 
     /// Output of the notebook
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "table", value_enum)]
     output: DataSourceOutput,
 
     #[clap(from_global)]
@@ -199,7 +199,7 @@ struct ListArgs {
     workspace_id: Option<Base64Uuid>,
 
     /// Output of the notebook
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "table", value_enum)]
     output: DataSourceOutput,
 
     #[clap(from_global)]

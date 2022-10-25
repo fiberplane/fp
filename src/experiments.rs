@@ -4,7 +4,7 @@ use crate::output::{output_details, output_json, GenericKeyValue};
 use crate::templates::NOTEBOOK_ID_REGEX;
 use anyhow::{anyhow, Context, Result};
 use base64uuid::Base64Uuid;
-use clap::{ArgEnum, Parser};
+use clap::{Parser, ValueEnum};
 use directories::ProjectDirs;
 use fiberplane::protocols::{core, formatting};
 use fiberplane_markdown::notebook_to_markdown;
@@ -57,7 +57,7 @@ struct MessageArgs {
     config: Option<PathBuf>,
 
     /// Output type to display
-    #[clap(long, short, default_value = "table", arg_enum)]
+    #[clap(long, short, default_value = "table", value_enum)]
     output: MessageOutput,
 }
 
@@ -79,7 +79,7 @@ struct CrawlArgs {
     config: Option<PathBuf>,
 }
 
-#[derive(ArgEnum, Clone)]
+#[derive(ValueEnum, Clone)]
 enum MessageOutput {
     /// Output the result as a table
     Table,
