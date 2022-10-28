@@ -48,7 +48,7 @@ pub static MANIFEST: Lazy<Manifest> = Lazy::new(Manifest::from_env);
 const VERSION_CHECK_DURATION: u64 = 60 * 60 * 24; // 24 hours
 
 #[derive(Parser)]
-#[clap(author, about, version, propagate_version = true)]
+#[clap(author, about, version, propagate_version = true, bin_name = "fp")]
 pub struct Arguments {
     #[clap(subcommand)]
     sub_command: SubCommand,
@@ -426,6 +426,7 @@ impl FromStr for KeyValueArgument {
 fn generate_completions(shell: Shell) -> String {
     let mut app = Arguments::command();
     let app_name = app.get_name().to_string();
+    eprintln!("app_name: {}", app_name);
     let mut output = Vec::new();
     generate(shell, &mut app, app_name, &mut output);
     let output = String::from_utf8(output).unwrap();
