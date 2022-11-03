@@ -256,6 +256,10 @@ struct InviteCreateArgs {
     #[clap(name = "email", required = true)]
     email: Option<String>,
 
+    /// Role which the invited user should receive upon accepting the invite
+    #[clap(name = "role", default_value = "write", value_enum)]
+    role: AuthzRoles,
+
     /// Output of the invite
     #[clap(long, short, default_value = "table", value_enum)]
     output: NewInviteOutput,
@@ -273,10 +277,16 @@ async fn handle_invite_create(args: InviteCreateArgs) -> Result<()> {
 
     let email = text_req("Email", args.email, None)?;
 
+    let role = match args.role {
+        AuthzRoles::Read => new_workspace_invite::Role::Read,
+        AuthzRoles::Write => new_workspace_invite::Role::Write,
+        AuthzRoles::Admin => new_workspace_invite::Role::Admin,
+    };
+
     let invite = workspace_invite(
         &config,
         &workspace_id.to_string(),
-        NewWorkspaceInvite::new(email, new_workspace_invite::Role::Read),
+        NewWorkspaceInvite::new(email, role),
     )
     .await?;
 
