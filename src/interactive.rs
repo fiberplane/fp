@@ -3,6 +3,7 @@ use anyhow::Context;
 use anyhow::Result;
 use base64uuid::Base64Uuid;
 use dialoguer::{theme, FuzzySelect, Input, Select};
+use fiberplane::protocols::names::Name;
 use fp_api_client::apis::configuration::Configuration;
 use fp_api_client::apis::default_api::data_source_get;
 use fp_api_client::apis::default_api::{
@@ -169,7 +170,7 @@ pub async fn notebook_picker(
     }
 }
 
-/// Get a template ID from either a CLI argument, or from a interactive picker.
+/// Get a (workspace id, template name) pair from either a CLI argument, or from a interactive picker.
 ///
 /// If the user has not specified the template ID through a CLI argument then it
 /// will retrieve recent templates using the template list endpoint, and allow
@@ -182,16 +183,23 @@ pub async fn notebook_picker(
 /// currently not check if the invocation is interactive or not.
 pub async fn template_picker(
     config: &Configuration,
-    argument: Option<Base64Uuid>,
+    template_name: Option<Name>,
     workspace_id: Option<Base64Uuid>,
-) -> Result<Base64Uuid> {
-    // If the user provided an argument, use that. Otherwise show the picker.
-    if let Some(id) = argument {
-        return Ok(id);
+) -> Result<(
+    /* workspace id */ Base64Uuid,
+    /* template name */ Name,
+)> {
+    // If the user provided an argument _and_ the workspace, use that. Otherwise show the picker.
+    if let (Some(workspace), Some(name)) = (workspace_id, template_name) {
+        return Ok((workspace, name));
     };
 
-    // No argument was provided, so we need to know the workspace ID.
-    let workspace_id = workspace_picker(config, workspace_id).await?;
+    // No argument was provided, so we need to know the workspace ID in order to query
+    // the template name.
+    let workspace_id = match workspace_id {
+        Some(w_id) => w_id,
+        None => workspace_picker(config, workspace_id).await?,
+    };
 
     let pb = ProgressBar::new_spinner();
     pb.set_message("Fetching templates");
@@ -213,7 +221,7 @@ pub async fn template_picker(
 
     let display_items: Vec<_> = results
         .iter()
-        .map(|template| format!("{} ({})", template.title, template.id))
+        .map(|template| template.name.to_string())
         .collect();
 
     let selection = FuzzySelect::with_theme(&default_theme())
@@ -223,9 +231,13 @@ pub async fn template_picker(
         .interact_opt()?;
 
     match selection {
-        Some(selection) => {
-            Ok(Base64Uuid::parse_str(&results[selection].id).context("invalid id was returned")?)
-        }
+        Some(selection) => Ok((
+            workspace_id,
+            results[selection]
+                .name
+                .parse()
+                .context("invalid name was returned")?,
+        )),
         None => Err(anyhow!("No template selected")),
     }
 }

@@ -6,6 +6,7 @@ use anyhow::{Context, Result};
 use base64uuid::Base64Uuid;
 use clap::{Parser, ValueEnum};
 use cli_table::Table;
+use fiberplane::protocols::names::Name;
 use fp_api_client::apis::configuration::Configuration;
 use fp_api_client::apis::default_api::{
     trigger_create, trigger_delete, trigger_get, trigger_invoke, trigger_list,
@@ -62,9 +63,9 @@ struct CreateArguments {
     #[clap(long, alias = "name")]
     title: Option<String>,
 
-    /// ID of the template (already uploaded to Fiberplane)
+    /// Name of the template (already uploaded to Fiberplane)
     #[clap(long)]
-    template_id: Option<Base64Uuid>,
+    template_name: Option<Name>,
 
     /// Default arguments to be passed to the template when the trigger is invoked
     /// Can be passed as a JSON object or as a comma-separated list of key=value pairs
@@ -172,14 +173,14 @@ async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {
     };
 
     let workspace_id = interactive::workspace_picker(&config, args.workspace_id).await?;
-    let template_id =
-        interactive::template_picker(&config, args.template_id, Some(workspace_id)).await?;
+    let (_, template_name) =
+        interactive::template_picker(&config, args.template_name, Some(workspace_id)).await?;
     let title = interactive::text_req("Title", args.title, None)?;
 
     let trigger = NewTrigger {
         title,
         default_arguments,
-        template_id: template_id.to_string(),
+        template_name: template_name.to_string(),
     };
     let trigger = trigger_create(&config, &workspace_id.to_string(), trigger)
         .await
