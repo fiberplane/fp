@@ -1,10 +1,11 @@
 use super::timestamp::AnyTimestamp;
-use fp_api_client::models::LogRecord;
+use fiberplane::protocols::providers::{Event, OtelMetadata, OtelSpanId, OtelTraceId};
 use grok::{Grok, Pattern};
 use once_cell::sync::Lazy;
 use serde_json::{Map, Value};
-use std::collections::HashMap;
-use time::{format_description::well_known::Rfc3339, OffsetDateTime};
+use std::collections::BTreeMap;
+use std::convert::TryInto;
+use time::OffsetDateTime;
 use tracing::warn;
 
 pub(crate) static TIMESTAMP_FIELDS: &[&str] =
@@ -34,10 +35,8 @@ static GITHUB_ACTION_PATTERN: Lazy<Pattern> = Lazy::new(|| {
 
 /// Parse logs from each line of the string.
 /// This handles JSON-encoded log lines as well as a variety of other log formats.
-///
-/// The HashMap returned is keyed by the timestamp of the log record (to handle multiple logs at the same instant).
-pub fn parse_logs(output: &str) -> HashMap<String, Vec<LogRecord>> {
-    let mut logs: HashMap<String, Vec<LogRecord>> = HashMap::new();
+pub fn parse_logs(output: &str) -> Vec<Event> {
+    let mut logs = Vec::new();
     // Keep track of the most recent timestamp in case later log lines do not have a timestamp
     let mut most_recent_timestamp = None;
     // Keep track of lines without timestamps so we can add them to a later entry with a timestamp
@@ -50,45 +49,38 @@ pub fn parse_logs(output: &str) -> HashMap<String, Vec<LogRecord>> {
         }
 
         match parse_log(line) {
-            Some((timestamp, log)) => {
-                let entries_at_timestamp = logs.entry(timestamp.clone()).or_insert_with(Vec::new);
-
-                // If we had lines before that didn't have timestamps, add them under this
-                // timestamp (and put them first in the array)
+            Some(record) => {
+                // If we had lines before that didn't have timestamps, add them
+                // under this timestamp:
                 if !lines_without_timestamps.is_empty() {
-                    *entries_at_timestamp = lines_without_timestamps
-                        .split_off(0)
-                        .into_iter()
-                        .map(|line| LogRecord {
-                            timestamp: log.timestamp,
-                            body: line,
-                            attributes: Default::default(),
-                            resource: Default::default(),
-                            trace_id: None,
-                            span_id: None,
-                        })
-                        .chain(entries_at_timestamp.split_off(0))
-                        .collect();
+                    logs.extend(lines_without_timestamps.drain(..).map(|line| Event {
+                        time: record.time,
+                        title: line,
+                        description: None,
+                        end_time: None,
+                        labels: BTreeMap::new(),
+                        otel: OtelMetadata::default(),
+                        severity: None,
+                    }));
                 }
 
-                most_recent_timestamp = Some((timestamp, log.timestamp));
-                entries_at_timestamp.push(log);
+                most_recent_timestamp = Some(record.time);
+                logs.push(record);
             }
             None => {
-                if let Some((timestamp_string, timestamp)) = &most_recent_timestamp {
-                    if let Some(logs) = logs.get_mut(timestamp_string) {
-                        logs.push(LogRecord {
-                            timestamp: *timestamp,
-                            body: line.to_string(),
-                            attributes: Default::default(),
-                            resource: Default::default(),
-                            trace_id: None,
-                            span_id: None,
-                        })
-                    }
+                if let Some(timestamp) = &most_recent_timestamp {
+                    logs.push(Event {
+                        time: *timestamp,
+                        title: line.to_string(),
+                        description: None,
+                        end_time: None,
+                        labels: BTreeMap::new(),
+                        otel: OtelMetadata::default(),
+                        severity: None,
+                    })
+                } else {
+                    lines_without_timestamps.push(line.to_string());
                 }
-
-                lines_without_timestamps.push(line.to_string());
             }
         }
     }
@@ -96,17 +88,15 @@ pub fn parse_logs(output: &str) -> HashMap<String, Vec<LogRecord>> {
     // If none of the lines had timestamps, use the current moment as the timestamp
     if !lines_without_timestamps.is_empty() {
         let now = OffsetDateTime::now_utc();
-        let timestamp = now.unix_timestamp() as f64;
-        logs.entry(now.format(&Rfc3339).unwrap())
-            .or_insert_with(Vec::new)
-            .extend(lines_without_timestamps.into_iter().map(|line| LogRecord {
-                timestamp,
-                body: line,
-                attributes: Default::default(),
-                resource: Default::default(),
-                trace_id: None,
-                span_id: None,
-            }));
+        logs.extend(lines_without_timestamps.drain(..).map(|line| Event {
+            time: now.into(),
+            title: line,
+            description: None,
+            end_time: None,
+            labels: BTreeMap::new(),
+            otel: OtelMetadata::default(),
+            severity: None,
+        }));
     }
 
     logs
@@ -119,7 +109,7 @@ pub fn contains_logs(output: &str) -> bool {
         .any(|line| parse_log(line).is_some())
 }
 
-fn parse_log(line: &str) -> Option<(String, LogRecord)> {
+fn parse_log(line: &str) -> Option<Event> {
     if let Ok(Value::Object(json)) = serde_json::from_str(line) {
         parse_json(json)
     } else if let Some(matches) = NGINX_PATTERN
@@ -128,9 +118,15 @@ fn parse_log(line: &str) -> Option<(String, LogRecord)> {
     {
         let fields = matches
             .into_iter()
-            // The keys written in upper case are the grok components used to build up the values we care about
+            // The keys written in upper case are the grok components used to
+            // build up the values we care about
             .filter(|(k, _)| k.chars().all(|c| c.is_lowercase()))
-            .map(|(k, v)| (k.to_string(), v.trim_matches('"').to_string()))
+            .map(|(k, v)| {
+                (
+                    k.to_string(),
+                    Value::String(v.trim_matches('"').to_string()),
+                )
+            })
             .collect();
         parse_flattened_json(fields)
     } else {
@@ -138,30 +134,24 @@ fn parse_log(line: &str) -> Option<(String, LogRecord)> {
     }
 }
 
-fn parse_json(json: Map<String, Value>) -> Option<(String, LogRecord)> {
-    let mut flattened_fields = HashMap::new();
+fn parse_json(json: Map<String, Value>) -> Option<Event> {
+    let mut flattened_fields = BTreeMap::new();
     for (key, val) in json.into_iter() {
         flatten_nested_value(&mut flattened_fields, key, val);
     }
     parse_flattened_json(flattened_fields)
 }
 
-fn parse_flattened_json(
-    mut flattened_fields: HashMap<String, String>,
-) -> Option<(String, LogRecord)> {
-    let trace_id = flattened_fields
-        .remove("trace_id")
-        .or_else(|| flattened_fields.remove("trace.id"));
-    let span_id = flattened_fields
-        .remove("span_id")
-        .or_else(|| flattened_fields.remove("span.id"));
+fn parse_flattened_json(mut json: BTreeMap<String, Value>) -> Option<Event> {
+    let trace_id = json.remove("trace_id").or_else(|| json.remove("trace.id"));
+    let span_id = json.remove("span_id").or_else(|| json.remove("span.id"));
 
     // Find the timestamp field (or set it to NaN if none is found)
     // Note: this will leave the original timestamp field in the flattened_fields
     let mut timestamp: Option<OffsetDateTime> = None;
     for field_name in TIMESTAMP_FIELDS {
-        if let Some(ts) = flattened_fields.remove(*field_name) {
-            match serde_json::from_value::<AnyTimestamp>(Value::String(ts)) {
+        if let Some(ts) = json.remove(*field_name) {
+            match serde_json::from_value::<AnyTimestamp>(ts.into()) {
                 Ok(ts) => {
                     timestamp = Some(ts.into());
                     break;
@@ -172,19 +162,17 @@ fn parse_flattened_json(
             }
         }
     }
-    let timestamp_float = if let Some(timestamp) = timestamp {
-        timestamp.unix_timestamp_nanos() as f64 / 1_000_000_000f64
-    } else {
-        f64::NAN
-    };
 
     // Find the body field (or set it to an empty string if none is found)
     // Note: this will leave the body field in the flattened_fields and copy
     // it into the body of the LogRecord
     let mut body = String::new();
     for field_name in BODY_FIELDS {
-        if let Some(b) = flattened_fields.remove(*field_name) {
-            body = b;
+        if let Some(b) = json.remove(*field_name) {
+            body = match b.as_str() {
+                Some(str) => str.to_owned(),
+                None => b.to_string(),
+            };
             break;
         }
     }
@@ -192,30 +180,38 @@ fn parse_flattened_json(
     // All fields that are not mapped to the resource field
     // become part of the attributes field
     // TODO refactor this so we only make one pass over the fields
-    let (resource, attributes): (HashMap<String, String>, HashMap<String, String>) =
-        flattened_fields.into_iter().partition(|(key, _)| {
+    let (resource, attributes): (BTreeMap<String, Value>, BTreeMap<String, Value>) =
+        json.into_iter().partition(|(key, _)| {
             RESOURCE_FIELD_PREFIXES
                 .iter()
                 .any(|prefix| key.starts_with(prefix))
                 && !RESOURCE_FIELD_EXCEPTIONS.contains(&key.as_str())
         });
 
-    timestamp.map(|timestamp| {
-        (
-            timestamp.format(&Rfc3339).unwrap(),
-            LogRecord {
-                trace_id,
-                span_id,
-                timestamp: timestamp_float,
-                body,
-                resource,
-                attributes,
-            },
-        )
+    timestamp.map(|timestamp| Event {
+        time: timestamp.into(),
+        title: body,
+        description: None,
+        end_time: None,
+        labels: BTreeMap::new(),
+        otel: OtelMetadata {
+            attributes,
+            resource,
+            span_id: span_id.and_then(|span| {
+                span.as_str()
+                    .and_then(|span| span.as_bytes().try_into().ok().map(OtelSpanId))
+            }),
+            trace_id: trace_id.and_then(|trace| {
+                trace
+                    .as_str()
+                    .and_then(|trace| trace.as_bytes().try_into().ok().map(OtelTraceId))
+            }),
+        },
+        severity: None,
     })
 }
 
-fn flatten_nested_value(output: &mut HashMap<String, String>, key: String, value: Value) {
+fn flatten_nested_value(output: &mut BTreeMap<String, Value>, key: String, value: Value) {
     match value {
         Value::Object(v) => {
             for (sub_key, val) in v.into_iter() {
@@ -228,43 +224,47 @@ fn flatten_nested_value(output: &mut HashMap<String, String>, key: String, value
                 flatten_nested_value(output, format!("{}[{}]", key, index), val);
             }
         }
-        Value::String(v) => {
+        v => {
             output.insert(key, v);
-        }
-        Value::Number(v) => {
-            output.insert(key, v.to_string());
-        }
-        Value::Bool(v) => {
-            output.insert(key, v.to_string());
-        }
-        Value::Null => {
-            output.insert(key, "".to_string());
         }
     };
 }
 
 #[cfg(test)]
 mod tests {
+    use serde_json::json;
+    use time::format_description::well_known::Rfc3339;
+
     use super::*;
     use std::iter::FromIterator;
 
     #[test]
     fn json_logs() {
         let logs = r#"{"ts": "2018-01-01T00:00:00.000Z", "body": "test"}
-        {"timestamp": "1657619253", "message": "hello", "trace_id": "123", "thing": 1, "host.name": "blah"}"#;
+        {"timestamp": "1657619253", "message": "hello", "trace_id": "1234567890123456", "thing": 1, "host.name": "blah"}"#;
         let logs = parse_logs(logs);
         assert_eq!(logs.len(), 2);
-        assert_eq!(logs["2018-01-01T00:00:00Z"][0].body, "test");
-        assert_eq!(logs["2022-07-12T09:47:33Z"][0].body, "hello");
+
+        assert_eq!(logs[0].title, "test");
         assert_eq!(
-            logs["2022-07-12T09:47:33Z"][0].trace_id,
-            Some("123".to_string())
+            logs[0].time.0,
+            OffsetDateTime::parse("2018-01-01T00:00:00Z", &Rfc3339).unwrap()
         );
-        assert_eq!(logs["2022-07-12T09:47:33Z"][0].attributes["thing"], "1");
+
+        assert_eq!(logs[1].title, "hello");
         assert_eq!(
-            logs["2022-07-12T09:47:33Z"][0].resource["host.name"],
-            "blah"
+            logs[1].time.0,
+            OffsetDateTime::parse("2022-07-12T09:47:33Z", &Rfc3339).unwrap()
         );
+
+        assert_eq!(
+            logs[1].otel.trace_id,
+            Some(OtelTraceId(
+                "1234567890123456".as_bytes().try_into().unwrap()
+            ))
+        );
+        assert_eq!(logs[1].otel.attributes["thing"], json!(1));
+        assert_eq!(logs[1].otel.resource["host.name"], "blah");
     }
 
     #[test]
@@ -274,7 +274,8 @@ mod tests {
 192.0.6.198 - - [11/Jul/2022:13:04:27 +0000] "GET / HTTP/1.1" 200 472 "-" "ELB-HealthChecker/2.0" "-""#;
         let logs = parse_logs(logs);
         assert_eq!(logs.len(), 2);
-        let mut attributes = HashMap::from_iter(
+
+        let mut attributes = BTreeMap::from_iter(
             [
                 ("auth", "-"),
                 ("referrer", "-"),
@@ -288,12 +289,12 @@ mod tests {
                 ("request", "/"),
             ]
             .iter()
-            .map(|(k, v)| (k.to_string(), v.to_string())),
+            .map(|(k, v)| (k.to_string(), Value::String(v.to_string()))),
         );
-        assert_eq!(logs["2022-07-11T13:04:26Z"][0].attributes, attributes);
+        assert_eq!(logs[0].otel.attributes, attributes);
 
-        *attributes.get_mut("clientip").unwrap() = "192.0.6.198".to_string();
-        assert_eq!(logs["2022-07-11T13:04:27Z"][0].attributes, attributes);
+        *attributes.get_mut("clientip").unwrap() = Value::String("192.0.6.198".to_string());
+        assert_eq!(logs[1].otel.attributes, attributes);
     }
 
     #[test]
@@ -304,22 +305,14 @@ build   Set up job      2022-07-11T15:12:28.2324660Z Pages: write
 build   Set up job      2022-07-11T15:12:28.2325020Z PullRequests: write";
         let logs = parse_logs(logs);
         assert_eq!(logs.len(), 3);
+
         assert_eq!(
-            logs["2022-07-11T15:12:28.2324317Z"][0].timestamp,
-            1657552348.2324317
+            logs[0].time.0,
+            OffsetDateTime::parse("2022-07-11T15:12:28.2324317Z", &Rfc3339).unwrap()
         );
-        assert_eq!(
-            logs["2022-07-11T15:12:28.2324317Z"][0].body,
-            "Packages: write"
-        );
-        assert_eq!(
-            logs["2022-07-11T15:12:28.2324317Z"][0].attributes["job"],
-            "build"
-        );
-        assert_eq!(
-            logs["2022-07-11T15:12:28.2324317Z"][0].attributes["step"],
-            "Set up job"
-        );
+        assert_eq!(logs[0].title, "Packages: write");
+        assert_eq!(logs[0].otel.attributes["job"], "build");
+        assert_eq!(logs[0].otel.attributes["step"], "Set up job");
     }
 
     #[test]
@@ -329,8 +322,7 @@ build   Set up job      2022-07-11T15:12:28.2325020Z PullRequests: write";
 /docker-entrypoint.sh: Launching /docker-entrypoint.d/30-tune-worker-processes.sh
 /docker-entrypoint.sh: Configuration complete; ready for start up"#;
         let logs = parse_logs(logs);
-        let (_, entries) = logs.into_iter().next().unwrap();
-        assert_eq!(entries.len(), 3);
+        assert_eq!(logs.len(), 3);
     }
 
     #[test]
@@ -342,13 +334,18 @@ build   Set up job      2022-07-11T15:12:28.2325020Z PullRequests: write";
 192.0.7.128 - - [11/Jul/2022:13:04:26 +0000] "GET / HTTP/1.1" 200 472 "-" "ELB-HealthChecker/2.0" "-"
 192.0.6.198 - - [11/Jul/2022:13:04:26 +0000] "GET / HTTP/1.1" 200 472 "-" "ELB-HealthChecker/2.0" "-""#;
         let logs = parse_logs(logs);
-        assert_eq!(logs["2022-07-11T13:04:26Z"].len(), 5);
+        assert_eq!(logs.len(), 5);
+
         assert_eq!(
-            logs["2022-07-11T13:04:26Z"][0].body,
+            logs[0].time.0,
+            OffsetDateTime::parse("2022-07-11T13:04:26Z", &Rfc3339).unwrap()
+        );
+        assert_eq!(
+            logs[0].title,
             "/docker-entrypoint.sh: Launching /docker-entrypoint.d/20-envsubst-on-templates.sh"
         );
         assert_eq!(
-            logs["2022-07-11T13:04:26Z"][1].body,
+            logs[1].title,
             "/docker-entrypoint.sh: Launching /docker-entrypoint.d/30-tune-worker-processes.sh"
         );
     }

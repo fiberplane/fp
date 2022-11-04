@@ -1,11 +1,11 @@
 use super::parse_logs::{contains_logs, parse_logs};
-use anyhow::{anyhow, Context, Error, Result};
+use anyhow::{anyhow, Context, Result};
 use base64uuid::Base64Uuid;
 use bytes::Bytes;
-use fiberplane::protocols::core;
+use fiberplane::protocols::core::{self};
 use fp_api_client::apis::configuration::Configuration;
 use fp_api_client::apis::default_api::notebook_cells_append;
-use fp_api_client::models::{Cell, LegacyTimeRange};
+use fp_api_client::models::Cell;
 use std::env::current_dir;
 use std::vec;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
@@ -50,6 +50,8 @@ impl CellWriter {
     /// or append the buffered text to the cell if one was
     /// already created
     pub async fn flush(&mut self) -> Result<()> {
+        println!("FLUSH!");
+
         if self.buffer.is_empty() {
             return Ok(());
         }
@@ -60,41 +62,31 @@ impl CellWriter {
 
         match self.cell_type {
             CellType::Log => {
-                let data = Some(parse_logs(&output));
+                println!("I WILL append a log cell");
 
-                // Find the earliest and latest timestamps
-                let time_range = data
-                    .as_ref()
-                    .and_then(|data| {
-                        data.iter().flat_map(|(_, logs)| logs.iter()).fold(
-                            None,
-                            |time_range, log| match time_range {
-                                None => Some(LegacyTimeRange {
-                                    from: log.timestamp,
-                                    to: log.timestamp,
-                                }),
-                                Some(LegacyTimeRange { from, to }) => Some(LegacyTimeRange {
-                                    from: from.min(log.timestamp),
-                                    to: to.min(log.timestamp),
-                                }),
-                            },
-                        )
-                    })
-                    .map(Box::new);
+                // Prepend a text cell with the "title":
+                let cell = Cell::TextCell {
+                    id: String::new(),
+                    content: self.prompt_line(),
+                    formatting: None,
+                    read_only: None,
+                };
+                self.append_cell(cell).await?;
+
+                // Followed by the log cell itself:
+                let data = parse_logs(&output);
+                let data_link = format!(
+                    "data:application/vnd.fiberplane.events,{}",
+                    serde_json::to_string(&data).expect("Could not serialize log records")
+                );
 
                 let cell = Cell::LogCell {
                     id: "".to_string(),
-                    // Lock the cell because if the time range is updated, the studio
-                    // will clear out all of the log entries
+                    data_links: vec![data_link],
                     read_only: Some(true),
-                    source_ids: vec![],
-                    title: self.prompt_line(),
-                    formatting: None,
-                    time_range,
-                    data,
                     display_fields: None,
-                    hide_similar_values: None,
                     expanded_indices: None,
+                    hide_similar_values: None,
                     highlighted_indices: None,
                     selected_indices: None,
                     visibility_filter: None,
@@ -104,6 +96,8 @@ impl CellWriter {
             }
             // Create a new code cell
             CellType::Code | CellType::Unknown => {
+                println!("Or a code cell");
+
                 let content = format!("{}\n{}", self.prompt_line(), output);
                 let cell = Cell::CodeCell {
                     id: String::new(),
@@ -118,7 +112,7 @@ impl CellWriter {
 
         self.buffer.clear();
 
-        Ok::<_, Error>(())
+        Ok(())
     }
 
     pub fn into_output_cell(self) -> Option<core::Cell> {
@@ -158,6 +152,6 @@ impl CellWriter {
         let cwd = current_dir()
             .map(|p| p.display().to_string())
             .unwrap_or_default();
-        format!("{}\n{} ❯ {}", timestamp, cwd, self.command.join(" "),)
+        format!("{}\n{} \u{276f} {}", timestamp, cwd, self.command.join(" "),)
     }
 }
