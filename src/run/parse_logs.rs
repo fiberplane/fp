@@ -151,7 +151,7 @@ fn parse_flattened_json(mut json: BTreeMap<String, Value>) -> Option<Event> {
     let mut timestamp: Option<OffsetDateTime> = None;
     for field_name in TIMESTAMP_FIELDS {
         if let Some(ts) = json.remove(*field_name) {
-            match serde_json::from_value::<AnyTimestamp>(ts.into()) {
+            match serde_json::from_value::<AnyTimestamp>(ts) {
                 Ok(ts) => {
                     timestamp = Some(ts.into());
                     break;

@@ -2,7 +2,7 @@ use super::parse_logs::{contains_logs, parse_logs};
 use anyhow::{anyhow, Context, Result};
 use base64uuid::Base64Uuid;
 use bytes::Bytes;
-use fiberplane::protocols::core::{self};
+use fiberplane::protocols::core;
 use fp_api_client::apis::configuration::Configuration;
 use fp_api_client::apis::default_api::notebook_cells_append;
 use fp_api_client::models::Cell;
@@ -50,8 +50,6 @@ impl CellWriter {
     /// or append the buffered text to the cell if one was
     /// already created
     pub async fn flush(&mut self) -> Result<()> {
-        println!("FLUSH!");
-
         if self.buffer.is_empty() {
             return Ok(());
         }
@@ -62,8 +60,6 @@ impl CellWriter {
 
         match self.cell_type {
             CellType::Log => {
-                println!("I WILL append a log cell");
-
                 // Prepend a text cell with the "title":
                 let cell = Cell::TextCell {
                     id: String::new(),
@@ -76,7 +72,7 @@ impl CellWriter {
                 // Followed by the log cell itself:
                 let data = parse_logs(&output);
                 let data_link = format!(
-                    "data:application/vnd.fiberplane.events,{}",
+                    "data:application/vnd.fiberplane.events+json,{}",
                     serde_json::to_string(&data).expect("Could not serialize log records")
                 );
 
@@ -96,8 +92,6 @@ impl CellWriter {
             }
             // Create a new code cell
             CellType::Code | CellType::Unknown => {
-                println!("Or a code cell");
-
                 let content = format!("{}\n{}", self.prompt_line(), output);
                 let cell = Cell::CodeCell {
                     id: String::new(),

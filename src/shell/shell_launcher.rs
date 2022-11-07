@@ -65,7 +65,7 @@ impl ShellLauncher {
             );
 
             trace!(?cmd_string, "starting powershell with -Command");
-            cmd.args(&["-NoExit", "-Command", &cmd_string]);
+            cmd.args(["-NoExit", "-Command", &cmd_string]);
         }
 
         cmd
