@@ -185,10 +185,7 @@ pub async fn template_picker(
     config: &Configuration,
     template_name: Option<Name>,
     workspace_id: Option<Base64Uuid>,
-) -> Result<(
-    /* workspace id */ Base64Uuid,
-    /* template name */ Name,
-)> {
+) -> Result<(Base64Uuid, Name)> {
     // If the user provided an argument _and_ the workspace, use that. Otherwise show the picker.
     if let (Some(workspace), Some(name)) = (workspace_id, template_name) {
         return Ok((workspace, name));
@@ -196,10 +193,7 @@ pub async fn template_picker(
 
     // No argument was provided, so we need to know the workspace ID in order to query
     // the template name.
-    let workspace_id = match workspace_id {
-        Some(w_id) => w_id,
-        None => workspace_picker(config, workspace_id).await?,
-    };
+    let workspace_id = workspace_picker(config, workspace_id).await?;
 
     let pb = ProgressBar::new_spinner();
     pb.set_message("Fetching templates");

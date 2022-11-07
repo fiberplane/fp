@@ -29,7 +29,6 @@ use url::Url;
 
 lazy_static! {
     pub static ref NOTEBOOK_ID_REGEX: Regex = Regex::from_str("([a-zA-Z0-9_-]{22})$").unwrap();
-    pub static ref NAME_REGEX: Regex = Regex::from_str("([a-z0-9-]{63})$").unwrap();
 }
 
 #[derive(Parser)]
@@ -150,16 +149,14 @@ struct ConvertArguments {
     notebook_id: Option<Base64Uuid>,
 
     /// Name of the new template (defaults to the notebook title, sluggified)
+    ///
+    /// You can name an existing template to update it.
     #[clap(long)]
-    name: Option<Name>,
+    template_name: Option<Name>,
 
     /// Description of the template
     #[clap(long)]
     description: Option<String>,
-
-    /// Update the given template instead of creating a new one
-    #[clap(long)]
-    template_name: Option<Name>,
 
     /// Create a trigger for the template
     ///
@@ -187,7 +184,7 @@ struct CreateArguments {
 
     /// Name of the template
     #[clap(long)]
-    name: Option<Name>,
+    template_name: Option<Name>,
 
     /// Description of the template
     #[clap(long)]
@@ -285,19 +282,15 @@ struct UpdateArguments {
     /// Name of the template to update
     template_name: Option<Name>,
 
-    /// New name of the template
-    #[clap(long)]
-    name: Option<Name>,
-
-    /// Description of the template
+    /// New description of the template
     #[clap(long)]
     description: Option<String>,
 
-    /// The body of the template
+    /// New body of the template
     #[clap(long, conflicts_with = "template_path")]
     template: Option<String>,
 
-    /// Path to the template body file
+    /// Path to the template new body file
     #[clap(long, conflicts_with = "template", value_hint = ValueHint::AnyPath)]
     template_path: Option<PathBuf>,
 
@@ -517,32 +510,41 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
 
     let name = interactive::text_opt(
         "Template Name",
-        args.name.map(Into::<String>::into),
+        args.template_name.clone().map(Into::<String>::into),
         Some(notebook_title),
     )
     .unwrap();
     let description = interactive::text_opt("Template Description", args.description, None);
 
     // Create or update the template
-    let (template, trigger_url) = if let Some(existing_template_name) = args.template_name {
-        let template = UpdateTemplate {
-            name: Some(name),
-            description,
-            body: Some(template),
-        };
-        let template = template_update(
-            &config,
-            &args
-                .workspace_id
-                .ok_or_else(|| anyhow!("missing workspace id"))?
-                .to_string(),
-            &existing_template_name.to_string(),
-            template,
-        )
-        .await
-        .with_context(|| format!("Error updating template {}", existing_template_name))?;
-        info!("Updated template");
-        (template, None)
+    let (template, trigger_url) = if let Some(template_name) = args.template_name {
+        if template_get(&config, &workspace_id.to_string(), &template_name)
+            .await
+            .is_ok()
+        {
+            let template = UpdateTemplate {
+                description,
+                body: Some(template),
+            };
+            let template = template_update(
+                &config,
+                &workspace_id.to_string(),
+                &template_name.to_string(),
+                template,
+            )
+            .await
+            .with_context(|| format!("Error updating template {}", template_name))?;
+            info!("Updated template");
+            (template, None)
+        } else {
+            let template = NewTemplate {
+                name,
+                description: description.unwrap_or_default(),
+                body: template,
+            };
+            create_template_and_trigger(&config, workspace_id, args.create_trigger, template)
+                .await?
+        }
     } else {
         let template = NewTemplate {
             name,
@@ -570,8 +572,8 @@ async fn handle_create_command(args: CreateArguments) -> Result<()> {
 
     let workspace_id = workspace_picker(&config, args.workspace_id).await?;
     let name = interactive::text_req(
-        "Title",
-        args.name.map(Into::<String>::into),
+        "Name",
+        args.template_name.map(Into::<String>::into),
         Some("".to_owned()),
     )?;
     let description =
@@ -683,7 +685,6 @@ async fn handle_update_command(args: UpdateArguments) -> Result<()> {
     };
 
     let template = UpdateTemplate {
-        name: args.name.map(Into::<String>::into),
         description: args.description,
         body,
     };
@@ -754,10 +755,31 @@ pub struct TemplateRow {
     pub created_at: String,
 }
 
+/// Crops description to make sure it fits in a TemplateRow representation.
+///
+/// Only keep the first line, and if it is longer than max_len, use an ellipsis
+/// to tell users the description is longer.
+fn crop_description(description: &str, max_len: usize) -> String {
+    static DESC_ELLIPSIS: &str = "...";
+    static DESC_ELLIPSIS_LEN: usize = 3;
+    let mut res = String::with_capacity(max_len);
+    let line = description.lines().next().unwrap_or_default();
+    if line.is_empty() {
+        return res;
+    }
+    if line.chars().count() <= max_len {
+        res.push_str(line);
+    } else {
+        res.extend(line.chars().take(max_len - DESC_ELLIPSIS_LEN));
+        res.push_str(DESC_ELLIPSIS);
+    }
+    res
+}
+
 impl From<TemplateSummary> for TemplateRow {
     fn from(template: TemplateSummary) -> Self {
         Self {
-            description: template.description,
+            description: crop_description(&template.description, 24),
             name: template.name,
             updated_at: template.updated_at,
             created_at: template.created_at,
@@ -768,7 +790,7 @@ impl From<TemplateSummary> for TemplateRow {
 impl From<Template> for TemplateRow {
     fn from(template: Template) -> Self {
         Self {
-            description: template.description,
+            description: crop_description(&template.description, 24),
             name: template.name,
             updated_at: template.updated_at,
             created_at: template.created_at,
