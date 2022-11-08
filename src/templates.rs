@@ -21,7 +21,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::{collections::HashMap, env::current_dir, ffi::OsStr, path::PathBuf, str::FromStr};
+use std::{collections::HashMap, ffi::OsStr, path::PathBuf, str::FromStr};
 use tokio::fs;
 use tracing::{debug, info, warn};
 use url::Url;
@@ -39,7 +39,7 @@ pub struct Arguments {
 #[derive(Parser)]
 enum SubCommand {
     /// Initializes a blank template and save it in the current directory as template.jsonnet
-    Init,
+    Init(InitArguments),
 
     /// Expand a template into a Fiberplane notebook
     Expand(ExpandArguments),
@@ -76,7 +76,7 @@ enum SubCommand {
 pub async fn handle_command(args: Arguments) -> Result<()> {
     use SubCommand::*;
     match args.sub_command {
-        Init => handle_init_command().await,
+        Init(args) => handle_init_command(args).await,
         Expand(args) => handle_expand_command(args).await,
         Convert(args) => handle_convert_command(args).await,
         Create(args) => handle_create_command(args).await,
@@ -111,6 +111,12 @@ impl FromStr for TemplateArguments {
         };
         Ok(TemplateArguments(args))
     }
+}
+
+#[derive(Parser)]
+struct InitArguments {
+    #[clap(long, short, default_value = "./template.jsonnet")]
+    template_path: PathBuf,
 }
 
 #[derive(Parser)]
@@ -331,7 +337,7 @@ enum TemplateListOutput {
     Json,
 }
 
-async fn handle_init_command() -> Result<()> {
+async fn handle_init_command(args: InitArguments) -> Result<()> {
     let notebook = core::NewNotebook {
         title: "Replace me!".to_string(),
         time_range: core::NewTimeRange::Relative(core::RelativeTimeRange { minutes: -60 }),
@@ -355,11 +361,15 @@ async fn handle_init_command() -> Result<()> {
     };
     let template = notebook_to_template(notebook);
 
-    let mut path = current_dir()?;
-    path.push("template.jsonnet");
+    if args.template_path.exists() {
+        return Err(anyhow!(
+            "File already exists at path: {}",
+            args.template_path.display()
+        ));
+    }
 
-    fs::write(&path, template).await?;
-    info!("Saved template to: {}", path.display());
+    fs::write(&args.template_path, template).await?;
+    info!("Saved template to: {}", args.template_path.display());
 
     Ok(())
 }
