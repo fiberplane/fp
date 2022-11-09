@@ -30,7 +30,7 @@ enum SubCommand {
 
     /// View and modify the default data sources for the workspace
     #[clap(subcommand, alias = "default")]
-    Defaults(workspaces::UpdateDefaultDataSourcesSubCommand),
+    Defaults(workspaces::DefaultDataSourcesSubCommand),
 
     /// Delete a workspace data source
     Delete(DeleteArgs),
