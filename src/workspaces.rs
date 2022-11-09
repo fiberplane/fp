@@ -154,7 +154,7 @@ async fn handle_workspace_create(args: CreateArgs) -> Result<()> {
 #[derive(Parser)]
 struct DeleteArgs {
     /// Workspace to delete
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     #[clap(from_global)]
@@ -225,7 +225,7 @@ async fn handle_workspace_list(args: ListArgs) -> Result<()> {
 #[derive(Parser)]
 struct LeaveArgs {
     /// Workspace to leave from
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     #[clap(from_global)]
@@ -248,7 +248,7 @@ async fn handle_workspace_leave(args: LeaveArgs) -> Result<()> {
 #[derive(Parser)]
 struct InviteCreateArgs {
     /// Workspace to invite the user to
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Email address of the user which should be invited
@@ -306,7 +306,7 @@ async fn handle_invite_create(args: InviteCreateArgs) -> Result<()> {
 #[derive(Parser)]
 struct InviteListArgs {
     /// Workspace for which pending invites should be displayed
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Output of the invites
@@ -384,7 +384,7 @@ async fn handle_invite_delete(args: InviteDeleteArgs) -> Result<()> {
 #[derive(Parser)]
 struct UserListArgs {
     /// Workspace for which pending invites should be displayed
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Output of the invites
@@ -442,7 +442,7 @@ struct UserUpdateArgs {
     role: Option<AuthRole>,
 
     /// Workspace to update the user in
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// User ID of the user that should be updated within the workspace
@@ -484,7 +484,7 @@ async fn handle_user_update(args: UserUpdateArgs) -> Result<()> {
 #[derive(Parser)]
 struct UserDeleteArgs {
     /// Workspace to remove the user from
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// User ID of the user that should be removed from the workspace

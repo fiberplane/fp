@@ -65,7 +65,7 @@ impl FromStr for ProviderConfig {
 #[derive(Parser)]
 struct CreateArgs {
     /// Workspace to use
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Name of the data source
@@ -98,7 +98,7 @@ struct CreateArgs {
 #[derive(Parser)]
 struct GetArgs {
     /// Workspace to use
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Name of the data source
@@ -119,7 +119,7 @@ struct GetArgs {
 #[derive(Parser)]
 struct DeleteArgs {
     /// Workspace to use
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Name of the data source
@@ -145,7 +145,7 @@ enum UpdateSubCommand {
 #[derive(Parser)]
 struct UpdateProviderConfigArgs {
     /// Workspace to use
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Name of the data source
@@ -170,7 +170,7 @@ struct UpdateProviderConfigArgs {
 #[derive(Parser)]
 struct UpdateDescriptionArgs {
     /// Workspace to use
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Name of the data source
@@ -195,7 +195,7 @@ struct UpdateDescriptionArgs {
 #[derive(Parser)]
 struct ListArgs {
     /// Workspace to use
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Output of the notebook
