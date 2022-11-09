@@ -606,11 +606,12 @@ async fn handle_create_command(args: CreateArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
     let workspace_id = workspace_picker(&config, args.workspace_id).await?;
-    let name = interactive::text_req(
+    let name = interactive::name_opt(
         "Name",
-        args.template_name.map(Into::<String>::into),
-        Some("".to_owned()),
-    )?;
+        args.template_name,
+        Some(Name::from_static("template")),
+    )
+    .unwrap();
     let description =
         interactive::text_req("Description", args.description.clone(), Some("".to_owned()))?;
 

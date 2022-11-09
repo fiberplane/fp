@@ -28,7 +28,11 @@ pub fn sluggify_str(input: &str) -> Option<Name> {
         .flat_map(char::to_lowercase)
         .flat_map(|c| match c {
             lower if lower.is_ascii_lowercase() => Some(lower),
-            punct if punct.is_ascii_punctuation() => Some('-'),
+            punct_space
+                if punct_space.is_ascii_punctuation() || punct_space.is_ascii_whitespace() =>
+            {
+                Some('-')
+            }
             _ => None,
         })
         .collect();
