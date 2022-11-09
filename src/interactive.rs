@@ -18,6 +18,26 @@ pub fn default_theme() -> impl theme::Theme {
     theme::SimpleTheme
 }
 
+/// Sluggify some text to a valid Name
+///
+/// Return None if the input cannot be transformed (i.e. it contains
+/// only emojis or something)
+pub fn sluggify_str(input: &str) -> Option<Name> {
+    let candidate: String = input
+        .chars()
+        .flat_map(char::to_lowercase)
+        .flat_map(|c| match c {
+            lower if lower.is_ascii_lowercase() => Some(lower),
+            punct if punct.is_ascii_punctuation() => Some('-'),
+            _ => None,
+        })
+        .collect();
+
+    let trimmed = candidate[0..=63.min(candidate.len())].trim_matches('-');
+
+    trimmed.parse().ok()
+}
+
 /// Get the value from either a CLI argument, interactive input, or from a
 /// default value. If no value is provided by the user and there is no default
 /// value, it will return None.
@@ -72,6 +92,49 @@ where
     match text_opt(prompt, argument, default) {
         Some(value) => Ok(value),
         None => Err(anyhow!("No value provided")),
+    }
+}
+
+/// Get the value from either a CLI argument, interactive input, or from a
+/// default value. If no value is provided by the user and there is no default
+/// value, it will return None.
+///
+/// The function will convert any string to a k8s rfc 1123 slug, ensuring that
+/// any non-conforming character is modified properly.
+///
+/// NOTE: If the user does not specifies a value through a cli argument, the
+/// interactive input will always be shown. This is a limitation that we
+/// currently not check if the invocation is interactive or not.
+pub fn name_opt<P>(prompt: P, argument: Option<Name>, default: Option<Name>) -> Option<Name>
+where
+    P: Into<String>,
+{
+    if argument.is_some() {
+        return argument;
+    }
+
+    let input = match &default {
+        Some(default) => Input::with_theme(&default_theme())
+            .with_prompt(prompt)
+            .allow_empty(true)
+            .default(default.clone())
+            .interact(),
+        None => Input::with_theme(&default_theme())
+            .with_prompt(prompt)
+            .allow_empty(true)
+            .interact(),
+    };
+
+    match input {
+        Ok(input) => {
+            if input.is_empty() {
+                default
+            } else {
+                Some(input)
+            }
+        }
+        // TODO: Properly check for the error instead of just returning the default value.
+        Err(_) => default,
     }
 }
 

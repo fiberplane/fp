@@ -508,12 +508,12 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
     // plain strings (rather than JSON objects) so we'll convert it locally instead
     let template = notebook_to_template(notebook);
 
-    let name = interactive::text_opt(
+    let name = interactive::name_opt(
         "Template Name",
-        args.template_name.clone().map(Into::<String>::into),
-        Some(notebook_title),
+        args.template_name.clone(),
+        interactive::sluggify_str(&notebook_title),
     )
-    .unwrap();
+    .ok_or_else(|| anyhow!("could not convert {notebook_title} to a valid template name, please provide --template-name yourself"))?;
     let description = interactive::text_opt("Template Description", args.description, None);
 
     // Create or update the template
@@ -538,7 +538,7 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
             (template, None)
         } else {
             let template = NewTemplate {
-                name,
+                name: name.to_string(),
                 description: description.unwrap_or_default(),
                 body: template,
             };
@@ -547,7 +547,7 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
         }
     } else {
         let template = NewTemplate {
-            name,
+            name: name.to_string(),
             description: description.unwrap_or_default(),
             body: template,
         };
