@@ -122,7 +122,7 @@ struct InitArguments {
 #[derive(Parser)]
 struct ExpandArguments {
     /// Workspace to use
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// ID or URL of a template already uploaded to Fiberplane,
@@ -145,7 +145,7 @@ struct ExpandArguments {
 #[derive(Parser)]
 struct ConvertArguments {
     /// The workspace to create the template in
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Workspace to create the new template in
@@ -186,7 +186,7 @@ struct ConvertArguments {
 #[derive(Parser)]
 struct CreateArguments {
     /// The workspace to create the template in
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Title of the template
@@ -250,7 +250,7 @@ struct DeleteArguments {
 #[derive(Parser, Debug)]
 struct ListArguments {
     /// The workspace to use
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Output of the templates
@@ -347,14 +347,12 @@ async fn handle_init_command(args: InitArguments) -> Result<()> {
                 id: "1".to_string(),
                 heading_type: HeadingType::H1,
                 content: "This is a section".to_string(),
-                read_only: None,
-                formatting: None,
+                ..Default::default()
             }),
             Cell::Text(TextCell {
                 id: "2".to_string(),
                 content: "You can add any types of cells and pre-fill content".to_string(),
-                read_only: None,
-                formatting: None,
+                ..Default::default()
             }),
         ],
         labels: Vec::new(),

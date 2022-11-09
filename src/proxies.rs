@@ -48,7 +48,7 @@ pub enum SubCommand {
 #[derive(Parser)]
 pub struct CreateArgs {
     /// Workspace to use
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Proxy name, leave empty to auto-generate a name
@@ -70,7 +70,7 @@ pub struct CreateArgs {
 #[derive(Parser)]
 pub struct ListArgs {
     /// Workspace to use
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Output of the proxy
@@ -87,7 +87,7 @@ pub struct ListArgs {
 #[derive(Parser)]
 pub struct DataSourcesArgs {
     /// Workspace to use
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Output of the proxy
@@ -104,7 +104,7 @@ pub struct DataSourcesArgs {
 #[derive(Parser)]
 pub struct GetArgs {
     /// Workspace to use
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// ID of the proxy
@@ -124,7 +124,7 @@ pub struct GetArgs {
 #[derive(Parser)]
 pub struct DeleteArgs {
     /// Workspace to use
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Name of the proxy

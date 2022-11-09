@@ -107,7 +107,7 @@ enum CellOutput {
 #[derive(Parser)]
 pub struct CreateArgs {
     /// Workspace to use
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Title for the new notebook
@@ -251,7 +251,7 @@ async fn handle_get_command(args: GetArgs) -> Result<()> {
 #[derive(Parser)]
 pub struct ListArgs {
     /// Workspace to use
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Output of the notebook
@@ -288,7 +288,7 @@ async fn handle_list_command(args: ListArgs) -> Result<()> {
 #[derive(Parser)]
 pub struct SearchArgs {
     /// Workspace to use
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Labels to search notebooks for (you can specify multiple labels).
