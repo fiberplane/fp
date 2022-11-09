@@ -22,7 +22,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::{collections::HashMap, env::current_dir, ffi::OsStr, path::PathBuf, str::FromStr};
+use std::{collections::HashMap, ffi::OsStr, path::PathBuf, str::FromStr};
 use tokio::fs;
 use tracing::{debug, info, warn};
 use url::Url;
@@ -40,7 +40,7 @@ pub struct Arguments {
 #[derive(Parser)]
 enum SubCommand {
     /// Initializes a blank template and save it in the current directory as template.jsonnet
-    Init,
+    Init(InitArguments),
 
     /// Expand a template into a Fiberplane notebook
     Expand(ExpandArguments),
@@ -77,7 +77,7 @@ enum SubCommand {
 pub async fn handle_command(args: Arguments) -> Result<()> {
     use SubCommand::*;
     match args.sub_command {
-        Init => handle_init_command().await,
+        Init(args) => handle_init_command(args).await,
         Expand(args) => handle_expand_command(args).await,
         Convert(args) => handle_convert_command(args).await,
         Create(args) => handle_create_command(args).await,
@@ -115,9 +115,15 @@ impl FromStr for TemplateArguments {
 }
 
 #[derive(Parser)]
+struct InitArguments {
+    #[clap(long, short, default_value = "./template.jsonnet")]
+    template_path: PathBuf,
+}
+
+#[derive(Parser)]
 struct ExpandArguments {
     /// Workspace to use
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// ID or URL of a template already uploaded to Fiberplane,
@@ -140,7 +146,7 @@ struct ExpandArguments {
 #[derive(Parser)]
 struct ConvertArguments {
     /// The workspace to create the template in
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Workspace to create the new template in
@@ -186,7 +192,7 @@ struct ConvertArguments {
 #[derive(Parser)]
 struct CreateArguments {
     /// The workspace to create the template in
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Name of the template
@@ -272,7 +278,7 @@ struct DeleteArguments {
 #[derive(Parser, Debug)]
 struct ListArguments {
     /// The workspace to use
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Output of the templates
@@ -359,7 +365,7 @@ enum TemplateListOutput {
     Json,
 }
 
-async fn handle_init_command() -> Result<()> {
+async fn handle_init_command(args: InitArguments) -> Result<()> {
     let notebook = core::NewNotebook {
         title: "Replace me!".to_string(),
         time_range: core::NewTimeRange::Relative(core::RelativeTimeRange { minutes: -60 }),
@@ -369,25 +375,29 @@ async fn handle_init_command() -> Result<()> {
                 id: "1".to_string(),
                 heading_type: HeadingType::H1,
                 content: "This is a section".to_string(),
-                read_only: None,
-                formatting: None,
+                ..Default::default()
             }),
             Cell::Text(TextCell {
                 id: "2".to_string(),
                 content: "You can add any types of cells and pre-fill content".to_string(),
-                read_only: None,
-                formatting: None,
+                ..Default::default()
             }),
         ],
         labels: Vec::new(),
     };
     let template = notebook_to_template(notebook);
 
-    let mut path = current_dir()?;
-    path.push("template.jsonnet");
+    let mut template_path = args.template_path;
+    if template_path.is_dir() {
+        template_path = template_path.with_file_name("template.jsonnet");
+    }
 
-    fs::write(&path, template).await?;
-    info!("Saved template to: {}", path.display());
+    if template_path.exists() {
+        bail!("File already exists at path: {}", template_path.display());
+    }
+
+    fs::write(&template_path, template).await?;
+    info!("Saved template to: {}", template_path.display());
 
     Ok(())
 }

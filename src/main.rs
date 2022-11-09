@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Context, Error, Result};
+use base64uuid::Base64Uuid;
 use clap::{CommandFactory, Parser};
 use clap_complete::{generate, Shell};
 use directories::ProjectDirs;
@@ -78,6 +79,10 @@ pub struct Arguments {
     /// Path to log file
     #[clap(long, global = true, env, help_heading = "Global options")]
     log_file: Option<PathBuf>,
+
+    /// Workspace to use
+    #[clap(long, short, env, global = true, help_heading = "Global options")]
+    workspace_id: Option<Base64Uuid>,
 }
 
 #[derive(Parser)]
