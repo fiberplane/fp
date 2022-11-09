@@ -15,6 +15,7 @@ use url::Url;
 use crate::config::api_client_configuration;
 use crate::interactive::{data_source_picker, workspace_picker};
 use crate::output::{output_details, output_list, GenericKeyValue};
+use crate::workspaces;
 
 #[derive(Parser)]
 pub struct Arguments {
@@ -26,6 +27,10 @@ pub struct Arguments {
 enum SubCommand {
     /// Create a new workspace data source
     Create(CreateArgs),
+
+    /// View and modify the default data sources for the workspace
+    #[clap(subcommand, alias = "default")]
+    Defaults(workspaces::UpdateDefaultDataSourcesSubCommand),
 
     /// Delete a workspace data source
     Delete(DeleteArgs),
@@ -212,6 +217,9 @@ struct ListArgs {
 pub async fn handle_command(args: Arguments) -> Result<()> {
     match args.sub_command {
         SubCommand::Create(args) => handle_create(args).await,
+        SubCommand::Defaults(sub_command) => {
+            workspaces::handle_default_data_sources_command(sub_command).await
+        }
         SubCommand::Delete(args) => handle_delete(args).await,
         SubCommand::Get(args) => handle_get(args).await,
         SubCommand::List(args) => handle_list(args).await,

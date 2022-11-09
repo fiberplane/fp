@@ -107,15 +107,21 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
         SubCommand::Update(sub_command) => match sub_command {
             UpdateSubCommand::Owner(args) => handle_move_owner(args).await,
             UpdateSubCommand::Name(args) => handle_change_name(args).await,
-            UpdateSubCommand::DefaultDataSources(sub_command) => match sub_command {
-                UpdateDefaultDataSourcesSubCommand::Set(args) => {
-                    handle_set_default_data_source(args).await
-                }
-                UpdateDefaultDataSourcesSubCommand::Unset(args) => {
-                    handle_unset_default_data_source(args).await
-                }
-            },
+            UpdateSubCommand::DefaultDataSources(sub_command) => {
+                handle_default_data_sources_command(sub_command).await
+            }
         },
+    }
+}
+
+pub(crate) async fn handle_default_data_sources_command(
+    sub_command: UpdateDefaultDataSourcesSubCommand,
+) -> Result<()> {
+    match sub_command {
+        UpdateDefaultDataSourcesSubCommand::Set(args) => handle_set_default_data_source(args).await,
+        UpdateDefaultDataSourcesSubCommand::Unset(args) => {
+            handle_unset_default_data_source(args).await
+        }
     }
 }
 
@@ -556,7 +562,7 @@ struct ChangeNameArgs {
 }
 
 #[derive(Parser)]
-enum UpdateDefaultDataSourcesSubCommand {
+pub(crate) enum UpdateDefaultDataSourcesSubCommand {
     /// Set the default data source for the given provider type
     Set(SetDefaultDataSourcesArgs),
 
@@ -565,7 +571,7 @@ enum UpdateDefaultDataSourcesSubCommand {
 }
 
 #[derive(Parser)]
-struct SetDefaultDataSourcesArgs {
+pub(crate) struct SetDefaultDataSourcesArgs {
     /// Name of the data source which should be set as default for the given provider type
     #[clap(long, short, env)]
     data_source_name: Option<String>,
@@ -585,7 +591,7 @@ struct SetDefaultDataSourcesArgs {
 }
 
 #[derive(Parser)]
-struct UnsetDefaultDataSourcesArgs {
+pub(crate) struct UnsetDefaultDataSourcesArgs {
     /// Provider type for which the default data source should be unset
     #[clap(long, short, env)]
     provider_type: Option<String>,
