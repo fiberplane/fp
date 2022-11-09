@@ -693,10 +693,10 @@ async fn handle_set_default_data_source(args: SetDefaultDataSourcesArgs) -> Resu
         .await?
         .default_data_sources;
     default_data_sources.insert(
-        data_source.provider_type,
+        data_source.provider_type.clone(),
         SelectedDataSource {
-            name: data_source.name,
-            proxy_name: data_source.proxy_name,
+            name: data_source.name.clone(),
+            proxy_name: data_source.proxy_name.clone(),
         },
     );
 
@@ -711,7 +711,16 @@ async fn handle_set_default_data_source(args: SetDefaultDataSourcesArgs) -> Resu
     )
     .await?;
 
-    info!("Successfully set default data source for workspace");
+    info!(
+        "Successfully set {}{} to be the default data source for {} queries",
+        data_source.name,
+        if let Some(proxy) = data_source.proxy_name {
+            format!(" (proxy: {})", proxy)
+        } else {
+            String::new()
+        },
+        data_source.provider_type
+    );
     Ok(())
 }
 
