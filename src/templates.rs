@@ -6,6 +6,7 @@ use base64uuid::Base64Uuid;
 use clap::{Parser, ValueEnum, ValueHint};
 use cli_table::Table;
 use fiberplane::protocols::core::{self, Cell, HeadingCell, HeadingType, TextCell};
+use fiberplane::protocols::names::Name;
 use fiberplane::sorting::{SortDirection, TemplateListSortFields};
 use fp_api_client::apis::configuration::Configuration;
 use fp_api_client::apis::default_api::{
@@ -153,17 +154,22 @@ struct ConvertArguments {
     #[clap(long, short, env)]
     notebook_id: Option<Base64Uuid>,
 
-    /// Title of the template (defaults to the notebook title)
+    /// Name of the new template (defaults to the notebook title, sluggified)
+    ///
+    /// You can name an existing template to update it.
+    ///
+    /// Names must:
+    /// - be between 1 and 63 characters long
+    /// - start and end with an alphanumeric character
+    /// - contain only lowercase alphanumeric ASCII characters and dashes
+    ///
+    /// Names must be unique within a namespace such as a Workspace.
     #[clap(long)]
-    title: Option<String>,
+    template_name: Option<Name>,
 
     /// Description of the template
     #[clap(long)]
     description: Option<String>,
-
-    /// Update the given template instead of creating a new one
-    #[clap(long)]
-    template_id: Option<Base64Uuid>,
 
     /// Create a trigger for the template
     ///
@@ -189,9 +195,16 @@ struct CreateArguments {
     #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
-    /// Title of the template
+    /// Name of the template
+    ///
+    /// Names must:
+    /// - be between 1 and 63 characters long
+    /// - start and end with an alphanumeric character
+    /// - contain only lowercase alphanumeric ASCII characters and dashes
+    ///
+    /// Names must be unique within a namespace such as a Workspace.
     #[clap(long)]
-    title: Option<String>,
+    template_name: Option<Name>,
 
     /// Description of the template
     #[clap(long)]
@@ -221,8 +234,19 @@ struct CreateArguments {
 
 #[derive(Parser)]
 struct GetArguments {
-    /// The ID of the template
-    template_id: Option<Base64Uuid>,
+    /// The workspace to get the template from
+    #[clap(long, short, env)]
+    workspace_id: Option<Base64Uuid>,
+
+    /// The Name of the template
+    ///
+    /// Names must:
+    /// - be between 1 and 63 characters long
+    /// - start and end with an alphanumeric character
+    /// - contain only lowercase alphanumeric ASCII characters and dashes
+    ///
+    /// Names must be unique within a namespace such as a Workspace.
+    template_name: Option<Name>,
 
     /// Output of the template
     #[clap(long, short, default_value = "table", value_enum)]
@@ -237,8 +261,12 @@ struct GetArguments {
 
 #[derive(Parser)]
 struct DeleteArguments {
-    /// The ID of the template
-    template_id: Option<Base64Uuid>,
+    /// The workspace to delete the template from
+    #[clap(long, short, env)]
+    workspace_id: Option<Base64Uuid>,
+
+    /// The Name of the template
+    template_name: Option<Name>,
 
     #[clap(from_global)]
     base_url: Url,
@@ -274,22 +302,22 @@ struct ListArguments {
 
 #[derive(Parser)]
 struct UpdateArguments {
-    /// ID of the template to update
-    template_id: Option<Base64Uuid>,
+    /// The workspace containing the template to be updated
+    #[clap(long, short, env)]
+    workspace_id: Option<Base64Uuid>,
 
-    /// Title of the template
-    #[clap(long)]
-    title: Option<String>,
+    /// Name of the template to update
+    template_name: Option<Name>,
 
-    /// Description of the template
+    /// New description of the template
     #[clap(long)]
     description: Option<String>,
 
-    /// The body of the template
+    /// New body of the template
     #[clap(long, conflicts_with = "template_path")]
     template: Option<String>,
 
-    /// Path to the template body file
+    /// Path to the template new body file
     #[clap(long, conflicts_with = "template", value_hint = ValueHint::AnyPath)]
     template_path: Option<PathBuf>,
 
@@ -403,19 +431,22 @@ async fn load_template(template_path: &str) -> Result<String> {
 
 async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
     let base_url = args.base_url.clone();
-    let template_url_base = base_url.join("templates/")?;
+
+    let config = api_client_configuration(args.config.clone(), &base_url).await?;
+    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let template_url_base = base_url.join(&format!("workspaces/{}/templates/", workspace_id))?;
 
     // First, check if the template is the ID of an uploaded template
-    let notebook = if let Ok(template_id) = Base64Uuid::parse_str(&args.template) {
-        expand_template_api(args, template_id).await
-    } else if let Some(template_id) = args.template.strip_prefix(template_url_base.as_str()) {
+    let notebook = if let Ok(template_name) = Name::from_str(&args.template) {
+        expand_template_api(args, workspace_id, template_name).await
+    } else if let Some(template_name) = args.template.strip_prefix(template_url_base.as_str()) {
         // Next, check if it is a URL of an uploaded template
-        let template_id = Base64Uuid::parse_str(template_id)
-            .with_context(|| "Error parsing template ID from URL")?;
-        expand_template_api(args, template_id).await
+        let template_name = Name::from_str(template_name)
+            .with_context(|| "Error parsing template name from URL")?;
+        expand_template_api(args, workspace_id, template_name).await
     } else {
         // Otherwise, treat the template as a local path or URL of a template file
-        expand_template_file(args).await
+        expand_template_file(args, workspace_id).await
     }?;
 
     let notebook_url = format!("{}notebook/{}", base_url, notebook.id);
@@ -424,21 +455,29 @@ async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
 }
 
 /// Expand a template that has already been uploaded to Fiberplane
-async fn expand_template_api(args: ExpandArguments, template_id: Base64Uuid) -> Result<Notebook> {
+async fn expand_template_api(
+    args: ExpandArguments,
+    workspace_id: Base64Uuid,
+    template_name: Name,
+) -> Result<Notebook> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
     let template_arguments = serde_json::to_value(&args.template_arguments.unwrap_or_default())?;
-    let notebook = template_expand(&config, &template_id.to_string(), Some(template_arguments))
-        .await
-        .with_context(|| format!("Error expanding template: {}", template_id))?;
+    let notebook = template_expand(
+        &config,
+        &workspace_id.to_string(),
+        &template_name.to_string(),
+        Some(template_arguments),
+    )
+    .await
+    .with_context(|| format!("Error expanding template: {}", template_name))?;
     Ok(notebook)
 }
 
 /// Expand a template that is either a local file or one hosted remotely
-async fn expand_template_file(args: ExpandArguments) -> Result<Notebook> {
+async fn expand_template_file(args: ExpandArguments, workspace_id: Base64Uuid) -> Result<Notebook> {
     let template = load_template(&args.template).await?;
 
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
 
     let template_args = if let Some(args) = args.template_arguments {
         args.0
@@ -500,24 +539,46 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
     // plain strings (rather than JSON objects) so we'll convert it locally instead
     let template = notebook_to_template(notebook);
 
-    let title = interactive::text_opt("Template Title", args.title, Some(notebook_title)).unwrap();
+    let name = interactive::name_opt(
+        "Template Name",
+        args.template_name.clone(),
+        interactive::sluggify_str(&notebook_title),
+    )
+    .ok_or_else(|| anyhow!("could not convert {notebook_title} to a valid template name, please provide --template-name yourself"))?;
     let description = interactive::text_opt("Template Description", args.description, None);
 
     // Create or update the template
-    let (template, trigger_url) = if let Some(template_id) = args.template_id {
-        let template = UpdateTemplate {
-            title: Some(title),
-            description,
-            body: Some(template),
-        };
-        let template = template_update(&config, &template_id.to_string(), template)
+    let (template, trigger_url) = if let Some(template_name) = args.template_name {
+        if template_get(&config, &workspace_id.to_string(), &template_name)
             .await
-            .with_context(|| format!("Error updating template {}", template_id))?;
-        info!("Updated template");
-        (template, None)
+            .is_ok()
+        {
+            let template = UpdateTemplate {
+                description,
+                body: Some(template),
+            };
+            let template = template_update(
+                &config,
+                &workspace_id.to_string(),
+                &template_name.to_string(),
+                template,
+            )
+            .await
+            .with_context(|| format!("Error updating template {}", template_name))?;
+            info!("Updated template");
+            (template, None)
+        } else {
+            let template = NewTemplate {
+                name: name.to_string(),
+                description: description.unwrap_or_default(),
+                body: template,
+            };
+            create_template_and_trigger(&config, workspace_id, args.create_trigger, template)
+                .await?
+        }
     } else {
         let template = NewTemplate {
-            title,
+            name: name.to_string(),
             description: description.unwrap_or_default(),
             body: template,
         };
@@ -541,13 +602,18 @@ async fn handle_create_command(args: CreateArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
     let workspace_id = workspace_picker(&config, args.workspace_id).await?;
-    let title = interactive::text_req("Title", args.title, Some("".to_owned()))?;
+    let name = interactive::name_opt(
+        "Name",
+        args.template_name,
+        Some(Name::from_static("template")),
+    )
+    .unwrap();
     let description =
         interactive::text_req("Description", args.description.clone(), Some("".to_owned()))?;
 
     let body = load_template(&args.template).await?;
     let template = NewTemplate {
-        title,
+        name: name.to_string(),
         description,
         body,
     };
@@ -571,8 +637,14 @@ async fn handle_create_command(args: CreateArguments) -> Result<()> {
 async fn handle_get_command(args: GetArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
-    let template_id = interactive::template_picker(&config, args.template_id, None).await?;
-    let template = template_get(&config, &template_id.to_string()).await?;
+    let (workspace_id, template_name) =
+        interactive::template_picker(&config, args.template_name, None).await?;
+    let template = template_get(
+        &config,
+        &workspace_id.to_string(),
+        &template_name.to_string(),
+    )
+    .await?;
 
     match args.output {
         TemplateOutput::Table => output_details(GenericKeyValue::from_template(template)),
@@ -587,13 +659,18 @@ async fn handle_get_command(args: GetArguments) -> Result<()> {
 async fn handle_delete_command(args: DeleteArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
-    let template_id = interactive::template_picker(&config, args.template_id, None).await?;
+    let (workspace_id, template_name) =
+        interactive::template_picker(&config, args.template_name, None).await?;
 
-    template_delete(&config, &template_id.to_string())
-        .await
-        .with_context(|| format!("Error deleting template {}", template_id))?;
+    template_delete(
+        &config,
+        &workspace_id.to_string(),
+        &template_name.to_string(),
+    )
+    .await
+    .with_context(|| format!("Error deleting template {}", template_name))?;
 
-    info!(%template_id, "Deleted template");
+    info!(%template_name, "Deleted template");
     Ok(())
 }
 
@@ -624,7 +701,8 @@ async fn handle_list_command(args: ListArguments) -> Result<()> {
 async fn handle_update_command(args: UpdateArguments) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
-    let template_id = interactive::template_picker(&config, args.template_id, None).await?;
+    let (workspace_id, template_name) =
+        interactive::template_picker(&config, args.template_name, args.workspace_id).await?;
 
     let body = if let Some(template) = args.template {
         Some(template)
@@ -639,14 +717,18 @@ async fn handle_update_command(args: UpdateArguments) -> Result<()> {
     };
 
     let template = UpdateTemplate {
-        title: args.title,
         description: args.description,
         body,
     };
 
-    let template = template_update(&config, &template_id.to_string(), template)
-        .await
-        .with_context(|| format!("Error updating template {}", template_id))?;
+    let template = template_update(
+        &config,
+        &workspace_id.to_string(),
+        &template_name.to_string(),
+        template,
+    )
+    .await
+    .with_context(|| format!("Error updating template {}", template_name))?;
     info!("Updated template");
 
     match args.output {
@@ -692,11 +774,11 @@ async fn handle_validate_command(args: ValidateArguments) -> Result<()> {
 
 #[derive(Table)]
 pub struct TemplateRow {
-    #[table(title = "Title")]
-    pub title: String,
+    #[table(title = "Name")]
+    pub name: String,
 
-    #[table(title = "ID")]
-    pub id: String,
+    #[table(title = "Description", display_fn = "crop_description")]
+    pub description: String,
 
     #[table(title = "Updated at")]
     pub updated_at: String,
@@ -705,11 +787,34 @@ pub struct TemplateRow {
     pub created_at: String,
 }
 
+/// Crops description to make sure it fits in a TemplateRow representation.
+///
+/// Only keep the first line, and if it is longer than max_len, use an ellipsis
+/// to tell users the description is longer.
+fn crop_description(description: &String) -> impl std::fmt::Display {
+    static DESC_MAX_LEN: usize = 24;
+    static DESC_ELLIPSIS: &str = "...";
+    static DESC_ELLIPSIS_LEN: usize = 3;
+
+    let mut res = String::with_capacity(DESC_MAX_LEN);
+    let line = description.lines().next().unwrap_or_default();
+    if line.is_empty() {
+        return res;
+    }
+    if line.chars().count() <= DESC_MAX_LEN {
+        res.push_str(line);
+    } else {
+        res.extend(line.chars().take(DESC_MAX_LEN - DESC_ELLIPSIS_LEN));
+        res.push_str(DESC_ELLIPSIS);
+    }
+    res
+}
+
 impl From<TemplateSummary> for TemplateRow {
     fn from(template: TemplateSummary) -> Self {
         Self {
-            id: template.id,
-            title: template.title,
+            description: template.description,
+            name: template.name,
             updated_at: template.updated_at,
             created_at: template.created_at,
         }
@@ -719,8 +824,8 @@ impl From<TemplateSummary> for TemplateRow {
 impl From<Template> for TemplateRow {
     fn from(template: Template) -> Self {
         Self {
-            id: template.id,
-            title: template.title,
+            description: template.description,
+            name: template.name,
             updated_at: template.updated_at,
             created_at: template.created_at,
         }
@@ -730,8 +835,8 @@ impl From<Template> for TemplateRow {
 impl GenericKeyValue {
     pub fn from_template(template: Template) -> Vec<GenericKeyValue> {
         vec![
-            GenericKeyValue::new("Title:", template.title),
-            GenericKeyValue::new("ID:", template.id),
+            GenericKeyValue::new("Name:", template.name),
+            GenericKeyValue::new("Description:", template.description),
             GenericKeyValue::new(
                 "Parameters:",
                 format_template_parameters(template.parameters),
@@ -841,8 +946,8 @@ async fn create_template_and_trigger(
             config,
             &workspace_id.to_string(),
             NewTrigger {
-                title: format!("{} Trigger", &template.title),
-                template_id: template.id.clone(),
+                title: format!("{} Trigger", &template.name),
+                template_name: template.name.clone(),
                 default_arguments: None,
             },
         )

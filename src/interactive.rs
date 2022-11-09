@@ -3,6 +3,7 @@ use anyhow::Context;
 use anyhow::Result;
 use base64uuid::Base64Uuid;
 use dialoguer::{theme, FuzzySelect, Input, Select};
+use fiberplane::protocols::names::Name;
 use fp_api_client::apis::configuration::Configuration;
 use fp_api_client::apis::default_api::data_source_get;
 use fp_api_client::apis::default_api::{
@@ -15,6 +16,30 @@ use indicatif::ProgressBar;
 
 pub fn default_theme() -> impl theme::Theme {
     theme::SimpleTheme
+}
+
+/// Sluggify some text to a valid Name
+///
+/// Return None if the input cannot be transformed (i.e. it contains
+/// only emojis or something)
+pub fn sluggify_str(input: &str) -> Option<Name> {
+    let candidate: String = input
+        .chars()
+        .flat_map(char::to_lowercase)
+        .flat_map(|c| match c {
+            lower if lower.is_ascii_lowercase() => Some(lower),
+            punct_space
+                if punct_space.is_ascii_punctuation() || punct_space.is_ascii_whitespace() =>
+            {
+                Some('-')
+            }
+            _ => None,
+        })
+        .collect();
+
+    let trimmed = candidate[0..=63.min(candidate.len())].trim_matches('-');
+
+    trimmed.parse().ok()
 }
 
 /// Get the value from either a CLI argument, interactive input, or from a
@@ -71,6 +96,49 @@ where
     match text_opt(prompt, argument, default) {
         Some(value) => Ok(value),
         None => Err(anyhow!("No value provided")),
+    }
+}
+
+/// Get the value from either a CLI argument, interactive input, or from a
+/// default value. If no value is provided by the user and there is no default
+/// value, it will return None.
+///
+/// The function will convert any string to a k8s rfc 1123 slug, ensuring that
+/// any non-conforming character is modified properly.
+///
+/// NOTE: If the user does not specifies a value through a cli argument, the
+/// interactive input will always be shown. This is a limitation that we
+/// currently not check if the invocation is interactive or not.
+pub fn name_opt<P>(prompt: P, argument: Option<Name>, default: Option<Name>) -> Option<Name>
+where
+    P: Into<String>,
+{
+    if argument.is_some() {
+        return argument;
+    }
+
+    let input = match &default {
+        Some(default) => Input::with_theme(&default_theme())
+            .with_prompt(prompt)
+            .allow_empty(true)
+            .default(default.clone())
+            .interact(),
+        None => Input::with_theme(&default_theme())
+            .with_prompt(prompt)
+            .allow_empty(true)
+            .interact(),
+    };
+
+    match input {
+        Ok(input) => {
+            if input.is_empty() {
+                default
+            } else {
+                Some(input)
+            }
+        }
+        // TODO: Properly check for the error instead of just returning the default value.
+        Err(_) => default,
     }
 }
 
@@ -169,7 +237,7 @@ pub async fn notebook_picker(
     }
 }
 
-/// Get a template ID from either a CLI argument, or from a interactive picker.
+/// Get a (workspace id, template name) pair from either a CLI argument, or from a interactive picker.
 ///
 /// If the user has not specified the template ID through a CLI argument then it
 /// will retrieve recent templates using the template list endpoint, and allow
@@ -182,15 +250,16 @@ pub async fn notebook_picker(
 /// currently not check if the invocation is interactive or not.
 pub async fn template_picker(
     config: &Configuration,
-    argument: Option<Base64Uuid>,
+    template_name: Option<Name>,
     workspace_id: Option<Base64Uuid>,
-) -> Result<Base64Uuid> {
-    // If the user provided an argument, use that. Otherwise show the picker.
-    if let Some(id) = argument {
-        return Ok(id);
+) -> Result<(Base64Uuid, Name)> {
+    // If the user provided an argument _and_ the workspace, use that. Otherwise show the picker.
+    if let (Some(workspace), Some(name)) = (workspace_id, template_name) {
+        return Ok((workspace, name));
     };
 
-    // No argument was provided, so we need to know the workspace ID.
+    // No argument was provided, so we need to know the workspace ID in order to query
+    // the template name.
     let workspace_id = workspace_picker(config, workspace_id).await?;
 
     let pb = ProgressBar::new_spinner();
@@ -213,7 +282,7 @@ pub async fn template_picker(
 
     let display_items: Vec<_> = results
         .iter()
-        .map(|template| format!("{} ({})", template.title, template.id))
+        .map(|template| template.name.to_string())
         .collect();
 
     let selection = FuzzySelect::with_theme(&default_theme())
@@ -223,9 +292,13 @@ pub async fn template_picker(
         .interact_opt()?;
 
     match selection {
-        Some(selection) => {
-            Ok(Base64Uuid::parse_str(&results[selection].id).context("invalid id was returned")?)
-        }
+        Some(selection) => Ok((
+            workspace_id,
+            results[selection]
+                .name
+                .parse()
+                .context("invalid name was returned")?,
+        )),
         None => Err(anyhow!("No template selected")),
     }
 }
