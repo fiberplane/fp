@@ -362,10 +362,10 @@ async fn handle_init_command(args: InitArguments) -> Result<()> {
     let template = notebook_to_template(notebook);
 
     if args.template_path.exists() {
-        return Err(anyhow!(
+        bail!(
             "File already exists at path: {}",
             args.template_path.display()
-        ));
+        );
     }
 
     fs::write(&args.template_path, template).await?;
