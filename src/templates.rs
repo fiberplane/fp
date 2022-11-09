@@ -361,15 +361,17 @@ async fn handle_init_command(args: InitArguments) -> Result<()> {
     };
     let template = notebook_to_template(notebook);
 
-    if args.template_path.exists() {
-        bail!(
-            "File already exists at path: {}",
-            args.template_path.display()
-        );
+    let mut template_path = args.template_path;
+    if template_path.is_dir() {
+        template_path = template_path.with_file_name("template.jsonnet");
     }
 
-    fs::write(&args.template_path, template).await?;
-    info!("Saved template to: {}", args.template_path.display());
+    if template_path.exists() {
+        bail!("File already exists at path: {}", template_path.display());
+    }
+
+    fs::write(&template_path, template).await?;
+    info!("Saved template to: {}", template_path.display());
 
     Ok(())
 }
