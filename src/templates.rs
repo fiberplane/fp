@@ -116,7 +116,7 @@ impl FromStr for TemplateArguments {
 #[derive(Parser)]
 struct ExpandArguments {
     /// Workspace to use
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// ID or URL of a template already uploaded to Fiberplane,
@@ -139,7 +139,7 @@ struct ExpandArguments {
 #[derive(Parser)]
 struct ConvertArguments {
     /// The workspace to create the template in
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Workspace to create the new template in
@@ -180,7 +180,7 @@ struct ConvertArguments {
 #[derive(Parser)]
 struct CreateArguments {
     /// The workspace to create the template in
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Title of the template
@@ -244,7 +244,7 @@ struct DeleteArguments {
 #[derive(Parser, Debug)]
 struct ListArguments {
     /// The workspace to use
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Output of the templates

@@ -55,7 +55,7 @@ enum SubCommand {
 #[derive(Parser)]
 struct CreateArguments {
     /// Workspace to create the trigger in
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Name of the trigger
@@ -113,7 +113,7 @@ struct DeleteArguments {
 #[derive(Parser)]
 struct ListArguments {
     /// Workspace to list the triggers for
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Output of the triggers

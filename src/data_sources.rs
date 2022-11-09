@@ -15,6 +15,7 @@ use url::Url;
 use crate::config::api_client_configuration;
 use crate::interactive::{data_source_picker, workspace_picker};
 use crate::output::{output_details, output_list, GenericKeyValue};
+use crate::workspaces;
 
 #[derive(Parser)]
 pub struct Arguments {
@@ -27,6 +28,10 @@ enum SubCommand {
     /// Create a new workspace data source
     Create(CreateArgs),
 
+    /// View and modify the default data sources for the workspace
+    #[clap(subcommand, alias = "default")]
+    Defaults(workspaces::DefaultDataSourcesSubCommand),
+
     /// Delete a workspace data source
     Delete(DeleteArgs),
 
@@ -37,8 +42,7 @@ enum SubCommand {
     List(ListArgs),
 
     /// Update a data source
-    #[clap(subcommand)]
-    Update(UpdateSubCommand),
+    Update(UpdateArgs),
 }
 
 #[derive(ValueEnum, Clone, Debug)]
@@ -65,7 +69,7 @@ impl FromStr for ProviderConfig {
 #[derive(Parser)]
 struct CreateArgs {
     /// Workspace to use
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Name of the data source
@@ -98,7 +102,7 @@ struct CreateArgs {
 #[derive(Parser)]
 struct GetArgs {
     /// Workspace to use
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Name of the data source
@@ -119,7 +123,7 @@ struct GetArgs {
 #[derive(Parser)]
 struct DeleteArgs {
     /// Workspace to use
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Name of the data source
@@ -134,54 +138,24 @@ struct DeleteArgs {
 }
 
 #[derive(Parser)]
-enum UpdateSubCommand {
-    /// Update the description of a data source
-    Description(UpdateDescriptionArgs),
-
-    /// Update the provider configuration of a data source
-    ProviderConfig(UpdateProviderConfigArgs),
-}
-
-#[derive(Parser)]
-struct UpdateProviderConfigArgs {
+struct UpdateArgs {
     /// Workspace to use
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
-    /// Name of the data source
+    /// Name of the data source to update
     #[clap(short, long)]
     name: Option<Name>,
 
-    /// Description of the data source
+    /// New description of the data source
     #[clap(short, long)]
-    provider_config: ProviderConfig,
+    description: Option<String>,
 
-    /// Output of the notebook
-    #[clap(long, short, default_value = "table", value_enum)]
-    output: DataSourceOutput,
+    /// New provider configuration
+    #[clap(long)]
+    provider_config: Option<ProviderConfig>,
 
-    #[clap(from_global)]
-    base_url: Url,
-
-    #[clap(from_global)]
-    config: Option<PathBuf>,
-}
-
-#[derive(Parser)]
-struct UpdateDescriptionArgs {
-    /// Workspace to use
-    #[clap(long, short, env)]
-    workspace_id: Option<Base64Uuid>,
-
-    /// Name of the data source
-    #[clap(short, long)]
-    name: Option<Name>,
-
-    /// Description of the data source
-    #[clap(short, long)]
-    description: String,
-
-    /// Output of the notebook
+    /// Output format
     #[clap(long, short, default_value = "table", value_enum)]
     output: DataSourceOutput,
 
@@ -195,7 +169,7 @@ struct UpdateDescriptionArgs {
 #[derive(Parser)]
 struct ListArgs {
     /// Workspace to use
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Output of the notebook
@@ -212,13 +186,13 @@ struct ListArgs {
 pub async fn handle_command(args: Arguments) -> Result<()> {
     match args.sub_command {
         SubCommand::Create(args) => handle_create(args).await,
+        SubCommand::Defaults(sub_command) => {
+            workspaces::handle_default_data_sources_command(sub_command).await
+        }
         SubCommand::Delete(args) => handle_delete(args).await,
         SubCommand::Get(args) => handle_get(args).await,
         SubCommand::List(args) => handle_list(args).await,
-        SubCommand::Update(sub_command) => match sub_command {
-            UpdateSubCommand::Description(args) => handle_update_description(args).await,
-            UpdateSubCommand::ProviderConfig(args) => handle_update_provider_config(args).await,
-        },
+        SubCommand::Update(args) => handle_update(args).await,
     }
 }
 
@@ -273,7 +247,7 @@ async fn handle_get(args: GetArgs) -> Result<()> {
     }
 }
 
-async fn handle_update_description(args: UpdateDescriptionArgs) -> Result<()> {
+async fn handle_update(args: UpdateArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
     let workspace_id = workspace_picker(&config, args.workspace_id).await?;
 
@@ -281,37 +255,8 @@ async fn handle_update_description(args: UpdateDescriptionArgs) -> Result<()> {
         data_source_picker(&config, Some(workspace_id), args.name.map(String::from)).await?;
 
     let update = UpdateDataSource {
-        description: Some(args.description),
-        config: None,
-    };
-
-    let data_source = data_source_update(
-        &config,
-        &workspace_id.to_string(),
-        &data_source.name,
-        update,
-    )
-    .await?;
-
-    match args.output {
-        DataSourceOutput::Table => output_details(GenericKeyValue::from_data_source(&data_source)),
-        DataSourceOutput::Json => {
-            println!("{}", serde_json::to_string_pretty(&data_source)?);
-            Ok(())
-        }
-    }
-}
-
-async fn handle_update_provider_config(args: UpdateProviderConfigArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
-
-    let data_source =
-        data_source_picker(&config, Some(workspace_id), args.name.map(String::from)).await?;
-
-    let update = UpdateDataSource {
-        description: None,
-        config: Some(Value::Object(args.provider_config.0)),
+        description: args.description,
+        config: args.provider_config.map(|c| Value::Object(c.0)),
     };
 
     let data_source = data_source_update(

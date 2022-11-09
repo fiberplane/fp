@@ -75,7 +75,7 @@ struct CreateArguments {
     output: EventOutput,
 
     /// Workspace to create the event in.
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     #[clap(from_global)]
@@ -104,7 +104,7 @@ pub struct SearchArguments {
     output: EventOutput,
 
     /// Workspace to search for events in.
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Sort the result according to the following field
