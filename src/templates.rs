@@ -151,6 +151,13 @@ struct ConvertArguments {
     /// Name of the new template (defaults to the notebook title, sluggified)
     ///
     /// You can name an existing template to update it.
+    ///
+    /// Names must:
+    /// - be between 1 and 63 characters long
+    /// - start and end with an alphanumeric character
+    /// - contain only lowercase alphanumeric ASCII characters and dashes
+    ///
+    /// Names must be unique within a namespace such as a Workspace.
     #[clap(long)]
     template_name: Option<Name>,
 
@@ -183,6 +190,13 @@ struct CreateArguments {
     workspace_id: Option<Base64Uuid>,
 
     /// Name of the template
+    ///
+    /// Names must:
+    /// - be between 1 and 63 characters long
+    /// - start and end with an alphanumeric character
+    /// - contain only lowercase alphanumeric ASCII characters and dashes
+    ///
+    /// Names must be unique within a namespace such as a Workspace.
     #[clap(long)]
     template_name: Option<Name>,
 
@@ -219,6 +233,13 @@ struct GetArguments {
     workspace_id: Option<Base64Uuid>,
 
     /// The Name of the template
+    ///
+    /// Names must:
+    /// - be between 1 and 63 characters long
+    /// - start and end with an alphanumeric character
+    /// - contain only lowercase alphanumeric ASCII characters and dashes
+    ///
+    /// Names must be unique within a namespace such as a Workspace.
     template_name: Option<Name>,
 
     /// Output of the template
@@ -239,6 +260,13 @@ struct DeleteArguments {
     workspace_id: Option<Base64Uuid>,
 
     /// The Name of the template
+    ///
+    /// Names must:
+    /// - be between 1 and 63 characters long
+    /// - start and end with an alphanumeric character
+    /// - contain only lowercase alphanumeric ASCII characters and dashes
+    ///
+    /// Names must be unique within a namespace such as a Workspace.
     template_name: Option<Name>,
 
     #[clap(from_global)]
@@ -280,6 +308,13 @@ struct UpdateArguments {
     workspace_id: Option<Base64Uuid>,
 
     /// Name of the template to update
+    ///
+    /// Names must:
+    /// - be between 1 and 63 characters long
+    /// - start and end with an alphanumeric character
+    /// - contain only lowercase alphanumeric ASCII characters and dashes
+    ///
+    /// Names must be unique within a namespace such as a Workspace.
     template_name: Option<Name>,
 
     /// New description of the template
