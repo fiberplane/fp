@@ -767,7 +767,7 @@ pub struct TemplateRow {
     #[table(title = "Name")]
     pub name: String,
 
-    #[table(title = "Description")]
+    #[table(title = "Description", display_fn = "crop_description")]
     pub description: String,
 
     #[table(title = "Updated at")]
@@ -781,18 +781,20 @@ pub struct TemplateRow {
 ///
 /// Only keep the first line, and if it is longer than max_len, use an ellipsis
 /// to tell users the description is longer.
-fn crop_description(description: &str, max_len: usize) -> String {
+fn crop_description(description: &String) -> impl std::fmt::Display {
+    static DESC_MAX_LEN: usize = 24;
     static DESC_ELLIPSIS: &str = "...";
     static DESC_ELLIPSIS_LEN: usize = 3;
-    let mut res = String::with_capacity(max_len);
+
+    let mut res = String::with_capacity(DESC_MAX_LEN);
     let line = description.lines().next().unwrap_or_default();
     if line.is_empty() {
         return res;
     }
-    if line.chars().count() <= max_len {
+    if line.chars().count() <= DESC_MAX_LEN {
         res.push_str(line);
     } else {
-        res.extend(line.chars().take(max_len - DESC_ELLIPSIS_LEN));
+        res.extend(line.chars().take(DESC_MAX_LEN - DESC_ELLIPSIS_LEN));
         res.push_str(DESC_ELLIPSIS);
     }
     res
@@ -801,7 +803,7 @@ fn crop_description(description: &str, max_len: usize) -> String {
 impl From<TemplateSummary> for TemplateRow {
     fn from(template: TemplateSummary) -> Self {
         Self {
-            description: crop_description(&template.description, 24),
+            description: template.description,
             name: template.name,
             updated_at: template.updated_at,
             created_at: template.created_at,
@@ -812,7 +814,7 @@ impl From<TemplateSummary> for TemplateRow {
 impl From<Template> for TemplateRow {
     fn from(template: Template) -> Self {
         Self {
-            description: crop_description(&template.description, 24),
+            description: template.description,
             name: template.name,
             updated_at: template.updated_at,
             created_at: template.created_at,
