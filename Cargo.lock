@@ -149,6 +149,17 @@ version = "0.1.0"
 source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#3cce3028d6b587c74a05ed49bb5a4d13ac82ea0e"
 dependencies = [
  "base64",
+ "serde",
+ "thiserror",
+ "uuid",
+]
+
+[[package]]
+name = "base64uuid"
+version = "0.1.0"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=workspace-name#b166ad2ec05156ab03ce51fe4a9fc242e5a6d3e2"
+dependencies = [
+ "base64",
  "fp-bindgen",
  "serde",
  "thiserror",
@@ -888,10 +899,10 @@ dependencies = [
 [[package]]
 name = "fiberplane"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#3cce3028d6b587c74a05ed49bb5a4d13ac82ea0e"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=workspace-name#b166ad2ec05156ab03ce51fe4a9fc242e5a6d3e2"
 dependencies = [
  "base64",
- "base64uuid",
+ "base64uuid 0.1.0 (git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=workspace-name)",
  "bytes",
  "clap",
  "form_urlencoded",
@@ -911,7 +922,7 @@ dependencies = [
 [[package]]
 name = "fiberplane-markdown"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#3cce3028d6b587c74a05ed49bb5a4d13ac82ea0e"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=workspace-name#b166ad2ec05156ab03ce51fe4a9fc242e5a6d3e2"
 dependencies = [
  "fiberplane",
  "pulldown-cmark",
@@ -954,7 +965,7 @@ dependencies = [
  "abort-on-drop",
  "anyhow",
  "base64",
- "base64uuid",
+ "base64uuid 0.1.0 (git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main)",
  "blocking",
  "bytes",
  "clap",
@@ -1007,7 +1018,7 @@ dependencies = [
 [[package]]
 name = "fp-api-client"
 version = "1.0.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#3cce3028d6b587c74a05ed49bb5a4d13ac82ea0e"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=workspace-name#b166ad2ec05156ab03ce51fe4a9fc242e5a6d3e2"
 dependencies = [
  "reqwest",
  "serde",
@@ -1066,7 +1077,7 @@ dependencies = [
 [[package]]
 name = "fp-provider-runtime"
 version = "2.0.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#3cce3028d6b587c74a05ed49bb5a4d13ac82ea0e"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=workspace-name#b166ad2ec05156ab03ce51fe4a9fc242e5a6d3e2"
 dependencies = [
  "bytes",
  "fiberplane",
@@ -1086,7 +1097,7 @@ dependencies = [
 [[package]]
 name = "fp-templates"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#3cce3028d6b587c74a05ed49bb5a4d13ac82ea0e"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=workspace-name#b166ad2ec05156ab03ce51fe4a9fc242e5a6d3e2"
 dependencies = [
  "fiberplane",
  "jrsonnet-evaluator",
@@ -3364,7 +3375,7 @@ checksum = "42657b1a6f4d817cda8e7a0ace261fe0cc946cf3a80314390b22cc61ae080792"
 [[package]]
 name = "time_util"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#3cce3028d6b587c74a05ed49bb5a4d13ac82ea0e"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=workspace-name#b166ad2ec05156ab03ce51fe4a9fc242e5a6d3e2"
 dependencies = [
  "anyhow",
  "serde",
