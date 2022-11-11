@@ -9,10 +9,6 @@ fn default_base_url() -> Url {
     Url::parse("https://studio.fiberplane.com/").unwrap()
 }
 
-static TICK_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"'").unwrap());
-static NON_WORD_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\W").unwrap());
-static DASH_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"-{2,}").unwrap());
-
 pub struct NotebookUrlBuilder {
     workspace_id: Base64Uuid,
     notebook_id: Base64Uuid,
@@ -74,6 +70,10 @@ impl NotebookUrlBuilder {
         Ok(u)
     }
 }
+
+static TICK_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"'").unwrap());
+static NON_WORD_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\W").unwrap());
+static DASH_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"-{2,}").unwrap());
 
 /// Create a URL safe slug from input.
 ///
