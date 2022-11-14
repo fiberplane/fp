@@ -21,8 +21,8 @@ use fp_api_client::apis::default_api::{
     workspace_user_update, workspace_users_list,
 };
 use fp_api_client::models::{
-    NewWorkspace, NewWorkspaceInvite, SelectedDataSource, UpdateWorkspace, User, Workspace,
-    WorkspaceInvite, WorkspaceInviteResponse, WorkspaceUserUpdate,
+    Membership, NewWorkspace, NewWorkspaceInvite, SelectedDataSource, UpdateWorkspace,
+    Workspace, WorkspaceInvite, WorkspaceInviteResponse, WorkspaceUserUpdate,
 };
 use std::collections::HashMap;
 use std::fmt::Display;
@@ -962,8 +962,8 @@ struct UserRow {
     pub email: String,
 }
 
-impl From<User> for UserRow {
-    fn from(user: User) -> Self {
+impl From<Membership> for UserRow {
+    fn from(user: Membership) -> Self {
         Self {
             id: user.id,
             name: user.name,
