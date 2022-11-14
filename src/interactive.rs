@@ -175,6 +175,18 @@ where
 
 /// Get a notebook ID from either a CLI argument, or from a interactive picker.
 ///
+/// It works exactly as [notebook_picker_with_prompt](), but has a generic, default
+/// prompt.
+pub async fn notebook_picker(
+    config: &Configuration,
+    argument: Option<Base64Uuid>,
+    workspace_id: Option<Base64Uuid>,
+) -> Result<Base64Uuid> {
+    notebook_picker_with_prompt("Notebook", config, argument, workspace_id).await
+}
+
+/// Get a notebook ID from either a CLI argument, or from a interactive picker.
+///
 /// If the user has not specified the notebook ID through a CLI argument then it
 /// will retrieve recent notebooks using the notebook search endpoint, and allow
 /// the user to select one.
@@ -188,7 +200,8 @@ where
 /// NOTE: If the user does not specifies a value through a cli argument, the
 /// interactive input will always be shown. This is a limitation that we
 /// currently not check if the invocation is interactive or not.
-pub async fn notebook_picker(
+pub async fn notebook_picker_with_prompt(
+    prompt: &str,
     config: &Configuration,
     argument: Option<Base64Uuid>,
     workspace_id: Option<Base64Uuid>,
@@ -199,7 +212,12 @@ pub async fn notebook_picker(
     };
 
     // No argument was provided, so we need to know the workspace ID.
-    let workspace_id = workspace_picker(config, workspace_id).await?;
+    let workspace_id = workspace_picker_with_prompt(
+        &format!("Workspace (to pick {})", prompt),
+        config,
+        workspace_id,
+    )
+    .await?;
 
     let pb = ProgressBar::new_spinner();
     pb.set_message("Fetching recent notebooks");
@@ -224,7 +242,7 @@ pub async fn notebook_picker(
         .collect();
 
     let selection = FuzzySelect::with_theme(&default_theme())
-        .with_prompt("Notebook")
+        .with_prompt(prompt)
         .items(&display_items)
         .default(0)
         .interact_opt()?;
@@ -462,6 +480,18 @@ pub async fn data_source_picker(
 
 /// Get a workspace ID from either a CLI argument, or from a interactive picker.
 ///
+///
+/// It works exactly as [workspace_picker_with_prompt](), but it uses a default,
+/// generic prompt.
+pub async fn workspace_picker(
+    config: &Configuration,
+    argument: Option<Base64Uuid>,
+) -> Result<Base64Uuid> {
+    workspace_picker_with_prompt("Workspace", config, argument).await
+}
+
+/// Get a workspace ID from either a CLI argument, or from a interactive picker.
+///
 /// If the user has not specified the template ID through a CLI argument then it
 /// will retrieve recent templates using the template list endpoint, and allow
 /// the user to select one.
@@ -471,7 +501,8 @@ pub async fn data_source_picker(
 /// NOTE: If the user does not specifies a value through a cli argument, the
 /// interactive input will always be shown. This is a limitation that we
 /// currently not check if the invocation is interactive or not.
-pub async fn workspace_picker(
+pub async fn workspace_picker_with_prompt(
+    prompt: &str,
     config: &Configuration,
     argument: Option<Base64Uuid>,
 ) -> Result<Base64Uuid> {
@@ -498,7 +529,7 @@ pub async fn workspace_picker(
         .collect();
 
     let selection = FuzzySelect::with_theme(&default_theme())
-        .with_prompt("Workspace")
+        .with_prompt(prompt)
         .items(&display_items)
         .default(0)
         .interact_opt()?;

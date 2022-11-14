@@ -9,12 +9,12 @@ use cli_table::Table;
 use fiberplane::protocols::core;
 use fiberplane_markdown::{markdown_to_notebook, notebook_to_markdown};
 use fp_api_client::apis::default_api::{
-    notebook_cells_append, notebook_create, notebook_delete, notebook_get, notebook_list,
-    notebook_search,
+    notebook_cells_append, notebook_create, notebook_delete, notebook_duplicate, notebook_get,
+    notebook_list, notebook_search,
 };
 use fp_api_client::models::{
-    Cell, Label, NewNotebook, NewTimeRange, Notebook, NotebookSearch, NotebookSummary,
-    NotebookVisibility, TimeRange,
+    Cell, Label, NewNotebook, NewTimeRange, Notebook, NotebookCopyDestination, NotebookSearch,
+    NotebookSummary, NotebookVisibility, TimeRange,
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -35,6 +35,10 @@ pub enum SubCommand {
     /// Create a notebook
     #[clap(alias = "add")]
     Create(CreateArgs),
+
+    /// Duplicate a notebook
+    #[clap(aliases = &["dup", "clone"])]
+    Duplicate(DuplicateArgs),
 
     /// Retrieve a notebook
     Get(GetArgs),
@@ -62,6 +66,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
     use SubCommand::*;
     match args.sub_command {
         Create(args) => handle_create_command(args).await,
+        Duplicate(args) => handle_duplicate_command(args).await,
         Get(args) => handle_get_command(args).await,
         List(args) => handle_list_command(args).await,
         Search(args) => handle_search_command(args).await,
@@ -216,6 +221,81 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
     }
 }
 
+#[derive(Parser)]
+pub struct DuplicateArgs {
+    /// ID of the source notebook
+    #[clap(long, short, env)]
+    notebook_id: Option<Base64Uuid>,
+
+    /// Workspace to use (where to clone the notebook)
+    #[clap(from_global)]
+    workspace_id: Option<Base64Uuid>,
+
+    /// Title for the new notebook
+    /// Defaults to "Copy of {SOURCE NOTEBOOK TITLE}"
+    #[clap(short, long)]
+    title: Option<String>,
+
+    /// Output of the notebook
+    #[clap(long, short, default_value = "table", value_enum)]
+    output: NotebookOutput,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
+async fn handle_duplicate_command(args: DuplicateArgs) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+
+    let notebook_id = interactive::notebook_picker_with_prompt(
+        "Source Notebook",
+        &config,
+        args.notebook_id,
+        None,
+    )
+    .await?;
+
+    let source_notebook = notebook_get(&config, &notebook_id.to_string()).await?;
+
+    let workspace_id =
+        interactive::workspace_picker_with_prompt("Target workspace", &config, args.workspace_id)
+            .await?;
+    let new_title = args.title.clone().unwrap_or_else(|| {
+        format!(
+            "Copy of {}",
+            if source_notebook.title.is_empty() {
+                "untitled notebook"
+            } else {
+                &source_notebook.title
+            }
+        )
+    });
+
+    let title = interactive::text_req("Title", args.title, Some(new_title))?;
+
+    let notebook_copy = NotebookCopyDestination {
+        title,
+        workspace_id: workspace_id.to_string(),
+    };
+
+    let notebook = notebook_duplicate(&config, &notebook_id.to_string(), notebook_copy).await?;
+
+    match args.output {
+        NotebookOutput::Table => {
+            info!("Successfully created new notebook");
+            let notebook_id = Base64Uuid::parse_str(&notebook.id)?;
+            let url = NotebookUrlBuilder::new(workspace_id, notebook_id)
+                .base_url(args.base_url)
+                .url()?;
+            println!("{}", url);
+            Ok(())
+        }
+        NotebookOutput::Json => output_json(&notebook),
+    }
+}
 #[derive(Parser)]
 pub struct GetArgs {
     /// ID of the notebook
