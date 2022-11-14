@@ -15,7 +15,7 @@ pub struct NotebookUrlBuilder {
 
     base_url: Option<Url>,
     title: Option<String>,
-    cell_id: Option<Base64Uuid>,
+    cell_id: Option<String>,
 }
 
 impl NotebookUrlBuilder {
@@ -42,7 +42,7 @@ impl NotebookUrlBuilder {
     }
 
     /// Add a deeplink to the cell id in the url
-    pub fn cell_id(mut self, cell_id: impl Into<Base64Uuid>) -> Self {
+    pub fn cell_id(mut self, cell_id: impl Into<String>) -> Self {
         self.cell_id = Some(cell_id.into());
         self
     }
@@ -64,7 +64,7 @@ impl NotebookUrlBuilder {
         ]);
 
         if let Some(cell_id) = self.cell_id {
-            u.set_fragment(Some(&cell_id.to_string()));
+            u.set_fragment(Some(&cell_id));
         }
 
         Ok(u)
