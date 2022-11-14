@@ -1,8 +1,7 @@
 use self::cell_writer::CellWriter;
-use crate::config::api_client_configuration;
-use crate::interactive;
 use crate::output::{output_details, output_json, GenericKeyValue};
 use crate::shell::shell_type::ShellType;
+use crate::{config::api_client_configuration, fp_urls::NotebookUrlBuilder, interactive};
 use anyhow::Result;
 use base64uuid::Base64Uuid;
 use clap::{Parser, ValueEnum, ValueHint};
@@ -31,6 +30,9 @@ pub struct Arguments {
     command: Vec<String>,
 
     #[clap(from_global)]
+    workspace_id: Option<Base64Uuid>,
+
+    #[clap(from_global)]
     base_url: Url,
 
     #[clap(from_global)]
@@ -57,7 +59,9 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
     let config = api_client_configuration(args.config.clone(), &args.base_url).await?;
     let command = args.command.join(" ");
 
-    let notebook_id = interactive::notebook_picker(&config, args.notebook_id, None).await?;
+    let workspace_id = interactive::workspace_picker(&config, args.workspace_id).await?;
+    let notebook_id =
+        interactive::notebook_picker(&config, args.notebook_id, Some(workspace_id)).await?;
 
     let (shell_type, shell_path) = ShellType::auto_detect();
     debug!("Using {:?} to run command: \"{}\"", shell_type, &command);
@@ -118,18 +122,12 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 
     cell_writer.flush().await?;
 
-    let cell = cell_writer.into_output_cell();
-    let mut url = args
-        .base_url
-        .join("/notebook/")
-        .unwrap()
-        .join(&notebook_id.to_string())
-        .unwrap();
-    if let Some(cell) = &cell {
-        url.set_fragment(Some(cell.id()));
-    };
+    if let Some(cell) = cell_writer.into_output_cell() {
+        let url = NotebookUrlBuilder::new(workspace_id, notebook_id)
+            .base_url(args.base_url)
+            .cell_id(cell.id())
+            .url()?;
 
-    if let Some(cell) = &cell {
         let cell: Cell = serde_json::from_value(serde_json::to_value(cell)?)?;
         match args.output {
             ExecOutput::Command => {
