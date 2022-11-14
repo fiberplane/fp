@@ -47,7 +47,7 @@ You can browse our [example templates](https://github.com/fiberplane/templates/t
 Generate a template from an existing notebook with the `convert` command:
 
 ```shell
-fp templates convert https://fiberplane.com/notebook/My-Notebook-<NOTEBOOK_ID_HERE>
+fp templates convert https://studio.fiberplane.com/notebook/My-Notebook-<NOTEBOOK_ID_HERE>
 ```
 
 Alternatively, you can create a blank template with the `init` command:
@@ -88,7 +88,7 @@ This command returns the trigger URL used to invoke the trigger (see the next se
 
 #### Invoking Triggers
 
-Normally, Triggers are invoked with HTTP POST requests to `https://fiberplane.com/api/triggers/:id/:secret_key`. The Trigger's URL is printed when it is created via the CLI.
+Normally, Triggers are invoked with HTTP POST requests to `https://studio.fiberplane.com/api/triggers/:id/:secret_key`. The Trigger's URL is printed when it is created via the CLI.
 
 The CLI can be used to test out a trigger:
 ```shell

@@ -64,7 +64,7 @@ pub struct Arguments {
     /// Base URL to the Fiberplane API
     #[clap(
         long,
-        default_value = "https://fiberplane.com",
+        default_value = "https://studio.fiberplane.com",
         env = "API_BASE",
         global = true,
         help_heading = "Global options"
