@@ -21,8 +21,8 @@ use fp_api_client::apis::default_api::{
     workspace_user_update, workspace_users_list,
 };
 use fp_api_client::models::{
-    Membership, NewWorkspace, NewWorkspaceInvite, SelectedDataSource, UpdateWorkspace,
-    Workspace, WorkspaceInvite, WorkspaceInviteResponse, WorkspaceUserUpdate,
+    Membership, NewWorkspace, NewWorkspaceInvite, SelectedDataSource, UpdateWorkspace, Workspace,
+    WorkspaceInvite, WorkspaceInviteResponse, WorkspaceUserUpdate,
 };
 use std::collections::HashMap;
 use std::fmt::Display;
@@ -451,7 +451,7 @@ async fn handle_user_list(args: UserListArgs) -> Result<()> {
 
     match args.output {
         UserListOutput::Table => {
-            let rows: Vec<UserRow> = users.into_iter().map(Into::into).collect();
+            let rows: Vec<MembershipRow> = users.into_iter().map(Into::into).collect();
             output_list(rows)
         }
         UserListOutput::Json => output_json(&users),
@@ -951,7 +951,7 @@ impl From<(String, SelectedDataSource)> for SelectedDataSourceRow {
 }
 
 #[derive(Table)]
-struct UserRow {
+struct MembershipRow {
     #[table(title = "ID")]
     pub id: String,
 
@@ -960,14 +960,18 @@ struct UserRow {
 
     #[table(title = "Email")]
     pub email: String,
+
+    #[table(title = "Role")]
+    pub role: String,
 }
 
-impl From<Membership> for UserRow {
+impl From<Membership> for MembershipRow {
     fn from(user: Membership) -> Self {
         Self {
             id: user.id,
             name: user.name,
             email: user.email.unwrap_or_else(|| "unknown".to_string()),
+            role: user.role.to_string(),
         }
     }
 }
