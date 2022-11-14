@@ -1,7 +1,7 @@
-use crate::config::api_client_configuration;
 use crate::interactive::{self, workspace_picker};
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use crate::KeyValueArgument;
+use crate::{config::api_client_configuration, fp_urls::NotebookUrlBuilder};
 use anyhow::{anyhow, Context, Result};
 use base64uuid::Base64Uuid;
 use clap::{Parser, ValueEnum, ValueHint};
@@ -205,7 +205,11 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
     match args.output {
         NotebookOutput::Table => {
             info!("Successfully created new notebook");
-            println!("{}", notebook_url(args.base_url, &notebook.id));
+            let notebook_id = Base64Uuid::parse_str(&notebook.id)?;
+            let url = NotebookUrlBuilder::new(workspace_id, notebook_id)
+                .base_url(args.base_url)
+                .url()?;
+            println!("{}", url);
             Ok(())
         }
         NotebookOutput::Json => output_json(&notebook),
@@ -346,6 +350,9 @@ pub struct OpenArgs {
     notebook_id: Option<Base64Uuid>,
 
     #[clap(from_global)]
+    workspace_id: Option<Base64Uuid>,
+
+    #[clap(from_global)]
     base_url: Url,
 
     #[clap(from_global)]
@@ -354,10 +361,13 @@ pub struct OpenArgs {
 
 async fn handle_open_command(args: OpenArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
+    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
     let notebook_id = interactive::notebook_picker(&config, args.notebook_id, None).await?;
 
-    let url = notebook_url(args.base_url, &notebook_id.to_string());
-    if open(&url).is_err() {
+    let url = NotebookUrlBuilder::new(workspace_id, notebook_id)
+        .base_url(args.base_url)
+        .url()?;
+    if open(url.as_str()).is_err() {
         info!("Please go to {} to view the notebook", url);
     }
 
@@ -448,10 +458,6 @@ async fn handle_append_cell_command(args: AppendCellArgs) -> Result<()> {
             output_details(GenericKeyValue::from_cell(cell))
         }
     }
-}
-
-fn notebook_url(base_url: Url, id: &str) -> String {
-    format!("{}notebook/{}", base_url, id)
 }
 
 impl GenericKeyValue {

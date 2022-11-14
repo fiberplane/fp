@@ -1,6 +1,6 @@
-use crate::config::api_client_configuration;
 use crate::interactive::{self, workspace_picker};
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
+use crate::{config::api_client_configuration, fp_urls::NotebookUrlBuilder};
 use anyhow::{anyhow, bail, Context, Error, Result};
 use base64uuid::Base64Uuid;
 use clap::{Parser, ValueEnum, ValueHint};
@@ -449,7 +449,10 @@ async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
         expand_template_file(args, workspace_id).await
     }?;
 
-    let notebook_url = format!("{}notebook/{}", base_url, notebook.id);
+    let notebook_id = Base64Uuid::parse_str(&notebook.id)?;
+    let notebook_url = NotebookUrlBuilder::new(workspace_id, notebook_id)
+        .base_url(base_url)
+        .url()?;
     info!("Created notebook: {}", notebook_url);
     Ok(())
 }
