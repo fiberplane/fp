@@ -1,14 +1,16 @@
 use crate::config::api_client_configuration;
 use crate::interactive::{
-    data_source_picker, default_theme, text_req, workspace_picker, workspace_user_picker,
+    data_source_picker, default_theme, name_opt, text_opt, text_req, workspace_picker,
+    workspace_user_picker,
 };
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use base64uuid::Base64Uuid;
 use clap::{Parser, ValueEnum};
 use cli_table::Table;
 use dialoguer::FuzzySelect;
 use fiberplane::protocols::core::AuthRole;
+use fiberplane::protocols::names::Name;
 use fiberplane::sorting::{
     SortDirection, WorkspaceInviteListingSortFields, WorkspaceListingSortFields,
     WorkspaceMembershipSortFields,
@@ -126,9 +128,15 @@ pub(crate) async fn handle_default_data_sources_command(
 
 #[derive(Parser)]
 struct CreateArgs {
-    /// Name of the new workspace
+    /// Unique name of the new workspace
+    ///
+    /// Only lowercase letters, numbers, and dashes are allowed
     #[clap(short, long)]
-    name: Option<String>,
+    name: Option<Name>,
+
+    /// Display name of the new workspace
+    #[clap(short, long)]
+    display_name: Option<String>,
 
     /// Output of the workspace
     #[clap(long, short, default_value = "table", value_enum)]
@@ -144,9 +152,19 @@ struct CreateArgs {
 async fn handle_workspace_create(args: CreateArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
-    let name = text_req("Name", args.name, None)?;
+    let name = name_opt("Unique workspace name", args.name, None)
+        .ok_or_else(|| anyhow!("Name is required"))?;
+    let display_name = text_opt("Display Name", args.display_name, Some(name.to_string()));
 
-    let workspace = workspace_create(&config, NewWorkspace::new(name)).await?;
+    let workspace = workspace_create(
+        &config,
+        NewWorkspace {
+            name: name.to_string(),
+            display_name,
+            default_data_sources: None,
+        },
+    )
+    .await?;
 
     info!("Successfully created new workspace");
 
@@ -635,7 +653,7 @@ async fn handle_move_owner(args: MoveOwnerArgs) -> Result<()> {
         &workspace_id.to_string(),
         UpdateWorkspace {
             owner: Some(new_owner.to_string()),
-            name: None,
+            display_name: None,
             default_data_sources: None,
         },
     )
@@ -653,7 +671,7 @@ async fn handle_change_name(args: ChangeNameArgs) -> Result<()> {
         &config,
         &workspace_id.to_string(),
         UpdateWorkspace {
-            name: Some(args.new_name),
+            display_name: Some(args.new_name),
             owner: None,
             default_data_sources: None,
         },
@@ -705,7 +723,7 @@ async fn handle_set_default_data_source(args: SetDefaultDataSourcesArgs) -> Resu
         &workspace_id.to_string(),
         UpdateWorkspace {
             default_data_sources: Some(default_data_sources),
-            name: None,
+            display_name: None,
             owner: None,
         },
     )
@@ -752,7 +770,7 @@ async fn handle_unset_default_data_source(args: UnsetDefaultDataSourcesArgs) -> 
         &workspace_id.to_string(),
         UpdateWorkspace {
             default_data_sources: Some(default_data_sources),
-            name: None,
+            display_name: None,
             owner: None,
         },
     )
