@@ -94,6 +94,9 @@ pub struct Arguments {
 
 #[derive(Parser)]
 enum SubCommand {
+    /// Interact with data sources
+    ///
+    /// Create and manage data sources, and list both direct and proxy data sources.
     #[clap(alias = "data-source")]
     DataSources(data_sources::Arguments),
 

@@ -1,4 +1,4 @@
-use crate::interactive::{self, workspace_picker};
+use crate::interactive::{self, notebook_picker, workspace_picker};
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use crate::KeyValueArgument;
 use crate::{config::api_client_configuration, fp_urls::NotebookUrlBuilder};
@@ -20,7 +20,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use time::{ext::NumericalDuration, format_description::well_known::Rfc3339, OffsetDateTime};
 use time_util::clap_rfc3339;
-use tracing::{info, trace};
+use tracing::info;
 use url::Url;
 use webbrowser::open;
 
@@ -220,11 +220,14 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
 pub struct GetArgs {
     /// ID of the notebook
     #[clap(long, short, env)]
-    notebook_id: String,
+    notebook_id: Option<Base64Uuid>,
 
     /// Output of the notebook
     #[clap(long, short, default_value = "table", value_enum)]
     output: SingleNotebookOutput,
+
+    #[clap(from_global)]
+    workspace_id: Option<Base64Uuid>,
 
     #[clap(from_global)]
     base_url: Url,
@@ -235,9 +238,9 @@ pub struct GetArgs {
 
 async fn handle_get_command(args: GetArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    trace!(notebook_id = ?args.notebook_id, "fetching notebook");
+    let notebook_id = notebook_picker(&config, args.notebook_id, args.workspace_id).await?;
 
-    let notebook = notebook_get(&config, &args.notebook_id).await?;
+    let notebook = notebook_get(&config, &notebook_id.to_string()).await?;
 
     match args.output {
         SingleNotebookOutput::Table => output_details(GenericKeyValue::from_notebook(notebook)),
@@ -381,6 +384,9 @@ pub struct DeleteArgs {
     notebook_id: Option<Base64Uuid>,
 
     #[clap(from_global)]
+    workspace_id: Option<Base64Uuid>,
+
+    #[clap(from_global)]
     base_url: Url,
 
     #[clap(from_global)]
@@ -389,7 +395,8 @@ pub struct DeleteArgs {
 
 async fn handle_delete_command(args: DeleteArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    let notebook_id = interactive::notebook_picker(&config, args.notebook_id, None).await?;
+    let notebook_id =
+        interactive::notebook_picker(&config, args.notebook_id, args.workspace_id).await?;
 
     notebook_delete(&config, &notebook_id.to_string())
         .await
