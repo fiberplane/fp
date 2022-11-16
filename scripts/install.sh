@@ -5,62 +5,95 @@ set -e
 # Get the target OS and architecture
 case $(uname -s) in
 Darwin) target_os="apple-darwin" ;;
-*) target_os="unknown-linux-gnu" ;;
+Linux) target_os="unknown-linux-gnu" ;;
+*) echo "Unsupported OS: $(uname -s)"; exit 1 ;;
 esac
 
 case $(uname -m) in
 arm64) target_arch="aarch64" ;;
-*) target_arch="x86_64" ;;
+x86_64) target_arch="x86_64" ;;
+*) echo "Unsupported architecture: $(uname -m)"; exit 1 ;;
 esac
 
-fiberplane_dir="$HOME/.fiberplane"
-if [ ! -d "$fiberplane_dir" ]; then
-  mkdir -p "$fiberplane_dir"
+# Setup any variables
+
+## FP_DIR changes where the binary is installed and optionally the completions
+if [ -z "${FP_DIR}" ]; then
+  FP_DIR="$HOME/.fiberplane"
+else
+  FP_DIR=${FP_DIR}
 fi
 
-echo "Downloading Fiberplane CLI..."
+## FP_INSTALL_COMPLETIONS enables installing completions
+if [ -z "${FP_INSTALL_COMPLETIONS}" ]; then
+  FP_INSTALL_COMPLETIONS="true"
+else
+  FP_INSTALL_COMPLETIONS=${FP_INSTALL_COMPLETIONS}
+fi
+
+## FP_UPDATE_RC enables updating the shell rc file (with PATH update and completions)
+if [ -z "${FP_UPDATE_RC}" ]; then
+  FP_UPDATE_RC="true"
+else
+  FP_UPDATE_RC=${FP_UPDATE_RC}
+fi
+
+if [ ! -d "$FIBERPLANE_DIR" ]; then
+  mkdir -p "$FIBERPLANE_DIR"
+fi
+
+echo "Downloading Fiberplane CLI to $FP_DIR/fp ..."
 
 binary_url="https://fp.dev/fp/latest/${target_arch}-${target_os}/fp"
-curl --fail --show-error --location --progress-bar --output "${fiberplane_dir}/fp" "${binary_url}"
+curl --fail --show-error --location --progress-bar --output "${FIBERPLANE_DIR}/fp" "${binary_url}"
 
-chmod +x "${fiberplane_dir}/fp"
+chmod +x "${FIBERPLANE_DIR}/fp"
 
-shell=$(basename $SHELL)
+shell=$(basename "$SHELL")
 case $shell in
   zsh) shell_profile="$HOME/.zshrc" ;;
   bash) shell_profile="$HOME/.bashrc" ;;
   *) ;;
 esac
-shell_completions="${fiberplane_dir}/${shell}_completions"
+shell_completions="${FIBERPLANE_DIR}/${shell}_completions"
 
-# Regenerate shell completions
-if [ -n "$shell_completions" ]; then
-  eval "${fiberplane_dir}/fp completions ${shell} > $shell_completions"
+if [ "$FP_INSTALL_COMPLETIONS" = "true" ]; then
+  # Regenerate shell completions
+  if [ -n "$shell_completions" ]; then
+    eval "${FIBERPLANE_DIR}/fp completions ${shell} > $shell_completions"
+  fi
 fi
 
-# Add to PATH if it wasn't installed before
-if fp --version > /dev/null; then
-  echo "Successfully updated Fiberplane CLI"
-  echo ""
-  echo "Run fp --help to get started"
-else
-  if [ -n "$shell_profile" ]; then
-    # Save a copy of the current shell profile
-    cp $shell_profile "$shell_profile.bak" 2>/dev/null || true
-
-    echo "" >> "$shell_profile"
-    echo "# Fiberplane CLI (fp)" >> "$shell_profile"
-    echo "export PATH=\"$fiberplane_dir:\$PATH\"" >> "$shell_profile"
-    echo "source $shell_completions" >> "$shell_profile"
-
-    source "$shell_profile"
-
-    echo "Fiberplane CLI (fp) successfully installed. Run 'fp help' to see available commands."
+if [ "$FP_UPDATE_RC" = "true" ]; then
+  if command -v fp > /dev/null 2>&1; then
+    echo "Fiberplane CLI is already available in your PATH, skipping updating the shell rc file"
   else
-    echo "Fiberplane CLI installed to ${fiberplane_dir}/fp"
-    echo ""
-    echo "Manually add ${fiberplane_dir} to your PATH:"
-    echo "  export PATH=\"$fiberplane_dir:\$PATH\""
+    if [ -n "$shell_profile" ]; then
+      # Save a copy of the current shell profile
+      cp $shell_profile "$shell_profile.bak" 2>/dev/null || true
+
+      echo "" >> "$shell_profile"
+      echo "# Fiberplane CLI (fp)" >> "$shell_profile"
+      echo "export PATH=\"$FIBERPLANE_DIR:\$PATH\"" >> "$shell_profile"
+
+      if [ "$FP_INSTALL_COMPLETIONS" = "true" ]; then
+        echo "source $shell_completions" >> "$shell_profile"
+      fi
+
+      #source "$shell_profile"
+
+      echo "Fiberplane CLI (fp) successfully installed. Run 'fp help' to see available commands."
+      exit 0
+    fi
+  fi
+else
+  echo "Fiberplane CLI installed to ${FIBERPLANE_DIR}/fp"
+  echo ""
+  echo "Add ${FIBERPLANE_DIR} to your PATH:"
+  echo "  export PATH=\"$FIBERPLANE_DIR:\$PATH\""
+
+  if [ "$FP_INSTALL_COMPLETIONS" = "true" ]; then
+    echo "Source $shell_completions in your shell's rc file:"
     echo "  source $shell_completions"
   fi
 fi
