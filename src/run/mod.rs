@@ -95,7 +95,6 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
                 break;
             }
             _ = child.wait() => {
-                cell_writer.flush().await?;
                 break;
             }
             chunk = child_stdout.next() => {
@@ -116,6 +115,8 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
             }
         }
     }
+
+    cell_writer.flush().await?;
 
     let cell = cell_writer.into_output_cell();
     let mut url = args

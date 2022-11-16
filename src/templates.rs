@@ -341,14 +341,12 @@ async fn handle_init_command() -> Result<()> {
                 id: "1".to_string(),
                 heading_type: HeadingType::H1,
                 content: "This is a section".to_string(),
-                read_only: None,
-                formatting: None,
+                ..Default::default()
             }),
             Cell::Text(TextCell {
                 id: "2".to_string(),
                 content: "You can add any types of cells and pre-fill content".to_string(),
-                read_only: None,
-                formatting: None,
+                ..Default::default()
             }),
         ],
         labels: Vec::new(),
