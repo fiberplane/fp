@@ -18,6 +18,8 @@ if [ ! -d "$fiberplane_dir" ]; then
   mkdir -p "$fiberplane_dir"
 fi
 
+echo "Downloading Fiberplane CLI..."
+
 binary_url="https://fp.dev/fp/latest/${target_arch}-${target_os}/fp"
 curl --fail --show-error --location --progress-bar --output "${fiberplane_dir}/fp" "${binary_url}"
 

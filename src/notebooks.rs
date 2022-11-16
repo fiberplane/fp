@@ -1,8 +1,10 @@
+use crate::interactive::{self, notebook_picker, workspace_picker};
 use crate::analytics::Analytics;
 use crate::config::api_client_configuration;
 use crate::interactive::{self, workspace_picker};
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use crate::KeyValueArgument;
+use crate::{config::api_client_configuration, fp_urls::NotebookUrlBuilder};
 use anyhow::{anyhow, Context, Result};
 use base64uuid::Base64Uuid;
 use clap::{Parser, ValueEnum, ValueHint};
@@ -21,7 +23,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use time::{ext::NumericalDuration, format_description::well_known::Rfc3339, OffsetDateTime};
 use time_util::clap_rfc3339;
-use tracing::{info, trace};
+use tracing::info;
 use url::Url;
 use webbrowser::open;
 
@@ -108,7 +110,7 @@ enum CellOutput {
 #[derive(Parser)]
 pub struct CreateArgs {
     /// Workspace to use
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Title for the new notebook
@@ -206,7 +208,11 @@ async fn handle_create_command(args: CreateArgs, analytics: &Analytics) -> Resul
     let result = match args.output {
         NotebookOutput::Table => {
             info!("Successfully created new notebook");
-            println!("{}", notebook_url(args.base_url, &notebook.id));
+            let notebook_id = Base64Uuid::parse_str(&notebook.id)?;
+            let url = NotebookUrlBuilder::new(workspace_id, notebook_id)
+                .base_url(args.base_url)
+                .url()?;
+            println!("{}", url);
             Ok(())
         }
         NotebookOutput::Json => output_json(&notebook),
@@ -220,11 +226,14 @@ async fn handle_create_command(args: CreateArgs, analytics: &Analytics) -> Resul
 pub struct GetArgs {
     /// ID of the notebook
     #[clap(long, short, env)]
-    notebook_id: String,
+    notebook_id: Option<Base64Uuid>,
 
     /// Output of the notebook
     #[clap(long, short, default_value = "table", value_enum)]
     output: SingleNotebookOutput,
+
+    #[clap(from_global)]
+    workspace_id: Option<Base64Uuid>,
 
     #[clap(from_global)]
     base_url: Url,
@@ -235,9 +244,9 @@ pub struct GetArgs {
 
 async fn handle_get_command(args: GetArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    trace!(notebook_id = ?args.notebook_id, "fetching notebook");
+    let notebook_id = notebook_picker(&config, args.notebook_id, args.workspace_id).await?;
 
-    let notebook = notebook_get(&config, &args.notebook_id).await?;
+    let notebook = notebook_get(&config, &notebook_id.to_string()).await?;
 
     match args.output {
         SingleNotebookOutput::Table => output_details(GenericKeyValue::from_notebook(notebook)),
@@ -255,7 +264,7 @@ async fn handle_get_command(args: GetArgs) -> Result<()> {
 #[derive(Parser)]
 pub struct ListArgs {
     /// Workspace to use
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Output of the notebook
@@ -292,7 +301,7 @@ async fn handle_list_command(args: ListArgs) -> Result<()> {
 #[derive(Parser)]
 pub struct SearchArgs {
     /// Workspace to use
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Labels to search notebooks for (you can specify multiple labels).
@@ -350,6 +359,9 @@ pub struct OpenArgs {
     notebook_id: Option<Base64Uuid>,
 
     #[clap(from_global)]
+    workspace_id: Option<Base64Uuid>,
+
+    #[clap(from_global)]
     base_url: Url,
 
     #[clap(from_global)]
@@ -358,10 +370,13 @@ pub struct OpenArgs {
 
 async fn handle_open_command(args: OpenArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
+    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
     let notebook_id = interactive::notebook_picker(&config, args.notebook_id, None).await?;
 
-    let url = notebook_url(args.base_url, &notebook_id.to_string());
-    if open(&url).is_err() {
+    let url = NotebookUrlBuilder::new(workspace_id, notebook_id)
+        .base_url(args.base_url)
+        .url()?;
+    if open(url.as_str()).is_err() {
         info!("Please go to {} to view the notebook", url);
     }
 
@@ -375,6 +390,9 @@ pub struct DeleteArgs {
     notebook_id: Option<Base64Uuid>,
 
     #[clap(from_global)]
+    workspace_id: Option<Base64Uuid>,
+
+    #[clap(from_global)]
     base_url: Url,
 
     #[clap(from_global)]
@@ -383,7 +401,8 @@ pub struct DeleteArgs {
 
 async fn handle_delete_command(args: DeleteArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
-    let notebook_id = interactive::notebook_picker(&config, args.notebook_id, None).await?;
+    let notebook_id =
+        interactive::notebook_picker(&config, args.notebook_id, args.workspace_id).await?;
 
     notebook_delete(&config, &notebook_id.to_string())
         .await
@@ -452,10 +471,6 @@ async fn handle_append_cell_command(args: AppendCellArgs) -> Result<()> {
             output_details(GenericKeyValue::from_cell(cell))
         }
     }
-}
-
-fn notebook_url(base_url: Url, id: &str) -> String {
-    format!("{}notebook/{}", base_url, id)
 }
 
 impl GenericKeyValue {

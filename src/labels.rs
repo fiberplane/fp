@@ -33,7 +33,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 
 #[derive(Parser)]
 pub struct ListKeysArgs {
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     #[clap(long, short)]
@@ -78,7 +78,7 @@ async fn handle_list_keys_command(args: ListKeysArgs) -> Result<()> {
 #[derive(Parser)]
 pub struct ListValuesArgs {
     /// Workspace to use
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     label_key: Option<String>,

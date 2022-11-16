@@ -1,14 +1,16 @@
 use crate::config::api_client_configuration;
 use crate::interactive::{
-    data_source_picker, default_theme, text_req, workspace_picker, workspace_user_picker,
+    data_source_picker, default_theme, name_opt, text_opt, text_req, workspace_picker,
+    workspace_user_picker,
 };
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use base64uuid::Base64Uuid;
 use clap::{Parser, ValueEnum};
 use cli_table::Table;
 use dialoguer::FuzzySelect;
 use fiberplane::protocols::core::AuthRole;
+use fiberplane::protocols::names::Name;
 use fiberplane::sorting::{
     SortDirection, WorkspaceInviteListingSortFields, WorkspaceListingSortFields,
     WorkspaceMembershipSortFields,
@@ -19,7 +21,7 @@ use fp_api_client::apis::default_api::{
     workspace_user_update, workspace_users_list,
 };
 use fp_api_client::models::{
-    NewWorkspace, NewWorkspaceInvite, SelectedDataSource, UpdateWorkspace, User, Workspace,
+    Membership, NewWorkspace, NewWorkspaceInvite, SelectedDataSource, UpdateWorkspace, Workspace,
     WorkspaceInvite, WorkspaceInviteResponse, WorkspaceUserUpdate,
 };
 use std::collections::HashMap;
@@ -42,23 +44,23 @@ enum SubCommand {
     /// Delete a workspace
     Delete(DeleteArgs),
 
+    /// Create, list and delete invites for a workspace
+    #[clap(subcommand)]
+    Invites(InvitesSubCommand),
+
     /// List all workspaces of which you're a member
     List(ListArgs),
 
     /// Leave a workspace
     Leave(LeaveArgs),
 
-    /// Create, list and delete invites for a workspace
+    /// Update workspace settings
     #[clap(subcommand)]
-    Invites(InvitesSubCommand),
+    Settings(SettingsSubCommand),
 
     /// List, update and remove users from a workspace
     #[clap(subcommand)]
     Users(UsersSubCommand),
-
-    /// Update workspace settings
-    #[clap(subcommand)]
-    Update(UpdateSubCommand),
 }
 
 #[derive(Parser)]
@@ -104,26 +106,37 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
             UsersSubCommand::Update(args) => handle_user_update(args).await,
             UsersSubCommand::Delete(args) => handle_user_delete(args).await,
         },
-        SubCommand::Update(sub_command) => match sub_command {
-            UpdateSubCommand::Owner(args) => handle_move_owner(args).await,
-            UpdateSubCommand::Name(args) => handle_change_name(args).await,
-            UpdateSubCommand::DefaultDataSources(sub_command) => match sub_command {
-                UpdateDefaultDataSourcesSubCommand::Set(args) => {
-                    handle_set_default_data_source(args).await
-                }
-                UpdateDefaultDataSourcesSubCommand::Unset(args) => {
-                    handle_unset_default_data_source(args).await
-                }
-            },
+        SubCommand::Settings(sub_command) => match sub_command {
+            SettingsSubCommand::Owner(args) => handle_move_owner(args).await,
+            SettingsSubCommand::Name(args) => handle_change_name(args).await,
+            SettingsSubCommand::DefaultDataSources(sub_command) => {
+                handle_default_data_sources_command(sub_command).await
+            }
         },
+    }
+}
+
+pub(crate) async fn handle_default_data_sources_command(
+    sub_command: DefaultDataSourcesSubCommand,
+) -> Result<()> {
+    match sub_command {
+        DefaultDataSourcesSubCommand::Get(args) => handle_get_default_data_sources(args).await,
+        DefaultDataSourcesSubCommand::Set(args) => handle_set_default_data_source(args).await,
+        DefaultDataSourcesSubCommand::Unset(args) => handle_unset_default_data_source(args).await,
     }
 }
 
 #[derive(Parser)]
 struct CreateArgs {
-    /// Name of the new workspace
+    /// Unique name of the new workspace
+    ///
+    /// Only lowercase letters, numbers, and dashes are allowed
     #[clap(short, long)]
-    name: Option<String>,
+    name: Option<Name>,
+
+    /// Display name of the new workspace
+    #[clap(short, long)]
+    display_name: Option<String>,
 
     /// Output of the workspace
     #[clap(long, short, default_value = "table", value_enum)]
@@ -139,9 +152,19 @@ struct CreateArgs {
 async fn handle_workspace_create(args: CreateArgs) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
-    let name = text_req("Name", args.name, None)?;
+    let name = name_opt("Unique workspace name", args.name, None)
+        .ok_or_else(|| anyhow!("Name is required"))?;
+    let display_name = text_opt("Display Name", args.display_name, Some(name.to_string()));
 
-    let workspace = workspace_create(&config, NewWorkspace::new(name)).await?;
+    let workspace = workspace_create(
+        &config,
+        NewWorkspace {
+            name: name.to_string(),
+            display_name,
+            default_data_sources: None,
+        },
+    )
+    .await?;
 
     info!("Successfully created new workspace");
 
@@ -154,7 +177,7 @@ async fn handle_workspace_create(args: CreateArgs) -> Result<()> {
 #[derive(Parser)]
 struct DeleteArgs {
     /// Workspace to delete
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     #[clap(from_global)]
@@ -225,7 +248,7 @@ async fn handle_workspace_list(args: ListArgs) -> Result<()> {
 #[derive(Parser)]
 struct LeaveArgs {
     /// Workspace to leave from
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     #[clap(from_global)]
@@ -248,7 +271,7 @@ async fn handle_workspace_leave(args: LeaveArgs) -> Result<()> {
 #[derive(Parser)]
 struct InviteCreateArgs {
     /// Workspace to invite the user to
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Email address of the user which should be invited
@@ -306,7 +329,7 @@ async fn handle_invite_create(args: InviteCreateArgs) -> Result<()> {
 #[derive(Parser)]
 struct InviteListArgs {
     /// Workspace for which pending invites should be displayed
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Output of the invites
@@ -384,7 +407,7 @@ async fn handle_invite_delete(args: InviteDeleteArgs) -> Result<()> {
 #[derive(Parser)]
 struct UserListArgs {
     /// Workspace for which pending invites should be displayed
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// Output of the invites
@@ -428,7 +451,7 @@ async fn handle_user_list(args: UserListArgs) -> Result<()> {
 
     match args.output {
         UserListOutput::Table => {
-            let rows: Vec<UserRow> = users.into_iter().map(Into::into).collect();
+            let rows: Vec<MembershipRow> = users.into_iter().map(Into::into).collect();
             output_list(rows)
         }
         UserListOutput::Json => output_json(&users),
@@ -442,7 +465,7 @@ struct UserUpdateArgs {
     role: Option<AuthRole>,
 
     /// Workspace to update the user in
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// User ID of the user that should be updated within the workspace
@@ -484,7 +507,7 @@ async fn handle_user_update(args: UserUpdateArgs) -> Result<()> {
 #[derive(Parser)]
 struct UserDeleteArgs {
     /// Workspace to remove the user from
-    #[clap(long, short, env)]
+    #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
     /// User ID of the user that should be removed from the workspace
@@ -511,7 +534,7 @@ async fn handle_user_delete(args: UserDeleteArgs) -> Result<()> {
 }
 
 #[derive(Parser)]
-enum UpdateSubCommand {
+enum SettingsSubCommand {
     /// Move ownership of workspace to new owner
     Owner(MoveOwnerArgs),
 
@@ -520,7 +543,7 @@ enum UpdateSubCommand {
 
     /// Change the default data sources
     #[clap(subcommand)]
-    DefaultDataSources(UpdateDefaultDataSourcesSubCommand),
+    DefaultDataSources(DefaultDataSourcesSubCommand),
 }
 
 #[derive(Parser)]
@@ -556,7 +579,10 @@ struct ChangeNameArgs {
 }
 
 #[derive(Parser)]
-enum UpdateDefaultDataSourcesSubCommand {
+pub(crate) enum DefaultDataSourcesSubCommand {
+    /// Get the default data sources
+    Get(GetDefaultDataSourcesArgs),
+
     /// Set the default data source for the given provider type
     Set(SetDefaultDataSourcesArgs),
 
@@ -565,7 +591,23 @@ enum UpdateDefaultDataSourcesSubCommand {
 }
 
 #[derive(Parser)]
-struct SetDefaultDataSourcesArgs {
+pub(crate) struct GetDefaultDataSourcesArgs {
+    /// Display format for the output
+    #[clap(long, short, default_value = "table", value_enum)]
+    output: WorkspaceOutput,
+
+    #[clap(from_global)]
+    workspace_id: Option<Base64Uuid>,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
+#[derive(Parser)]
+pub(crate) struct SetDefaultDataSourcesArgs {
     /// Name of the data source which should be set as default for the given provider type
     #[clap(long, short, env)]
     data_source_name: Option<String>,
@@ -585,7 +627,7 @@ struct SetDefaultDataSourcesArgs {
 }
 
 #[derive(Parser)]
-struct UnsetDefaultDataSourcesArgs {
+pub(crate) struct UnsetDefaultDataSourcesArgs {
     /// Provider type for which the default data source should be unset
     #[clap(long, short, env)]
     provider_type: Option<String>,
@@ -611,7 +653,7 @@ async fn handle_move_owner(args: MoveOwnerArgs) -> Result<()> {
         &workspace_id.to_string(),
         UpdateWorkspace {
             owner: Some(new_owner.to_string()),
-            name: None,
+            display_name: None,
             default_data_sources: None,
         },
     )
@@ -629,7 +671,7 @@ async fn handle_change_name(args: ChangeNameArgs) -> Result<()> {
         &config,
         &workspace_id.to_string(),
         UpdateWorkspace {
-            name: Some(args.new_name),
+            display_name: Some(args.new_name),
             owner: None,
             default_data_sources: None,
         },
@@ -638,6 +680,24 @@ async fn handle_change_name(args: ChangeNameArgs) -> Result<()> {
 
     info!("Successfully changed name of workspace");
     Ok(())
+}
+
+async fn handle_get_default_data_sources(args: GetDefaultDataSourcesArgs) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+
+    let default_data_sources = workspace_get(&config, &workspace_id.to_string())
+        .await?
+        .default_data_sources;
+
+    match args.output {
+        WorkspaceOutput::Table => {
+            let table: Vec<SelectedDataSourceRow> =
+                default_data_sources.into_iter().map(Into::into).collect();
+            output_list(table)
+        }
+        WorkspaceOutput::Json => output_json(&default_data_sources),
+    }
 }
 
 async fn handle_set_default_data_source(args: SetDefaultDataSourcesArgs) -> Result<()> {
@@ -651,10 +711,10 @@ async fn handle_set_default_data_source(args: SetDefaultDataSourcesArgs) -> Resu
         .await?
         .default_data_sources;
     default_data_sources.insert(
-        data_source.provider_type,
+        data_source.provider_type.clone(),
         SelectedDataSource {
-            name: data_source.name,
-            proxy_name: data_source.proxy_name,
+            name: data_source.name.clone(),
+            proxy_name: data_source.proxy_name.clone(),
         },
     );
 
@@ -663,13 +723,22 @@ async fn handle_set_default_data_source(args: SetDefaultDataSourcesArgs) -> Resu
         &workspace_id.to_string(),
         UpdateWorkspace {
             default_data_sources: Some(default_data_sources),
-            name: None,
+            display_name: None,
             owner: None,
         },
     )
     .await?;
 
-    info!("Successfully set default data source for workspace");
+    info!(
+        "Successfully set {}{} to be the default data source for {} queries",
+        data_source.name,
+        if let Some(proxy) = data_source.proxy_name {
+            format!(" (proxy: {})", proxy)
+        } else {
+            String::new()
+        },
+        data_source.provider_type
+    );
     Ok(())
 }
 
@@ -701,7 +770,7 @@ async fn handle_unset_default_data_source(args: UnsetDefaultDataSourcesArgs) -> 
         &workspace_id.to_string(),
         UpdateWorkspace {
             default_data_sources: Some(default_data_sources),
-            name: None,
+            display_name: None,
             owner: None,
         },
     )
@@ -860,7 +929,29 @@ impl From<Workspace> for WorkspaceRow {
 }
 
 #[derive(Table)]
-struct UserRow {
+struct SelectedDataSourceRow {
+    #[table(title = "Provider Type")]
+    pub provider_type: String,
+
+    #[table(title = "Data Source Name")]
+    pub name: String,
+
+    #[table(title = "Proxy Name")]
+    pub proxy_name: String,
+}
+
+impl From<(String, SelectedDataSource)> for SelectedDataSourceRow {
+    fn from(selected: (String, SelectedDataSource)) -> Self {
+        Self {
+            provider_type: selected.0,
+            name: selected.1.name,
+            proxy_name: selected.1.proxy_name.unwrap_or_default(),
+        }
+    }
+}
+
+#[derive(Table)]
+struct MembershipRow {
     #[table(title = "ID")]
     pub id: String,
 
@@ -869,14 +960,18 @@ struct UserRow {
 
     #[table(title = "Email")]
     pub email: String,
+
+    #[table(title = "Role")]
+    pub role: String,
 }
 
-impl From<User> for UserRow {
-    fn from(user: User) -> Self {
+impl From<Membership> for MembershipRow {
+    fn from(user: Membership) -> Self {
         Self {
             id: user.id,
             name: user.name,
             email: user.email.unwrap_or_else(|| "unknown".to_string()),
+            role: user.role.to_string(),
         }
     }
 }

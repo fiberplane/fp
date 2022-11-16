@@ -1,7 +1,14 @@
+use crate::fp_urls::NotebookUrlBuilder;
 use anyhow::{anyhow, Context, Error, Result};
-use clap::{CommandFactory, Parser};
+use base64uuid::Base64Uuid;
+use clap::{CommandFactory, Parser, ValueHint};
 use clap_complete::{generate, Shell};
+use config::api_client_configuration;
 use directories::ProjectDirs;
+use fp_api_client::apis::default_api::notebook_create;
+use fp_api_client::models::new_time_range::RelativeTimeRange;
+use fp_api_client::models::{NewNotebook, NewTimeRange};
+use interactive::workspace_picker;
 use manifest::Manifest;
 use once_cell::sync::Lazy;
 use std::fs::OpenOptions;
@@ -24,6 +31,7 @@ mod config;
 mod data_sources;
 mod events;
 mod experiments;
+mod fp_urls;
 mod interactive;
 mod labels;
 mod manifest;
@@ -57,7 +65,7 @@ pub struct Arguments {
     /// Base URL to the Fiberplane API
     #[clap(
         long,
-        default_value = "https://fiberplane.com",
+        default_value = "https://studio.fiberplane.com",
         env = "API_BASE",
         global = true,
         help_heading = "Global options"
@@ -79,16 +87,17 @@ pub struct Arguments {
     /// Path to log file
     #[clap(long, global = true, env, help_heading = "Global options")]
     log_file: Option<PathBuf>,
+
+    /// Workspace to use
+    #[clap(long, short, env, global = true, help_heading = "Global options")]
+    workspace_id: Option<Base64Uuid>,
 }
 
 #[derive(Parser)]
 enum SubCommand {
-    /// Generate fp shell completions for your shell and print to stdout
-    Completions {
-        #[clap(value_enum)]
-        shell: clap_complete::Shell,
-    },
-
+    /// Interact with data sources
+    ///
+    /// Create and manage data sources, and list both direct and proxy data sources.
     #[clap(alias = "data-source")]
     DataSources(data_sources::Arguments),
 
@@ -111,6 +120,12 @@ enum SubCommand {
     /// Labels allow you to organize your notebooks.
     #[clap(alias = "label")]
     Labels(labels::Arguments),
+
+    /// Create a new notebook and open it in the browser.
+    ///
+    /// If you need access to the json use the `notebook create` command.
+    #[clap(alias = "create")]
+    New(NewArguments),
 
     /// Interact with notebooks
     ///
@@ -186,6 +201,12 @@ enum SubCommand {
     /// Display extra version information
     #[clap()]
     Version(version::Arguments),
+
+    /// Generate fp shell completions for your shell and print to stdout
+    Completions {
+        #[clap(value_enum)]
+        shell: clap_complete::Shell,
+    },
 }
 
 #[tokio::main]
@@ -250,6 +271,7 @@ async fn main() {
         Login => auth::handle_login_command(args, &mut analytics).await,
         Logout => auth::handle_logout_command(args).await,
         Labels(args) => labels::handle_command(args).await,
+        New(args) => handle_new_command(args).await,
         Notebooks(args) => notebooks::handle_command(args, &analytics).await,
         Providers(args) => providers::handle_command(args).await,
         Proxies(args) => proxies::handle_command(args).await,
@@ -473,4 +495,56 @@ fn generating_completions() {
 
     let zsh_completions = generate_completions(Shell::Zsh);
     assert_eq!(zsh_completions.lines().next().unwrap(), "#compdef _fp fp");
+}
+
+#[derive(Parser)]
+struct NewArguments {
+    /// Workspace to use
+    #[clap(long, short, env)]
+    workspace_id: Option<Base64Uuid>,
+
+    /// Title for the new notebook
+    #[clap(trailing_var_arg(true), value_hint = ValueHint::CommandWithArguments, num_args = 0..)]
+    title: Vec<String>,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
+async fn handle_new_command(args: NewArguments) -> Result<()> {
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+
+    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let title = if args.title.is_empty() {
+        "Untitled".to_string()
+    } else {
+        args.title.join(" ")
+    };
+
+    let new_notebook = NewNotebook {
+        title,
+        time_range: Box::new(NewTimeRange::Relative(RelativeTimeRange { minutes: 60 })),
+        cells: vec![],
+        labels: None,
+        selected_data_sources: None,
+    };
+    let notebook = notebook_create(&config, &workspace_id.to_string(), new_notebook).await?;
+
+    let notebook_id = Base64Uuid::parse_str(&notebook.id)?;
+
+    let notebook_url = NotebookUrlBuilder::new(workspace_id, notebook_id)
+        .base_url(args.base_url)
+        .url()?;
+
+    // Open the user's web browser
+    if webbrowser::open(notebook_url.as_str()).is_err() {
+        eprintln!("Unable to open the web browser");
+    };
+
+    println!("{}", notebook_url);
+
+    Ok(())
 }
