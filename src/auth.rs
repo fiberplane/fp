@@ -1,7 +1,9 @@
+use crate::analytics::Analytics;
 use crate::config::{api_client_configuration_from_token, Config};
 use crate::Arguments;
 use anyhow::Error;
-use fp_api_client::apis::default_api::logout;
+use base64uuid::Base64Uuid;
+use fp_api_client::apis::default_api::{logout, profile_get};
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Response, Server, StatusCode};
 use qstring::QString;
@@ -15,7 +17,7 @@ use tracing::{debug, error, info, warn};
 /// open the login API endpoint in the user's browser. Once
 /// the login flow is complete, the browser will redirect back
 /// to the local HTTP server with the API token in the query string.
-pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
+pub async fn handle_login_command(args: Arguments, analytics: &mut Analytics) -> Result<(), Error> {
     // Note this needs to be a broadcast channel, even though we are only using it once,
     // so that we can move the tx into the service handler closures
     let (tx, mut rx) = broadcast::channel(1);
@@ -74,7 +76,7 @@ pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
         info!("Please go to this URL to login: {}", login_url);
     }
 
-    let mut config = Config::load(args.config).await?;
+    let mut config = Config::load(args.config.clone()).await?;
 
     // Shut down the web server once the token is received
     server
@@ -85,17 +87,36 @@ pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
                     debug!("api token: {}", token);
 
                     // Save the token to the config file
-                    config.api_token = Some(token);
+                    config.api_token = Some(token.clone());
+
+                    // Save the user id to the config as well, if possible
+                    if let Ok(client_config) =
+                        api_client_configuration_from_token(token, &args.base_url)
+                    {
+                        if let Ok(profile) = profile_get(&client_config).await {
+                            if let Ok(id) = Base64Uuid::parse_str(&profile.id) {
+                                config.user_id = Some(id);
+                            }
+                        }
+                    }
+
                     match config.save().await {
                         Ok(_) => {
                             info!("You are logged in to Fiberplane");
+
+                            analytics.user_logged_in().await;
                         }
-                        Err(e) => error!(
+                        Err(err) => error!(
                             "Error saving API token to config file {}: {:?}",
                             config.path.display(),
-                            e
+                            err
                         ),
                     };
+
+                    // reload analytics now that we're logged in and have a user id
+                    if let Err(err) = analytics.reload_config(&args).await {
+                        debug!(?err, "failed to reload analytics config");
+                    }
                 }
                 Err(_) => error!("login error"),
             }
@@ -114,6 +135,7 @@ pub async fn handle_logout_command(args: Arguments) -> Result<(), Error> {
             let api_config = &api_client_configuration_from_token(token, &args.base_url)?;
             logout(api_config).await?;
 
+            config.user_id = None;
             config.api_token = None;
             config.save().await?;
 

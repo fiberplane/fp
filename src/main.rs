@@ -12,7 +12,7 @@ use std::str::FromStr;
 use std::time::{Duration, SystemTime};
 use std::{env, io};
 use tokio::time::timeout;
-use tracing::{error, info, trace, warn};
+use tracing::{debug, error, info, trace, warn};
 use tracing_subscriber::filter::EnvFilter;
 use tracing_subscriber::fmt::format;
 use update::retrieve_latest_version;
@@ -180,7 +180,7 @@ enum SubCommand {
     Workspaces(workspaces::Arguments),
 
     /// Control how `fp` cli sends analytics
-    #[clap(hidden = true)]
+    #[clap(hide = true)]
     Analytics(analytics::command::Arguments),
 
     /// Display extra version information
@@ -236,14 +236,21 @@ async fn main() {
         })
     };
 
+    let mut analytics = analytics::Analytics::new(&args)
+        .await
+        .unwrap_or_else(|err| {
+            error!(?err, "failed to initialize analytics");
+            process::exit(1);
+        });
+
     use SubCommand::*;
     let result = match args.sub_command {
         DataSources(args) => data_sources::handle_command(args).await,
         Experiments(args) => experiments::handle_command(args).await,
-        Login => auth::handle_login_command(args).await,
+        Login => auth::handle_login_command(args, &mut analytics).await,
         Logout => auth::handle_logout_command(args).await,
         Labels(args) => labels::handle_command(args).await,
-        Notebooks(args) => notebooks::handle_command(args).await,
+        Notebooks(args) => notebooks::handle_command(args, &analytics).await,
         Providers(args) => providers::handle_command(args).await,
         Proxies(args) => proxies::handle_command(args).await,
         Run(args) => run::handle_command(args).await,
@@ -277,6 +284,10 @@ async fn main() {
             Ok(None) => trace!("background version check skipped or no new version available"),
             Err(err) => warn!(%err, "background version check failed"),
         }
+    }
+
+    if let Err(err) = analytics.flush().await {
+        debug!(?err, "failed to send analytics");
     }
 
     if result.is_err() {

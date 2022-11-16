@@ -1,7 +1,8 @@
 use crate::config::Config;
+use anyhow::Result;
 use clap::Parser;
 use std::path::PathBuf;
-use tracing::{error, info};
+use tracing::info;
 use url::Url;
 
 #[derive(Parser)]
@@ -19,23 +20,15 @@ pub(crate) struct Arguments {
     config: Option<PathBuf>,
 }
 
-pub(crate) async fn handle_command(args: Arguments) {
+pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
     let mut config = Config::load(args.config).await?;
 
     config.analytics = args.enabled;
+    config.save().await?;
 
-    match config.save().await {
-        Ok(_) => {
-            if !args.silent {
-                info!("Successfully saved analytics preference");
-            }
-        }
-        Err(err) => {
-            error!(
-                "Error saving analytics preference to config file {}: {:?}",
-                config.path.display(),
-                err
-            );
-        }
+    if !args.silent {
+        info!("Successfully saved analytics preference");
     }
+
+    Ok(())
 }

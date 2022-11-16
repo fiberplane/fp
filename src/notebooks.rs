@@ -1,3 +1,4 @@
+use crate::analytics::Analytics;
 use crate::config::api_client_configuration;
 use crate::interactive::{self, workspace_picker};
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
@@ -58,10 +59,10 @@ pub enum SubCommand {
     AppendCell(AppendCellArgs),
 }
 
-pub async fn handle_command(args: Arguments) -> Result<()> {
+pub async fn handle_command(args: Arguments, analytics: &Analytics) -> Result<()> {
     use SubCommand::*;
     match args.sub_command {
-        Create(args) => handle_create_command(args).await,
+        Create(args) => handle_create_command(args, analytics).await,
         Get(args) => handle_get_command(args).await,
         List(args) => handle_list_command(args).await,
         Search(args) => handle_search_command(args).await,
@@ -143,7 +144,7 @@ pub struct CreateArgs {
     config: Option<PathBuf>,
 }
 
-async fn handle_create_command(args: CreateArgs) -> Result<()> {
+async fn handle_create_command(args: CreateArgs, analytics: &Analytics) -> Result<()> {
     let config = api_client_configuration(args.config, &args.base_url).await?;
 
     let workspace_id = workspace_picker(&config, args.workspace_id).await?;
@@ -202,14 +203,17 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
 
     let notebook = notebook_create(&config, &workspace_id.to_string(), notebook).await?;
 
-    match args.output {
+    let result = match args.output {
         NotebookOutput::Table => {
             info!("Successfully created new notebook");
             println!("{}", notebook_url(args.base_url, &notebook.id));
             Ok(())
         }
         NotebookOutput::Json => output_json(&notebook),
-    }
+    };
+
+    analytics.notebook_new().await;
+    result
 }
 
 #[derive(Parser)]
