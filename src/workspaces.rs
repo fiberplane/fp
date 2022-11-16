@@ -8,7 +8,7 @@ use base64uuid::Base64Uuid;
 use clap::{Parser, ValueEnum};
 use cli_table::Table;
 use dialoguer::FuzzySelect;
-use fiberplane::protocols::core::AuthzRoles;
+use fiberplane::protocols::core::AuthRole;
 use fiberplane::sorting::{
     SortDirection, WorkspaceInviteListingSortFields, WorkspaceListingSortFields,
     WorkspaceMembershipSortFields,
@@ -18,10 +18,9 @@ use fp_api_client::apis::default_api::{
     workspace_invite_get, workspace_leave, workspace_list, workspace_update, workspace_user_remove,
     workspace_user_update, workspace_users_list,
 };
-use fp_api_client::models::workspace_user_update::Role;
 use fp_api_client::models::{
-    new_workspace_invite, NewWorkspace, NewWorkspaceInvite, SelectedDataSource, UpdateWorkspace,
-    User, Workspace, WorkspaceInvite, WorkspaceInviteResponse, WorkspaceUserUpdate,
+    NewWorkspace, NewWorkspaceInvite, SelectedDataSource, UpdateWorkspace, User, Workspace,
+    WorkspaceInvite, WorkspaceInviteResponse, WorkspaceUserUpdate,
 };
 use std::collections::HashMap;
 use std::fmt::Display;
@@ -258,7 +257,7 @@ struct InviteCreateArgs {
 
     /// Role which the invited user should receive upon accepting the invite
     #[clap(name = "role", default_value = "write", value_enum)]
-    role: AuthzRoles,
+    role: AuthRole,
 
     /// Output of the invite
     #[clap(long, short, default_value = "table", value_enum)]
@@ -278,9 +277,9 @@ async fn handle_invite_create(args: InviteCreateArgs) -> Result<()> {
     let email = text_req("Email", args.email, None)?;
 
     let role = match args.role {
-        AuthzRoles::Read => new_workspace_invite::Role::Read,
-        AuthzRoles::Write => new_workspace_invite::Role::Write,
-        AuthzRoles::Admin => new_workspace_invite::Role::Admin,
+        AuthRole::Read => fp_api_client::models::AuthRole::Read,
+        AuthRole::Write => fp_api_client::models::AuthRole::Write,
+        AuthRole::Admin => fp_api_client::models::AuthRole::Admin,
     };
 
     let invite = workspace_invite(
@@ -440,7 +439,7 @@ async fn handle_user_list(args: UserListArgs) -> Result<()> {
 struct UserUpdateArgs {
     /// New role which should be assigned to the specified user
     #[clap(long, value_enum)]
-    role: Option<AuthzRoles>,
+    role: Option<AuthRole>,
 
     /// Workspace to update the user in
     #[clap(long, short, env)]
@@ -470,9 +469,9 @@ async fn handle_user_update(args: UserUpdateArgs) -> Result<()> {
         WorkspaceUserUpdate {
             // Once we have our own openapi client implemented this will be literally just `args.role` (without the `.map`)
             role: args.role.map(|role| match role {
-                AuthzRoles::Read => Role::Read,
-                AuthzRoles::Write => Role::Write,
-                AuthzRoles::Admin => Role::Admin,
+                AuthRole::Read => fp_api_client::models::AuthRole::Read,
+                AuthRole::Write => fp_api_client::models::AuthRole::Write,
+                AuthRole::Admin => fp_api_client::models::AuthRole::Admin,
             }),
         },
     )
