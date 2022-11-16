@@ -1,7 +1,5 @@
-use crate::interactive::{self, notebook_picker, workspace_picker};
 use crate::analytics::Analytics;
-use crate::config::api_client_configuration;
-use crate::interactive::{self, workspace_picker};
+use crate::interactive::{self, notebook_picker, workspace_picker};
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use crate::KeyValueArgument;
 use crate::{config::api_client_configuration, fp_urls::NotebookUrlBuilder};
