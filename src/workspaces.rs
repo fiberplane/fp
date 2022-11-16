@@ -20,8 +20,8 @@ use fp_api_client::apis::default_api::{
 };
 use fp_api_client::models::workspace_user_update::Role;
 use fp_api_client::models::{
-    NewWorkspace, NewWorkspaceInvite, SelectedDataSource, UpdateWorkspace, User, Workspace,
-    WorkspaceInvite, WorkspaceInviteResponse, WorkspaceUserUpdate,
+    new_workspace_invite, NewWorkspace, NewWorkspaceInvite, SelectedDataSource, UpdateWorkspace,
+    User, Workspace, WorkspaceInvite, WorkspaceInviteResponse, WorkspaceUserUpdate,
 };
 use std::collections::HashMap;
 use std::fmt::Display;
@@ -276,7 +276,7 @@ async fn handle_invite_create(args: InviteCreateArgs) -> Result<()> {
     let invite = workspace_invite(
         &config,
         &workspace_id.to_string(),
-        NewWorkspaceInvite::new(email),
+        NewWorkspaceInvite::new(email, new_workspace_invite::Role::Read),
     )
     .await?;
 
