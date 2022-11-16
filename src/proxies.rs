@@ -1,5 +1,5 @@
 use crate::config::api_client_configuration;
-use crate::interactive::{self, workspace_picker};
+use crate::interactive::{self, name_req, workspace_picker};
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use anyhow::{anyhow, Result};
 use base64uuid::Base64Uuid;
@@ -159,7 +159,8 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 }
 
 async fn handle_create_command(args: CreateArgs) -> Result<()> {
-    let name = args.name.map(Into::into).unwrap_or_else(|| petname(2, "-"));
+    let default_name = Name::new(petname(2, "-")).expect("petname should be valid name");
+    let name = name_req("Proxy name", args.name, Some(default_name))?;
     let config = api_client_configuration(args.config, &args.base_url).await?;
     let workspace_id = workspace_picker(&config, args.workspace_id).await?;
 
@@ -167,7 +168,7 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
         &config,
         &workspace_id.to_string(),
         NewProxy {
-            name,
+            name: name.into_string(),
             description: args.description,
         },
     )

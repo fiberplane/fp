@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use base64uuid::Base64Uuid;
 use clap::{Parser, ValueEnum};
 use cli_table::Table;
@@ -13,7 +13,7 @@ use std::{path::PathBuf, str::FromStr};
 use url::Url;
 
 use crate::config::api_client_configuration;
-use crate::interactive::{data_source_picker, workspace_picker};
+use crate::interactive::{data_source_picker, name_req, text_opt, text_req, workspace_picker};
 use crate::output::{output_details, output_list, GenericKeyValue};
 use crate::workspaces;
 
@@ -54,7 +54,7 @@ enum DataSourceOutput {
     Json,
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
 struct ProviderConfig(Map<String, Value>);
 
 impl FromStr for ProviderConfig {
@@ -74,7 +74,7 @@ struct CreateArgs {
 
     /// Name of the data source
     #[clap(short, long)]
-    name: Name,
+    name: Option<Name>,
 
     /// Description of the data source
     #[clap(short, long)]
@@ -82,11 +82,11 @@ struct CreateArgs {
 
     /// Provider type of the data source
     #[clap(short, long)]
-    provider_type: String,
+    provider_type: Option<String>,
 
     /// Provider configuration
     #[clap(long)]
-    provider_config: ProviderConfig,
+    provider_config: Option<ProviderConfig>,
 
     /// Output of the notebook
     #[clap(long, short, default_value = "table", value_enum)]
@@ -201,13 +201,28 @@ async fn handle_create(args: CreateArgs) -> Result<()> {
     let workspace_id = workspace_picker(&config, args.workspace_id)
         .await?
         .to_string();
-    let data_source = NewDataSource {
-        name: args.name.to_string(),
-        description: args.description,
-        provider_type: args.provider_type,
-        config: Value::Object(args.provider_config.0),
-    };
+    let name = name_req("Data source name", args.name, None)?;
+    let description = text_opt("Description", args.description, None);
+    let provider_type = text_req(
+        "Provider type (prometheus, elasticsearch, etc)",
+        args.provider_type,
+        None,
+    )?;
+    let provider_config = text_req(
+        r#"Provider config in JSON (e.g.e {"url": "..."})"#,
+        args.provider_config
+            .and_then(|c| serde_json::to_string(&c.0).ok()),
+        None,
+    )?;
+    let provider_config = ProviderConfig::from_str(&provider_config)
+        .map_err(|e| anyhow!("Error parsing provider config as JSON: {:?}", e))?;
 
+    let data_source = NewDataSource {
+        name: name.to_string(),
+        description,
+        provider_type,
+        config: Value::Object(provider_config.0),
+    };
     let data_source = data_source_create(&config, &workspace_id, data_source).await?;
 
     match args.output {
