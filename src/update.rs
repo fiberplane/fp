@@ -23,8 +23,10 @@ pub async fn handle_command(_args: Arguments) -> Result<()> {
         info!("Updating to version {}", latest_version);
     };
 
+    let current_exe = std::env::current_exe()?;
+
     // Create a temporary file to buffer the download.
-    let temp_file_path = std::env::temp_dir().join("fp-tmp");
+    let temp_file_path = current_exe.parent().unwrap().join("fp_update");
     let temp_file = OpenOptions::new()
         .mode(0o755) // This call is a no-op on Windows
         .write(true)
@@ -79,7 +81,6 @@ pub async fn handle_command(_args: Arguments) -> Result<()> {
     pb.finish_with_message("downloaded");
 
     // Override the current executable.
-    let current_exe = std::env::current_exe()?;
     std::fs::rename(temp_file_path, current_exe)?;
 
     info!("Updated to version {}", latest_version);
