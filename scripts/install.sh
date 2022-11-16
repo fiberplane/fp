@@ -20,29 +20,23 @@ esac
 ## FP_DIR changes where the binary is installed and optionally the completions
 if [ -z "${FP_DIR}" ]; then
   FP_DIR="$HOME/.fiberplane"
-else
-  FP_DIR=${FP_DIR}
 fi
 
 ## FP_INSTALL_COMPLETIONS enables installing completions
 if [ -z "${FP_INSTALL_COMPLETIONS}" ]; then
   FP_INSTALL_COMPLETIONS="true"
-else
-  FP_INSTALL_COMPLETIONS=${FP_INSTALL_COMPLETIONS}
 fi
 
 ## FP_UPDATE_RC enables updating the shell rc file (with PATH update and completions)
 if [ -z "${FP_UPDATE_RC}" ]; then
   FP_UPDATE_RC="true"
-else
-  FP_UPDATE_RC=${FP_UPDATE_RC}
 fi
 
 if [ ! -d "$FP_DIR" ]; then
   mkdir -p "$FP_DIR"
 fi
 
-echo "Downloading Fiberplane CLI to $FP_DIR/fp ..."
+echo "Installing Fiberplane CLI to $FP_DIR/fp ..."
 
 binary_url="https://fp.dev/fp/latest/${target_arch}-${target_os}/fp"
 curl --fail --show-error --location --progress-bar --output "${FP_DIR}/fp" "${binary_url}"
