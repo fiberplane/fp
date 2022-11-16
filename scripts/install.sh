@@ -51,8 +51,8 @@ else
 
   select yn in "Yes" "No"; do
       case $yn in
-          Yes ) $analytics="false"; break;;
-          No ) $analytics="true"; break;;
+          Yes ) $analytics="true"; break;;
+          No ) $analytics="false"; break;;
       esac
   done
 
