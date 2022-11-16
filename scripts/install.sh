@@ -42,6 +42,21 @@ if fp --version > /dev/null; then
   echo ""
   echo "Run fp --help to get started"
 else
+  # as this is a new installation, ask the user if they would like to be tracked
+  echo "We collect usage data in order to help us improve your experience."
+  echo "Please see our privacy policy for more information: https://fiberplane.com/privacy"
+  echo "Is that ok?"
+
+  select yn in "Yes" "No"; do
+      case $yn in
+          Yes ) $analytics="false"; break;;
+          No ) $analytics="true"; break;;
+      esac
+  done
+
+  $fiberplane_dir/fp analytics $analytics --silent
+  echo "If you ever change your mind, you can change your preference by running 'fp analytics <true|false>'"
+
   if [ -n "$shell_profile" ]; then
     # Save a copy of the current shell profile
     cp $shell_profile "$shell_profile.bak" 2>/dev/null || true

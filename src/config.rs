@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Error, Result};
+use base64uuid::Base64Uuid;
 use directories::ProjectDirs;
 use fp_api_client::apis::configuration::Configuration;
 use serde::{Deserialize, Serialize};
@@ -15,6 +16,9 @@ pub struct Config {
     #[serde(skip)]
     pub path: PathBuf,
 
+    pub analytics: bool,
+    pub anonymous_id: Base64Uuid,
+    pub user_id: Option<Base64Uuid>,
     pub api_token: Option<String>,
 }
 
@@ -34,6 +38,9 @@ impl Config {
                 debug!("no config file found, using default config");
                 Ok(Config {
                     path,
+                    analytics: false,
+                    anonymous_id: Base64Uuid::new(),
+                    user_id: None,
                     api_token: None,
                 })
             }

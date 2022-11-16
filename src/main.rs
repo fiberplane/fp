@@ -18,6 +18,7 @@ use tracing_subscriber::fmt::format;
 use update::retrieve_latest_version;
 use url::Url;
 
+mod analytics;
 mod auth;
 mod config;
 mod data_sources;
@@ -178,6 +179,10 @@ enum SubCommand {
     #[clap(alias = "workspace")]
     Workspaces(workspaces::Arguments),
 
+    /// Control how `fp` cli sends analytics
+    #[clap(hidden = true)]
+    Analytics(analytics::command::Arguments),
+
     /// Display extra version information
     #[clap()]
     Version(version::Arguments),
@@ -249,6 +254,7 @@ async fn main() {
         Update(args) => update::handle_command(args).await,
         Users(args) => users::handle_command(args).await,
         Workspaces(args) => workspaces::handle_command(args).await,
+        Analytics(args) => analytics::command::handle_command(args).await,
         Version(args) => version::handle_command(args).await,
         Shell(args) => shell::handle_command(args).await,
         Completions { shell } => {
