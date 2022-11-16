@@ -36,6 +36,7 @@ impl NotebookUrlBuilder {
     }
 
     /// Include a sluggified version of the title in the url
+    #[cfg(test)]
     pub fn title(mut self, title: impl Into<String>) -> Self {
         self.title = Some(title.into());
         self

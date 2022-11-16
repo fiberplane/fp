@@ -217,9 +217,15 @@ async fn handle_create(args: CreateArgs) -> Result<()> {
     let provider_config = ProviderConfig::from_str(&provider_config)
         .map_err(|e| anyhow!("Error parsing provider config as JSON: {:?}", e))?;
 
+    // We are creating a direct (non-proxied) data-source, so we can hard-code
+    // the version to be `2`. Studio does contain some legacy providers still
+    // at the time of writing, but will emulate the new protocol version anyway.
+    let protocol_version = 2;
+
     let data_source = NewDataSource {
         name: name.to_string(),
         description,
+        protocol_version,
         provider_type,
         config: Value::Object(provider_config.0),
     };
