@@ -38,16 +38,16 @@ else
   FP_UPDATE_RC=${FP_UPDATE_RC}
 fi
 
-if [ ! -d "$FIBERPLANE_DIR" ]; then
-  mkdir -p "$FIBERPLANE_DIR"
+if [ ! -d "$FP_DIR" ]; then
+  mkdir -p "$FP_DIR"
 fi
 
 echo "Downloading Fiberplane CLI to $FP_DIR/fp ..."
 
 binary_url="https://fp.dev/fp/latest/${target_arch}-${target_os}/fp"
-curl --fail --show-error --location --progress-bar --output "${FIBERPLANE_DIR}/fp" "${binary_url}"
+curl --fail --show-error --location --progress-bar --output "${FP_DIR}/fp" "${binary_url}"
 
-chmod +x "${FIBERPLANE_DIR}/fp"
+chmod +x "${FP_DIR}/fp"
 
 shell=$(basename "$SHELL")
 case $shell in
@@ -55,12 +55,12 @@ case $shell in
   bash) shell_profile="$HOME/.bashrc" ;;
   *) ;;
 esac
-shell_completions="${FIBERPLANE_DIR}/${shell}_completions"
+shell_completions="${FP_DIR}/${shell}_completions"
 
 if [ "$FP_INSTALL_COMPLETIONS" = "true" ]; then
   # Regenerate shell completions
   if [ -n "$shell_completions" ]; then
-    eval "${FIBERPLANE_DIR}/fp completions ${shell} > $shell_completions"
+    eval "${FP_DIR}/fp completions ${shell} > $shell_completions"
   fi
 fi
 
@@ -74,7 +74,7 @@ if [ "$FP_UPDATE_RC" = "true" ]; then
 
       echo "" >> "$shell_profile"
       echo "# Fiberplane CLI (fp)" >> "$shell_profile"
-      echo "export PATH=\"$FIBERPLANE_DIR:\$PATH\"" >> "$shell_profile"
+      echo "export PATH=\"$FP_DIR:\$PATH\"" >> "$shell_profile"
 
       if [ "$FP_INSTALL_COMPLETIONS" = "true" ]; then
         echo "source $shell_completions" >> "$shell_profile"
@@ -87,10 +87,10 @@ if [ "$FP_UPDATE_RC" = "true" ]; then
     fi
   fi
 else
-  echo "Fiberplane CLI installed to ${FIBERPLANE_DIR}/fp"
+  echo "Fiberplane CLI installed to ${FP_DIR}/fp"
   echo ""
-  echo "Add ${FIBERPLANE_DIR} to your PATH:"
-  echo "  export PATH=\"$FIBERPLANE_DIR:\$PATH\""
+  echo "Add ${FP_DIR} to your PATH:"
+  echo "  export PATH=\"$FP_DIR:\$PATH\""
 
   if [ "$FP_INSTALL_COMPLETIONS" = "true" ]; then
     echo "Source $shell_completions in your shell's rc file:"
