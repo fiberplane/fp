@@ -45,7 +45,7 @@ chmod +x "${FP_DIR}/fp"
 
 shell=$(basename "$SHELL")
 case $shell in
-  zsh) shell_profile="$HOME/.zshrc" ;;
+  zsh) shell_profile="${ZDOTDIR:-$HOME}/.zshrc" ;;
   bash) shell_profile="$HOME/.bashrc" ;;
   *) ;;
 esac
@@ -74,7 +74,7 @@ if [ "$FP_UPDATE_RC" = "true" ]; then
         echo "source $shell_completions" >> "$shell_profile"
       fi
 
-      #source "$shell_profile"
+      source "$shell_profile"
 
       echo "Fiberplane CLI (fp) successfully installed. Run 'fp help' to see available commands."
       exit 0
