@@ -88,8 +88,8 @@ struct CreateArguments {
 #[derive(Parser)]
 pub struct SearchArguments {
     /// Labels to search events for (you can specify multiple labels).
-    #[clap(name = "label", short, long, required = true)]
-    labels: Vec<KeyValueArgument>,
+    #[clap(name = "label", short, long)]
+    labels: Option<Vec<KeyValueArgument>>,
 
     /// Start time to search for events for
     #[clap(long, value_parser = clap_rfc3339::parse_rfc3339, required = true)]
@@ -177,12 +177,8 @@ async fn handle_event_search_command(args: SearchArguments) -> Result<()> {
         &workspace_id.to_string(),
         args.start.format(&Rfc3339)?,
         args.end.format(&Rfc3339)?,
-        Some(
-            args.labels
-                .into_iter()
-                .map(|kv| (kv.key, kv.value))
-                .collect(),
-        ),
+        args.labels
+            .map(|args| args.into_iter().map(|kv| (kv.key, kv.value)).collect()),
         args.sort_by.map(Into::into),
         args.sort_direction.map(Into::into),
         args.page,
