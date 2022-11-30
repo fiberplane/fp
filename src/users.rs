@@ -2,8 +2,8 @@ use crate::config::api_client_configuration;
 use crate::output::{output_details, output_json, GenericKeyValue};
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
-use fp_api_client::apis::default_api::profile_get;
-use fp_api_client::models::Profile;
+use fiberplane::api_client::apis::default_api::profile_get;
+use fiberplane::api_client::models::Profile;
 use std::path::PathBuf;
 use url::Url;
 

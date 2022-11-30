@@ -2,9 +2,9 @@ use crate::config::api_client_configuration;
 use crate::interactive::{self, workspace_picker};
 use crate::output::{output_json, output_string_list};
 use anyhow::Result;
-use base64uuid::Base64Uuid;
 use clap::{Parser, ValueEnum};
-use fp_api_client::apis::default_api::{label_keys_list, label_values_list};
+use fiberplane::api_client::apis::default_api::{label_keys_list, label_values_list};
+use fiberplane::base64uuid::Base64Uuid;
 use std::path::PathBuf;
 use url::Url;
 

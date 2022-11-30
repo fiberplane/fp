@@ -2,22 +2,23 @@ use crate::interactive::{self, workspace_picker};
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use crate::{config::api_client_configuration, fp_urls::NotebookUrlBuilder};
 use anyhow::{anyhow, bail, Context, Error, Result};
-use base64uuid::Base64Uuid;
 use clap::{Parser, ValueEnum, ValueHint};
 use cli_table::Table;
-use fiberplane::protocols::core::{self, Cell, HeadingCell, HeadingType, TextCell};
-use fiberplane::protocols::names::Name;
-use fiberplane::sorting::{SortDirection, TemplateListSortFields};
-use fp_api_client::apis::configuration::Configuration;
-use fp_api_client::apis::default_api::{
+use fiberplane::api_client::apis::configuration::Configuration;
+use fiberplane::api_client::apis::default_api::{
     notebook_create, notebook_get, template_create, template_delete, template_expand, template_get,
     template_list, template_update, trigger_create,
 };
-use fp_api_client::models::{
+use fiberplane::api_client::models::{
     NewNotebook, NewTemplate, NewTrigger, Notebook, Template, TemplateParameter, TemplateSummary,
     UpdateTemplate,
 };
-use fp_templates::{expand_template, notebook_to_template, Error as TemplateError};
+use fiberplane::base64uuid::Base64Uuid;
+use fiberplane::models::names::Name;
+use fiberplane::models::notebooks::{self, Cell, HeadingCell, HeadingType, TextCell};
+use fiberplane::models::sorting::{SortDirection, TemplateListSortFields};
+use fiberplane::models::timestamps;
+use fiberplane::templates::{expand_template, notebook_to_template, Error as TemplateError};
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -366,9 +367,11 @@ enum TemplateListOutput {
 }
 
 async fn handle_init_command(args: InitArguments) -> Result<()> {
-    let notebook = core::NewNotebook {
+    let notebook = notebooks::NewNotebook {
         title: "Replace me!".to_string(),
-        time_range: core::NewTimeRange::Relative(core::RelativeTimeRange { minutes: -60 }),
+        time_range: timestamps::NewTimeRange::Relative(timestamps::RelativeTimeRange {
+            minutes: -60,
+        }),
         selected_data_sources: Default::default(),
         cells: vec![
             Cell::Heading(HeadingCell {
@@ -492,7 +495,7 @@ async fn expand_template_file(args: ExpandArguments, workspace_id: Base64Uuid) -
         expand_template(template, template_args).with_context(|| "expanding template")?;
 
     // Convert to a string and back because the API client
-    // has a different model struct than the Rust core types
+    // has a different model struct than the Rust notebooks types
     let notebook: NewNotebook = serde_json::to_string(&notebook)
         .and_then(|s| serde_json::from_str(&s))
         .with_context(|| "Error converting notebook to API client NewNotebook type")?;
@@ -515,10 +518,10 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
         .with_context(|| "Error fetching notebook")?;
     let notebook_id = notebook.id.clone();
 
-    // Convert the notebook from the type returned by the API to the core type
-    let mut notebook: core::NewNotebook = serde_json::to_string(&notebook)
+    // Convert the notebook from the type returned by the API to the notebooks type
+    let mut notebook: notebooks::NewNotebook = serde_json::to_string(&notebook)
         .and_then(|s| serde_json::from_str(&s))
-        .with_context(|| "Error converting from API client model to core model")?;
+        .with_context(|| "Error converting from API client model to notebooks model")?;
     let notebook_title = notebook.title.clone();
 
     // Add image URLs to ImageCells that were uploaded to the Studio.

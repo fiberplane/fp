@@ -1,10 +1,10 @@
 use anyhow::{anyhow, Result};
-use fiberplane::text_util::char_count;
-use fp_api_client::apis::configuration::Configuration;
-use fp_api_client::apis::default_api::{
+use fiberplane::api_client::apis::configuration::Configuration;
+use fiberplane::api_client::apis::default_api::{
     notebook_cell_append_text, notebook_cells_append, profile_get,
 };
-use fp_api_client::models::{cell::HeadingType, Annotation, Cell, CellAppendText};
+use fiberplane::api_client::models::{cell::HeadingType, Annotation, Cell, CellAppendText};
+use fiberplane::string_utils::char_count;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
 pub struct NotebookWriter {

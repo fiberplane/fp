@@ -1,7 +1,7 @@
 use crate::config::{api_client_configuration_from_token, Config};
 use crate::Arguments;
 use anyhow::Error;
-use fp_api_client::apis::default_api::logout;
+use fiberplane::api_client::apis::default_api::logout;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Response, Server, StatusCode};
 use qstring::QString;

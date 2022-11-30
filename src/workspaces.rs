@@ -5,28 +5,26 @@ use crate::interactive::{
 };
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use anyhow::{anyhow, bail, Result};
-use base64uuid::Base64Uuid;
 use clap::{Parser, ValueEnum};
 use cli_table::Table;
 use dialoguer::FuzzySelect;
-use fiberplane::protocols::core::AuthRole;
-use fiberplane::protocols::names::Name;
-use fiberplane::sorting::{
-    SortDirection, WorkspaceInviteListingSortFields, WorkspaceListingSortFields,
-    WorkspaceMembershipSortFields,
-};
-use fp_api_client::apis::default_api::{
+use fiberplane::api_client::apis::default_api::{
     workspace_create, workspace_delete, workspace_get, workspace_invite, workspace_invite_delete,
     workspace_invite_get, workspace_leave, workspace_list, workspace_update, workspace_user_remove,
     workspace_user_update, workspace_users_list,
 };
-use fp_api_client::models::{
+use fiberplane::api_client::models::{
     Membership, NewWorkspace, NewWorkspaceInvite, SelectedDataSource, UpdateWorkspace, Workspace,
     WorkspaceInvite, WorkspaceInviteResponse, WorkspaceUserUpdate,
 };
-use std::collections::HashMap;
-use std::fmt::Display;
-use std::path::PathBuf;
+use fiberplane::base64uuid::Base64Uuid;
+use fiberplane::models::names::Name;
+use fiberplane::models::sorting::{
+    SortDirection, WorkspaceInviteListingSortFields, WorkspaceListingSortFields,
+    WorkspaceMembershipSortFields,
+};
+use fiberplane::models::workspaces::AuthRole;
+use std::{collections::HashMap, fmt::Display, path::PathBuf};
 use tracing::info;
 use url::Url;
 
@@ -300,9 +298,9 @@ async fn handle_invite_create(args: InviteCreateArgs) -> Result<()> {
     let email = text_req("Email", args.email, None)?;
 
     let role = match args.role {
-        AuthRole::Read => fp_api_client::models::AuthRole::Read,
-        AuthRole::Write => fp_api_client::models::AuthRole::Write,
-        AuthRole::Admin => fp_api_client::models::AuthRole::Admin,
+        AuthRole::Read => fiberplane::api_client::models::AuthRole::Read,
+        AuthRole::Write => fiberplane::api_client::models::AuthRole::Write,
+        AuthRole::Admin => fiberplane::api_client::models::AuthRole::Admin,
     };
 
     let invite = workspace_invite(
@@ -492,9 +490,9 @@ async fn handle_user_update(args: UserUpdateArgs) -> Result<()> {
         WorkspaceUserUpdate {
             // Once we have our own openapi client implemented this will be literally just `args.role` (without the `.map`)
             role: args.role.map(|role| match role {
-                AuthRole::Read => fp_api_client::models::AuthRole::Read,
-                AuthRole::Write => fp_api_client::models::AuthRole::Write,
-                AuthRole::Admin => fp_api_client::models::AuthRole::Admin,
+                AuthRole::Read => fiberplane::api_client::models::AuthRole::Read,
+                AuthRole::Write => fiberplane::api_client::models::AuthRole::Write,
+                AuthRole::Admin => fiberplane::api_client::models::AuthRole::Admin,
             }),
         },
     )

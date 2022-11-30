@@ -3,15 +3,15 @@ use crate::interactive;
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use crate::templates::TemplateArguments;
 use anyhow::{Context, Result};
-use base64uuid::Base64Uuid;
 use clap::{Parser, ValueEnum};
 use cli_table::Table;
-use fiberplane::protocols::names::Name;
-use fp_api_client::apis::configuration::Configuration;
-use fp_api_client::apis::default_api::{
+use fiberplane::api_client::apis::configuration::Configuration;
+use fiberplane::api_client::apis::default_api::{
     trigger_create, trigger_delete, trigger_get, trigger_invoke, trigger_list,
 };
-use fp_api_client::models::{NewTrigger, Trigger, TriggerInvokeResponse};
+use fiberplane::api_client::models::{NewTrigger, Trigger, TriggerInvokeResponse};
+use fiberplane::base64uuid::Base64Uuid;
+use fiberplane::models::names::Name;
 use std::path::PathBuf;
 use tracing::info;
 use url::Url;

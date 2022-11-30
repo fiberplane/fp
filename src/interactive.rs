@@ -1,17 +1,13 @@
-use anyhow::anyhow;
-use anyhow::Context;
-use anyhow::Result;
-use base64uuid::Base64Uuid;
+use anyhow::{anyhow, Context, Result};
 use dialoguer::{theme, FuzzySelect, Input, Select};
-use fiberplane::protocols::names::Name;
-use fp_api_client::apis::configuration::Configuration;
-use fp_api_client::apis::default_api::data_source_get;
-use fp_api_client::apis::default_api::{
-    data_source_list, notebook_search, proxy_list, template_list, trigger_list, workspace_list,
-    workspace_users_list,
+use fiberplane::api_client::apis::configuration::Configuration;
+use fiberplane::api_client::apis::default_api::{
+    data_source_get, data_source_list, notebook_search, proxy_list, template_list, trigger_list,
+    workspace_list, workspace_users_list,
 };
-use fp_api_client::models::DataSource;
-use fp_api_client::models::NotebookSearch;
+use fiberplane::api_client::models::{DataSource, NotebookSearch};
+use fiberplane::base64uuid::Base64Uuid;
+use fiberplane::models::names::Name;
 use indicatif::ProgressBar;
 
 pub fn default_theme() -> impl theme::Theme {

@@ -1,11 +1,11 @@
 use super::parse_logs::{contains_logs, parse_logs};
 use anyhow::{anyhow, Context, Result};
-use base64uuid::Base64Uuid;
 use bytes::Bytes;
-use fiberplane::protocols::core;
-use fp_api_client::apis::configuration::Configuration;
-use fp_api_client::apis::default_api::notebook_cells_append;
-use fp_api_client::models::Cell;
+use fiberplane::api_client::apis::configuration::Configuration;
+use fiberplane::api_client::apis::default_api::notebook_cells_append;
+use fiberplane::api_client::models::Cell;
+use fiberplane::base64uuid::Base64Uuid;
+use fiberplane::models::notebooks;
 use std::env::current_dir;
 use std::vec;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
@@ -22,7 +22,7 @@ pub struct CellWriter {
     notebook_id: Base64Uuid,
     command: Vec<String>,
     config: Configuration,
-    cell: Option<core::Cell>,
+    cell: Option<notebooks::Cell>,
     buffer: Vec<u8>,
     /// At first, we don't know what type of cell we're writing to.
     /// We'll try to parse the data we get as a log and if it fails
@@ -109,7 +109,7 @@ impl CellWriter {
         Ok(())
     }
 
-    pub fn into_output_cell(self) -> Option<core::Cell> {
+    pub fn into_output_cell(self) -> Option<notebooks::Cell> {
         self.cell
     }
 
@@ -131,7 +131,7 @@ impl CellWriter {
         }
     }
 
-    async fn append_cell(&self, cell: Cell) -> Result<core::Cell> {
+    async fn append_cell(&self, cell: Cell) -> Result<notebooks::Cell> {
         let cell = notebook_cells_append(&self.config, &self.notebook_id.to_string(), vec![cell])
             .await
             .with_context(|| "Error appending cell to notebook")?

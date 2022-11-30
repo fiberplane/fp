@@ -1,13 +1,13 @@
 use crate::fp_urls::NotebookUrlBuilder;
 use anyhow::{anyhow, Context, Error, Result};
-use base64uuid::Base64Uuid;
 use clap::{CommandFactory, Parser, ValueHint};
 use clap_complete::{generate, Shell};
 use config::api_client_configuration;
 use directories::ProjectDirs;
-use fp_api_client::apis::default_api::notebook_create;
-use fp_api_client::models::new_time_range::RelativeTimeRange;
-use fp_api_client::models::{NewNotebook, NewTimeRange};
+use fiberplane::api_client::apis::default_api::notebook_create;
+use fiberplane::api_client::models::new_time_range::RelativeTimeRange;
+use fiberplane::api_client::models::{NewNotebook, NewTimeRange};
+use fiberplane::base64uuid::Base64Uuid;
 use interactive::workspace_picker;
 use manifest::Manifest;
 use once_cell::sync::Lazy;
