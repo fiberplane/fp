@@ -1,6 +1,6 @@
 use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
-use fp_provider_runtime::spec::types::{
+use fiberplane::provider_runtime::spec::types::{
     Blob, LegacyProviderRequest, LegacyProviderResponse, ProviderConfig, ProviderRequest,
 };
 
@@ -50,7 +50,7 @@ async fn handle_invoke_command(args: InvokeArguments) -> Result<()> {
     let wasm_module = std::fs::read(args.provider_path)
         .map_err(|e| anyhow!("unable to read wasm module: {:?}", e))?;
 
-    let runtime = fp_provider_runtime::spec::Runtime::new(wasm_module)
+    let runtime = fiberplane::provider_runtime::spec::Runtime::new(wasm_module)
         .map_err(|e| anyhow!("unable to create runtime: {:?}", e))?;
 
     let result = runtime.invoke(request, config).await;
@@ -112,7 +112,7 @@ async fn handle_invoke2_command(args: Invoke2Arguments) -> Result<()> {
     let wasm_module = std::fs::read(args.provider_path)
         .map_err(|e| anyhow!("unable to read wasm module: {:?}", e))?;
 
-    let runtime = fp_provider_runtime::spec::Runtime::new(wasm_module)
+    let runtime = fiberplane::provider_runtime::spec::Runtime::new(wasm_module)
         .map_err(|e| anyhow!("unable to create runtime: {:?}", e))?;
 
     let result = runtime.invoke2(request).await;

@@ -1,5 +1,5 @@
 use super::timestamp::AnyTimestamp;
-use fiberplane::protocols::providers::{Event, OtelMetadata, OtelSpanId, OtelTraceId};
+use fiberplane::models::providers::{Event, OtelMetadata, OtelSpanId, OtelTraceId};
 use grok::{Grok, Pattern};
 use once_cell::sync::Lazy;
 use serde_json::{Map, Value};

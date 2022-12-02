@@ -1,20 +1,16 @@
 use crate::config::api_client_configuration;
-use crate::interactive::workspace_picker;
+use crate::interactive::{self, workspace_picker};
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
-use crate::{interactive, KeyValueArgument};
+use crate::KeyValueArgument;
 use anyhow::Result;
-use base64uuid::Base64Uuid;
 use clap::{Parser, ValueEnum};
 use cli_table::Table;
-use fiberplane::sorting::{EventSortFields, SortDirection};
-use fp_api_client::apis::default_api::{event_create, event_delete, event_list};
-use fp_api_client::models::{Event, NewEvent};
-use std::collections::HashMap;
-use std::fmt::Display;
-use std::path::PathBuf;
-use time::format_description::well_known::Rfc3339;
-use time::OffsetDateTime;
-use time_util::clap_rfc3339;
+use fiberplane::api_client::apis::default_api::{event_create, event_delete, event_list};
+use fiberplane::api_client::models::{Event, NewEvent};
+use fiberplane::base64uuid::Base64Uuid;
+use fiberplane::models::sorting::{EventSortFields, SortDirection};
+use fiberplane::models::timestamps::Timestamp;
+use std::{collections::HashMap, fmt::Display, path::PathBuf};
 use tracing::info;
 use url::Url;
 
@@ -67,8 +63,8 @@ struct CreateArguments {
     labels: Vec<KeyValueArgument>,
 
     /// Time at which the event occurred. Leave empty to use current time.
-    #[clap(long, value_parser = clap_rfc3339::parse_rfc3339)]
-    time: Option<OffsetDateTime>,
+    #[clap(long)]
+    time: Option<Timestamp>,
 
     /// Output of the event
     #[clap(long, short, default_value = "table", value_enum)]
@@ -92,12 +88,12 @@ pub struct SearchArguments {
     labels: Option<Vec<KeyValueArgument>>,
 
     /// Start time to search for events for
-    #[clap(long, value_parser = clap_rfc3339::parse_rfc3339, required = true)]
-    start: OffsetDateTime,
+    #[clap(long, required = true)]
+    start: Timestamp,
 
     /// End time to search for events for
-    #[clap(long, value_parser = clap_rfc3339::parse_rfc3339, required = true)]
-    end: OffsetDateTime,
+    #[clap(long, required = true)]
+    end: Timestamp,
 
     /// Output of the event
     #[clap(long, short, default_value = "table", value_enum)]
@@ -145,7 +141,7 @@ async fn handle_event_create_command(args: CreateArguments) -> Result<()> {
     };
 
     let title = interactive::text_req("Title", args.title, None)?;
-    let time = args.time.map(|input| input.format(&Rfc3339).unwrap());
+    let time = args.time.map(|input| input.to_string());
     let workspace_id = workspace_picker(&config, args.workspace_id).await?;
 
     let event = event_create(
@@ -175,8 +171,8 @@ async fn handle_event_search_command(args: SearchArguments) -> Result<()> {
     let events = event_list(
         &config,
         &workspace_id.to_string(),
-        args.start.format(&Rfc3339)?,
-        args.end.format(&Rfc3339)?,
+        args.start.to_string(),
+        args.end.to_string(),
         args.labels
             .map(|args| args.into_iter().map(|kv| (kv.key, kv.value)).collect()),
         args.sort_by.map(Into::into),

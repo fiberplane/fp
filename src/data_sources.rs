@@ -1,12 +1,12 @@
 use anyhow::{anyhow, Result};
-use base64uuid::Base64Uuid;
 use clap::{Parser, ValueEnum};
 use cli_table::Table;
-use fiberplane::protocols::names::Name;
-use fp_api_client::apis::default_api::{
+use fiberplane::api_client::apis::default_api::{
     data_source_create, data_source_delete, data_source_list, data_source_update,
 };
-use fp_api_client::models::{DataSource, NewDataSource, UpdateDataSource};
+use fiberplane::api_client::models::{DataSource, NewDataSource, UpdateDataSource};
+use fiberplane::base64uuid::Base64Uuid;
+use fiberplane::models::names::Name;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::{path::PathBuf, str::FromStr};

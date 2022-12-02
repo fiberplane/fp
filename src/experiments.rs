@@ -3,13 +3,13 @@ use crate::interactive;
 use crate::output::{output_details, output_json, GenericKeyValue};
 use crate::templates::NOTEBOOK_ID_REGEX;
 use anyhow::{anyhow, Context, Result};
-use base64uuid::Base64Uuid;
 use clap::{Parser, ValueEnum};
 use directories::ProjectDirs;
-use fiberplane::protocols::{core, formatting};
-use fiberplane_markdown::notebook_to_markdown;
-use fp_api_client::apis::default_api::{notebook_cells_append, notebook_get, profile_get};
-use fp_api_client::models::{Annotation, Cell};
+use fiberplane::api_client::apis::default_api::{notebook_cells_append, notebook_get, profile_get};
+use fiberplane::api_client::models::{Annotation, Cell};
+use fiberplane::base64uuid::Base64Uuid;
+use fiberplane::markdown::notebook_to_markdown;
+use fiberplane::models::{formatting, notebooks};
 use lazy_static::lazy_static;
 use regex::{Regex, Replacer};
 use serde::{Deserialize, Serialize};
@@ -196,7 +196,7 @@ async fn handle_crawl_command(args: CrawlArgs) -> Result<()> {
             }
         };
         let notebook = serde_json::to_string(&notebook)?;
-        let mut notebook: core::Notebook = serde_json::from_str(&notebook)?;
+        let mut notebook: notebooks::Notebook = serde_json::from_str(&notebook)?;
 
         for cell in &mut notebook.cells {
             if let Some(formatting) = cell.formatting_mut() {

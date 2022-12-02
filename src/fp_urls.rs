@@ -1,5 +1,5 @@
 use anyhow::Result;
-use base64uuid::Base64Uuid;
+use fiberplane::base64uuid::Base64Uuid;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use url::Url;

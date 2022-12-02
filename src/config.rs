@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Error, Result};
 use directories::ProjectDirs;
-use fp_api_client::apis::configuration::Configuration;
+use fiberplane::api_client::apis::configuration::Configuration;
 use serde::{Deserialize, Serialize};
 use std::io::ErrorKind;
 use std::path::PathBuf;

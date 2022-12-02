@@ -3,23 +3,23 @@ use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use crate::KeyValueArgument;
 use crate::{config::api_client_configuration, fp_urls::NotebookUrlBuilder};
 use anyhow::{anyhow, Context, Result};
-use base64uuid::Base64Uuid;
 use clap::{Parser, ValueEnum, ValueHint};
 use cli_table::Table;
-use fiberplane::protocols::core;
-use fiberplane_markdown::{markdown_to_notebook, notebook_to_markdown};
-use fp_api_client::apis::default_api::{
+use fiberplane::api_client::apis::default_api::{
     notebook_cells_append, notebook_create, notebook_delete, notebook_duplicate, notebook_get,
     notebook_list, notebook_search,
 };
-use fp_api_client::models::{
+use fiberplane::api_client::models::{
     Cell, Label, NewNotebook, NewTimeRange, Notebook, NotebookCopyDestination, NotebookSearch,
     NotebookSummary, NotebookVisibility, TimeRange,
 };
+use fiberplane::base64uuid::Base64Uuid;
+use fiberplane::markdown::{markdown_to_notebook, notebook_to_markdown};
+use fiberplane::models::notebooks;
+use fiberplane::models::timestamps::Timestamp;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use time::{ext::NumericalDuration, format_description::well_known::Rfc3339, OffsetDateTime};
-use time_util::clap_rfc3339;
+use time::{ext::NumericalDuration, OffsetDateTime};
 use tracing::info;
 use url::Url;
 use webbrowser::open;
@@ -124,12 +124,12 @@ pub struct CreateArgs {
     labels: Vec<KeyValueArgument>,
 
     /// Start time to be passed into the new notebook (RFC3339). Leave empty to use 60 minutes ago.
-    #[clap(long, value_parser = clap_rfc3339::parse_rfc3339)]
-    from: Option<OffsetDateTime>,
+    #[clap(long)]
+    from: Option<Timestamp>,
 
     /// End time to be passed into the new notebook (RFC3339). Leave empty to use the current time.
-    #[clap(long, value_parser = clap_rfc3339::parse_rfc3339)]
-    to: Option<OffsetDateTime>,
+    #[clap(long)]
+    to: Option<Timestamp>,
 
     /// Create the notebook from the given Markdown
     ///
@@ -166,21 +166,21 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
     };
 
     let now = OffsetDateTime::now_utc();
-    let from = args.from.unwrap_or_else(|| now - 1.hours());
-    let to = args.to.unwrap_or(now);
+    let from = args.from.unwrap_or_else(|| (now - 1.hours()).into());
+    let to = args.to.unwrap_or(now.into());
 
     // Optionally parse the notebook from Markdown
     let notebook = match args.markdown {
         Some(markdown) => {
             let notebook = markdown_to_notebook(&markdown);
             let notebook = serde_json::to_string(&notebook)?;
-            serde_json::from_str(&notebook).with_context(|| "Error parsing notebook struct (there is a mismatch between the API client model and the fiberplane core model)")?
+            serde_json::from_str(&notebook).with_context(|| "Error parsing notebook struct (there is a mismatch between the API client model and the fiberplane notebooks model)")?
         }
         None => NewNotebook {
             title: String::new(),
             time_range: Box::new(NewTimeRange::Absolute(TimeRange {
-                from: from.format(&Rfc3339)?,
-                to: to.format(&Rfc3339)?,
+                from: from.to_string(),
+                to: to.to_string(),
             })),
             cells: Vec::new(),
             selected_data_sources: Default::default(),
@@ -198,8 +198,8 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
     let notebook = NewNotebook {
         title,
         time_range: Box::new(NewTimeRange::Absolute(TimeRange {
-            from: from.format(&Rfc3339)?,
-            to: to.format(&Rfc3339)?,
+            from: from.to_string(),
+            to: to.to_string(),
         })),
         labels,
         ..notebook
@@ -327,7 +327,7 @@ async fn handle_get_command(args: GetArgs) -> Result<()> {
         SingleNotebookOutput::Json => output_json(&notebook),
         SingleNotebookOutput::Markdown => {
             let notebook = serde_json::to_string(&notebook)?;
-            let notebook: core::Notebook = serde_json::from_str(&notebook)?;
+            let notebook: notebooks::Notebook = serde_json::from_str(&notebook)?;
             let markdown = notebook_to_markdown(notebook);
             println!("{}", markdown);
             Ok(())

@@ -2,16 +2,16 @@ use crate::config::api_client_configuration;
 use crate::interactive::{self, name_req, workspace_picker};
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use anyhow::{anyhow, Result};
-use base64uuid::Base64Uuid;
 use clap::{Parser, ValueEnum};
 use cli_table::Table;
-use fiberplane::protocols::names::Name;
-use fp_api_client::apis::default_api::{
+use fiberplane::api_client::apis::default_api::{
     data_source_list, proxy_create, proxy_delete, proxy_get, proxy_list,
 };
-use fp_api_client::models::{
+use fiberplane::api_client::models::{
     DataSource, DataSourceConnectionStatus, NewProxy, Proxy, ProxySummary,
 };
+use fiberplane::base64uuid::Base64Uuid;
+use fiberplane::models::names::Name;
 use petname::petname;
 use serde::Serialize;
 use std::{cmp::Ordering, collections::BTreeMap, path::PathBuf};
@@ -234,7 +234,7 @@ async fn handle_list_command(args: ListArgs) -> Result<()> {
         ProxyOutput::Table => {
             // Show connected proxies first, and then sort by the number of data sources
             proxies.sort_by(|a, b| {
-                use fp_api_client::models::ProxyConnectionStatus::*;
+                use fiberplane::api_client::models::ProxyConnectionStatus::*;
                 match (a.proxy.status, b.proxy.status) {
                     (Connected, Disconnected) => Ordering::Less,
                     (Disconnected, Connected) => Ordering::Greater,
