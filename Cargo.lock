@@ -136,7 +136,7 @@ checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 [[package]]
 name = "base64uuid"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=split-operations-protocols#447ccefc90a68666bd876caf6b8195bd200246eb"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#7ee6fc10cfcc40d8728ae73b566c0cfef9437565"
 dependencies = [
  "base64",
  "serde",
@@ -861,7 +861,7 @@ dependencies = [
 [[package]]
 name = "fiberplane"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=split-operations-protocols#447ccefc90a68666bd876caf6b8195bd200246eb"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#7ee6fc10cfcc40d8728ae73b566c0cfef9437565"
 dependencies = [
  "base64uuid",
  "fiberplane-api-client",
@@ -875,7 +875,7 @@ dependencies = [
 [[package]]
 name = "fiberplane-api-client"
 version = "1.0.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=split-operations-protocols#447ccefc90a68666bd876caf6b8195bd200246eb"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#7ee6fc10cfcc40d8728ae73b566c0cfef9437565"
 dependencies = [
  "reqwest",
  "serde",
@@ -887,7 +887,7 @@ dependencies = [
 [[package]]
 name = "fiberplane-markdown"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=split-operations-protocols#447ccefc90a68666bd876caf6b8195bd200246eb"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#7ee6fc10cfcc40d8728ae73b566c0cfef9437565"
 dependencies = [
  "fiberplane-models",
  "fiberplane-string-utils",
@@ -900,20 +900,17 @@ dependencies = [
 [[package]]
 name = "fiberplane-models"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=split-operations-protocols#447ccefc90a68666bd876caf6b8195bd200246eb"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#7ee6fc10cfcc40d8728ae73b566c0cfef9437565"
 dependencies = [
  "base64",
  "base64uuid",
  "bytes",
- "clap",
  "form_urlencoded",
- "once_cell",
  "rmp-serde",
  "rmpv",
  "serde",
  "serde_bytes",
  "serde_json",
- "strum",
  "strum_macros",
  "thiserror",
  "time",
@@ -922,7 +919,7 @@ dependencies = [
 [[package]]
 name = "fiberplane-provider-runtime"
 version = "2.0.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=split-operations-protocols#447ccefc90a68666bd876caf6b8195bd200246eb"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#7ee6fc10cfcc40d8728ae73b566c0cfef9437565"
 dependencies = [
  "bytes",
  "fiberplane-models",
@@ -942,12 +939,12 @@ dependencies = [
 [[package]]
 name = "fiberplane-string-utils"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=split-operations-protocols#447ccefc90a68666bd876caf6b8195bd200246eb"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#7ee6fc10cfcc40d8728ae73b566c0cfef9437565"
 
 [[package]]
 name = "fiberplane-templates"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=split-operations-protocols#447ccefc90a68666bd876caf6b8195bd200246eb"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#7ee6fc10cfcc40d8728ae73b566c0cfef9437565"
 dependencies = [
  "fiberplane-models",
  "fiberplane-string-utils",
@@ -3061,12 +3058,6 @@ name = "strsim"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
-
-[[package]]
-name = "strum"
-version = "0.24.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e96acfc1b70604b8b2f1ffa4c57e59176c7dbb05d556c71ecd2f5498a1dee7f8"
 
 [[package]]
 name = "strum_macros"
