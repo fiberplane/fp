@@ -189,7 +189,7 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
     };
 
     let default_title = if notebook.title.is_empty() {
-        "New Notebook".to_string()
+        "Untitled Notebook".to_string()
     } else {
         notebook.title
     };
