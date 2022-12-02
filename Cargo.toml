@@ -21,6 +21,7 @@ dialoguer = { version = "0.10.1", features = ["fuzzy-select"] }
 fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main", features = [
     "api-client",
     "base64uuid-creation",
+    "clap",
     "markdown",
     "models",
     "provider-runtime",
