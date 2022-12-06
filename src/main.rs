@@ -40,6 +40,7 @@ mod providers;
 mod proxies;
 mod run;
 mod shell;
+mod snippets;
 mod templates;
 mod tokens;
 mod triggers;
@@ -159,16 +160,18 @@ enum SubCommand {
     #[clap(alias = "template")]
     Templates(templates::Arguments),
 
+    /// Launch a recorded shell session that'll show up in the notebook
+    Shell(shell::Arguments),
+
+    /// Snippets allow you to save reusable groups of cells and insert them into notebooks.
+    Snippets(snippets::Arguments),
+
     /// Interact with triggers
     ///
     /// Triggers allow you to expose webhooks that will expand templates.
     /// This could be used for alertmanager, for example.
     #[clap(alias = "trigger")]
     Triggers(triggers::Arguments),
-
-    /// Launch a recorded shell session that'll show up in the notebook
-    #[clap()]
-    Shell(shell::Arguments),
 
     /// Interact with events
     ///
@@ -264,6 +267,8 @@ async fn main() {
         Providers(args) => providers::handle_command(args).await,
         Proxies(args) => proxies::handle_command(args).await,
         Run(args) => run::handle_command(args).await,
+        Shell(args) => shell::handle_command(args).await,
+        Snippets(args) => snippets::handle_command(args).await,
         Templates(args) => templates::handle_command(args).await,
         Triggers(args) => triggers::handle_command(args).await,
         Events(args) => events::handle_command(args).await,
@@ -272,7 +277,6 @@ async fn main() {
         Users(args) => users::handle_command(args).await,
         Workspaces(args) => workspaces::handle_command(args).await,
         Version(args) => version::handle_command(args).await,
-        Shell(args) => shell::handle_command(args).await,
         Completions { shell } => {
             let output = generate_completions(shell);
             stdout().lock().write_all(output.as_bytes()).unwrap();
