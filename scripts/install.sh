@@ -91,3 +91,6 @@ else
     echo "  source $shell_completions"
   fi
 fi
+
+echo ""
+echo "Run 'fp login' to login to Fiberplane and 'fp help' to see available commands."
