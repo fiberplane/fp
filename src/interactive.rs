@@ -609,3 +609,17 @@ pub async fn workspace_user_picker(
         None => Err(anyhow!("No workspace user selected")),
     }
 }
+
+/// Interactively select one of the given items
+pub fn select_item<P, T>(prompt: P, items: &[T], default: Option<usize>) -> Result<usize>
+where
+    P: Into<String>,
+    T: ToString,
+{
+    FuzzySelect::with_theme(&default_theme())
+        .with_prompt(prompt)
+        .items(items)
+        .default(default.unwrap_or(0))
+        .interact()
+        .map_err(|err| err.into())
+}
