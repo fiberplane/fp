@@ -8,23 +8,24 @@ use anyhow::{anyhow, bail, Result};
 use clap::{Parser, ValueEnum};
 use cli_table::Table;
 use dialoguer::FuzzySelect;
-use fiberplane::api_client::apis::default_api::{
+use fiberplane::api_client::{
     workspace_create, workspace_delete, workspace_get, workspace_invite, workspace_invite_delete,
     workspace_invite_get, workspace_leave, workspace_list, workspace_update, workspace_user_remove,
     workspace_user_update, workspace_users_list,
 };
-use fiberplane::api_client::models::{
-    Membership, NewWorkspace, NewWorkspaceInvite, SelectedDataSource, UpdateWorkspace, Workspace,
-    WorkspaceInvite, WorkspaceInviteResponse, WorkspaceUserUpdate,
-};
 use fiberplane::base64uuid::Base64Uuid;
+use fiberplane::models::data_sources::SelectedDataSource;
 use fiberplane::models::names::Name;
 use fiberplane::models::sorting::{
     SortDirection, WorkspaceInviteListingSortFields, WorkspaceListingSortFields,
     WorkspaceMembershipSortFields,
 };
-use fiberplane::models::workspaces::AuthRole;
+use fiberplane::models::workspaces::{
+    AuthRole, Membership, NewWorkspace, NewWorkspaceInvite, UpdateWorkspace, Workspace,
+    WorkspaceInvite, WorkspaceInviteResponse, WorkspaceUserUpdate,
+};
 use std::{collections::HashMap, fmt::Display, path::PathBuf};
+use time::format_description::well_known::Rfc3339;
 use tracing::info;
 use url::Url;
 
@@ -148,16 +149,16 @@ struct CreateArgs {
 }
 
 async fn handle_workspace_create(args: CreateArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
 
     let name = name_opt("Unique workspace name", args.name, None)
         .ok_or_else(|| anyhow!("Name is required"))?;
     let display_name = text_opt("Display Name", args.display_name, Some(name.to_string()));
 
     let workspace = workspace_create(
-        &config,
+        &client,
         NewWorkspace {
-            name: name.to_string(),
+            name,
             display_name,
             default_data_sources: None,
         },
@@ -186,10 +187,10 @@ struct DeleteArgs {
 }
 
 async fn handle_workspace_delete(args: DeleteArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
-    workspace_delete(&config, &workspace_id.to_string()).await?;
+    workspace_delete(&client, workspace_id).await?;
 
     info!("Successfully deleted workspace");
     Ok(())
@@ -225,12 +226,14 @@ struct ListArgs {
 }
 
 async fn handle_workspace_list(args: ListArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
 
     let list = workspace_list(
-        &config,
-        args.sort_by.map(Into::into),
-        args.sort_direction.map(Into::into),
+        &client,
+        args.sort_by.map(Into::<&str>::into).map(str::to_string),
+        args.sort_direction
+            .map(Into::<&str>::into)
+            .map(str::to_string),
     )
     .await?;
 
@@ -257,10 +260,10 @@ struct LeaveArgs {
 }
 
 async fn handle_workspace_leave(args: LeaveArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
-    workspace_leave(&config, &workspace_id.to_string()).await?;
+    workspace_leave(&client, workspace_id).await?;
 
     info!("Successfully left workspace");
     Ok(())
@@ -292,21 +295,17 @@ struct InviteCreateArgs {
 }
 
 async fn handle_invite_create(args: InviteCreateArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
-
+    let client = api_client_configuration(args.config, args.base_url).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let email = text_req("Email", args.email, None)?;
 
-    let role = match args.role {
-        AuthRole::Read => fiberplane::api_client::models::AuthRole::Read,
-        AuthRole::Write => fiberplane::api_client::models::AuthRole::Write,
-        AuthRole::Admin => fiberplane::api_client::models::AuthRole::Admin,
-    };
-
     let invite = workspace_invite(
-        &config,
-        &workspace_id.to_string(),
-        NewWorkspaceInvite::new(email, role),
+        &client,
+        workspace_id,
+        NewWorkspaceInvite {
+            email,
+            role: args.role,
+        },
     )
     .await?;
 
@@ -358,14 +357,16 @@ struct InviteListArgs {
 }
 
 async fn handle_invite_list(args: InviteListArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     let invites = workspace_invite_get(
-        &config,
-        &workspace_id.to_string(),
-        args.sort_by.map(Into::into),
-        args.sort_direction.map(Into::into),
+        &client,
+        workspace_id,
+        args.sort_by.map(Into::<&str>::into).map(str::to_string),
+        args.sort_direction
+            .map(Into::<&str>::into)
+            .map(str::to_string),
         args.page,
         args.limit,
     )
@@ -394,9 +395,9 @@ struct InviteDeleteArgs {
 }
 
 async fn handle_invite_delete(args: InviteDeleteArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
 
-    workspace_invite_delete(&config, &args.invite_id.to_string()).await?;
+    workspace_invite_delete(&client, args.invite_id).await?;
 
     info!("Successfully deleted invitation from workspace");
     Ok(())
@@ -436,14 +437,16 @@ struct UserListArgs {
 }
 
 async fn handle_user_list(args: UserListArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     let users = workspace_users_list(
-        &config,
-        &workspace_id.to_string(),
-        args.sort_by.map(Into::into),
-        args.sort_direction.map(Into::into),
+        &client,
+        workspace_id,
+        args.sort_by.map(Into::<&str>::into).map(str::to_string),
+        args.sort_direction
+            .map(Into::<&str>::into)
+            .map(str::to_string),
     )
     .await?;
 
@@ -478,23 +481,16 @@ struct UserUpdateArgs {
 }
 
 async fn handle_user_update(args: UserUpdateArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
 
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
-    let user = workspace_user_picker(&config, &workspace_id, args.user_id).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
+    let user = workspace_user_picker(&client, &workspace_id, args.user_id).await?;
 
     workspace_user_update(
-        &config,
-        &workspace_id.to_string(),
-        &user.to_string(),
-        WorkspaceUserUpdate {
-            // Once we have our own openapi client implemented this will be literally just `args.role` (without the `.map`)
-            role: args.role.map(|role| match role {
-                AuthRole::Read => fiberplane::api_client::models::AuthRole::Read,
-                AuthRole::Write => fiberplane::api_client::models::AuthRole::Write,
-                AuthRole::Admin => fiberplane::api_client::models::AuthRole::Admin,
-            }),
-        },
+        &client,
+        workspace_id,
+        user,
+        WorkspaceUserUpdate { role: args.role },
     )
     .await?;
 
@@ -520,12 +516,12 @@ struct UserDeleteArgs {
 }
 
 async fn handle_user_delete(args: UserDeleteArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
 
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
-    let user = workspace_user_picker(&config, &workspace_id, args.user_id).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
+    let user = workspace_user_picker(&client, &workspace_id, args.user_id).await?;
 
-    workspace_user_remove(&config, &workspace_id.to_string(), &user.to_string()).await?;
+    workspace_user_remove(&client, workspace_id, user).await?;
 
     info!("Successfully removed user from workspace");
     Ok(())
@@ -641,16 +637,16 @@ pub(crate) struct UnsetDefaultDataSourcesArgs {
 }
 
 async fn handle_move_owner(args: MoveOwnerArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
-    let new_owner = workspace_user_picker(&config, &workspace_id, args.new_owner_id).await?;
+    let new_owner = workspace_user_picker(&client, &workspace_id, args.new_owner_id).await?;
 
     workspace_update(
-        &config,
-        &workspace_id.to_string(),
+        &client,
+        workspace_id,
         UpdateWorkspace {
-            owner: Some(new_owner.to_string()),
+            owner: Some(new_owner),
             display_name: None,
             default_data_sources: None,
         },
@@ -662,12 +658,12 @@ async fn handle_move_owner(args: MoveOwnerArgs) -> Result<()> {
 }
 
 async fn handle_change_name(args: ChangeNameArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     workspace_update(
-        &config,
-        &workspace_id.to_string(),
+        &client,
+        workspace_id,
         UpdateWorkspace {
             display_name: Some(args.new_name),
             owner: None,
@@ -681,10 +677,10 @@ async fn handle_change_name(args: ChangeNameArgs) -> Result<()> {
 }
 
 async fn handle_get_default_data_sources(args: GetDefaultDataSourcesArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
-    let default_data_sources = workspace_get(&config, &workspace_id.to_string())
+    let default_data_sources = workspace_get(&client, workspace_id)
         .await?
         .default_data_sources;
 
@@ -699,13 +695,13 @@ async fn handle_get_default_data_sources(args: GetDefaultDataSourcesArgs) -> Res
 }
 
 async fn handle_set_default_data_source(args: SetDefaultDataSourcesArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     let data_source =
-        data_source_picker(&config, Some(workspace_id), args.data_source_name).await?;
+        data_source_picker(&client, Some(workspace_id), args.data_source_name).await?;
 
-    let mut default_data_sources = workspace_get(&config, &workspace_id.to_string())
+    let mut default_data_sources = workspace_get(&client, workspace_id)
         .await?
         .default_data_sources;
     default_data_sources.insert(
@@ -717,8 +713,8 @@ async fn handle_set_default_data_source(args: SetDefaultDataSourcesArgs) -> Resu
     );
 
     workspace_update(
-        &config,
-        &workspace_id.to_string(),
+        &client,
+        workspace_id,
         UpdateWorkspace {
             default_data_sources: Some(default_data_sources),
             display_name: None,
@@ -741,10 +737,10 @@ async fn handle_set_default_data_source(args: SetDefaultDataSourcesArgs) -> Resu
 }
 
 async fn handle_unset_default_data_source(args: UnsetDefaultDataSourcesArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
-    let mut default_data_sources = workspace_get(&config, &workspace_id.to_string())
+    let mut default_data_sources = workspace_get(&client, workspace_id)
         .await?
         .default_data_sources;
 
@@ -764,8 +760,8 @@ async fn handle_unset_default_data_source(args: UnsetDefaultDataSourcesArgs) -> 
     default_data_sources.remove(&provider_type);
 
     workspace_update(
-        &config,
-        &workspace_id.to_string(),
+        &client,
+        workspace_id,
         UpdateWorkspace {
             default_data_sources: Some(default_data_sources),
             display_name: None,
@@ -829,9 +825,9 @@ enum UserListOutput {
 impl GenericKeyValue {
     fn from_workspace(workspace: Workspace) -> Vec<Self> {
         vec![
-            GenericKeyValue::new("Name:", workspace.name),
-            GenericKeyValue::new("Type:", format!("{:?}", workspace._type)),
-            GenericKeyValue::new("ID:", workspace.id),
+            GenericKeyValue::new("Name:", workspace.name.to_string()),
+            GenericKeyValue::new("Type:", workspace.ty.to_string()),
+            GenericKeyValue::new("ID:", workspace.id.to_string()),
             GenericKeyValue::new(
                 "Default Data Sources:",
                 workspace
@@ -881,13 +877,11 @@ struct PendingInviteRow {
 impl From<WorkspaceInvite> for PendingInviteRow {
     fn from(invite: WorkspaceInvite) -> Self {
         Self {
-            id: invite.id,
-            receiver: invite
-                .receiver
-                .unwrap_or_else(|| "Deleted user".to_string()),
-            sender: invite.sender.unwrap_or_else(|| "Deleted user".to_string()),
-            created_at: invite.created_at.unwrap_or_default(),
-            expires_at: invite.expires_at.unwrap_or_else(|| "Never".to_string()),
+            id: invite.id.to_string(),
+            receiver: invite.receiver,
+            sender: invite.sender.to_string(),
+            created_at: invite.created_at.format(&Rfc3339).unwrap_or_default(),
+            expires_at: invite.expires_at.format(&Rfc3339).unwrap_or_default(),
         }
     }
 }
@@ -916,12 +910,15 @@ struct WorkspaceRow {
 impl From<Workspace> for WorkspaceRow {
     fn from(workspace: Workspace) -> Self {
         Self {
-            id: workspace.id,
-            name: workspace.name,
-            _type: format!("{:?}", workspace._type),
-            default_data_sources: workspace.default_data_sources,
-            created_at: workspace.created_at,
-            updated_at: workspace.updated_at,
+            id: workspace.id.to_string(),
+            name: workspace.name.to_string(),
+            _type: workspace.ty.to_string(),
+            // required:    HashMap<String, SelectedDataSource>
+            // have:        BTreeMap<ProviderType, SelectedDataSource>
+            // thus we call `.into_iter().collect()`
+            default_data_sources: workspace.default_data_sources.into_iter().collect(),
+            created_at: workspace.created_at.0.format(&Rfc3339).unwrap_or_default(),
+            updated_at: workspace.updated_at.0.format(&Rfc3339).unwrap_or_default(),
         }
     }
 }
@@ -942,8 +939,11 @@ impl From<(String, SelectedDataSource)> for SelectedDataSourceRow {
     fn from(selected: (String, SelectedDataSource)) -> Self {
         Self {
             provider_type: selected.0,
-            name: selected.1.name,
-            proxy_name: selected.1.proxy_name.unwrap_or_default(),
+            name: selected.1.name.to_string(),
+            proxy_name: selected
+                .1
+                .proxy_name
+                .map_or_else(String::new, |name| name.to_string()),
         }
     }
 }
@@ -966,9 +966,9 @@ struct MembershipRow {
 impl From<Membership> for MembershipRow {
     fn from(user: Membership) -> Self {
         Self {
-            id: user.id,
+            id: user.id.to_string(),
             name: user.name,
-            email: user.email.unwrap_or_else(|| "unknown".to_string()),
+            email: user.email,
             role: user.role.to_string(),
         }
     }

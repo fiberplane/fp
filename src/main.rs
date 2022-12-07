@@ -4,10 +4,11 @@ use clap::{CommandFactory, Parser, ValueHint};
 use clap_complete::{generate, Shell};
 use config::api_client_configuration;
 use directories::ProjectDirs;
-use fiberplane::api_client::apis::default_api::notebook_create;
-use fiberplane::api_client::models::new_time_range::RelativeTimeRange;
-use fiberplane::api_client::models::{NewNotebook, NewTimeRange};
+use fiberplane::api_client::notebook_create;
 use fiberplane::base64uuid::Base64Uuid;
+use fiberplane::models::data_sources::SelectedDataSources;
+use fiberplane::models::notebooks::NewNotebook;
+use fiberplane::models::timestamps::{NewTimeRange, RelativeTimeRange};
 use interactive::workspace_picker;
 use manifest::Manifest;
 use once_cell::sync::Lazy;
@@ -498,9 +499,9 @@ struct NewArguments {
 }
 
 async fn handle_new_command(args: NewArguments) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let client = api_client_configuration(args.config, args.base_url.clone()).await?;
 
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let title = if args.title.is_empty() {
         "Untitled".to_string()
     } else {
@@ -509,12 +510,12 @@ async fn handle_new_command(args: NewArguments) -> Result<()> {
 
     let new_notebook = NewNotebook {
         title,
-        time_range: Box::new(NewTimeRange::Relative(RelativeTimeRange { minutes: 60 })),
+        time_range: NewTimeRange::Relative(RelativeTimeRange { minutes: 60 }),
         cells: vec![],
-        labels: None,
-        selected_data_sources: None,
+        labels: vec![],
+        selected_data_sources: SelectedDataSources::new(),
     };
-    let notebook = notebook_create(&config, &workspace_id.to_string(), new_notebook).await?;
+    let notebook = notebook_create(&client, workspace_id, new_notebook).await?;
 
     let notebook_id = Base64Uuid::parse_str(&notebook.id)?;
 
@@ -525,7 +526,7 @@ async fn handle_new_command(args: NewArguments) -> Result<()> {
     // Open the user's web browser
     if webbrowser::open(notebook_url.as_str()).is_err() {
         eprintln!("Unable to open the web browser");
-    };
+    }
 
     println!("{}", notebook_url);
 

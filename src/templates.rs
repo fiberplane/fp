@@ -4,26 +4,30 @@ use crate::{config::api_client_configuration, fp_urls::NotebookUrlBuilder};
 use anyhow::{anyhow, bail, Context, Error, Result};
 use clap::{Parser, ValueEnum, ValueHint};
 use cli_table::Table;
-use fiberplane::api_client::apis::configuration::Configuration;
-use fiberplane::api_client::apis::default_api::{
+use fiberplane::api_client::clients::ApiClient;
+use fiberplane::api_client::{
     notebook_create, notebook_get, template_create, template_delete, template_expand, template_get,
     template_list, template_update, trigger_create,
 };
-use fiberplane::api_client::models::{
-    NewNotebook, NewTemplate, NewTrigger, Notebook, Template, TemplateParameter, TemplateSummary,
-    UpdateTemplate,
-};
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::names::Name;
-use fiberplane::models::notebooks::{self, Cell, HeadingCell, HeadingType, TextCell};
+use fiberplane::models::notebooks::{
+    self, Cell, HeadingCell, HeadingType, NewTemplate, NewTrigger, Notebook, TemplateExpandPayload,
+    TemplateSummary, TextCell, UpdateTemplate,
+};
 use fiberplane::models::sorting::{SortDirection, TemplateListSortFields};
 use fiberplane::models::timestamps;
-use fiberplane::templates::{expand_template, notebook_to_template, Error as TemplateError};
+use fiberplane::templates::{
+    expand_template, notebook_to_template, Error as TemplateError, Template, TemplateParameter,
+    TemplateParameterType,
+};
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Map, Value};
+use std::iter::FromIterator;
 use std::{collections::HashMap, ffi::OsStr, path::PathBuf, str::FromStr};
+use time::format_description::well_known::Rfc3339;
 use tokio::fs;
 use tracing::{debug, info, warn};
 use url::Url;
@@ -435,8 +439,8 @@ async fn load_template(template_path: &str) -> Result<String> {
 async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
     let base_url = args.base_url.clone();
 
-    let config = api_client_configuration(args.config.clone(), &base_url).await?;
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let client = api_client_configuration(args.config.clone(), base_url.clone()).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let template_url_base = base_url.join(&format!("workspaces/{}/templates/", workspace_id))?;
 
     // First, check if the template is the ID of an uploaded template
@@ -466,16 +470,20 @@ async fn expand_template_api(
     workspace_id: Base64Uuid,
     template_name: Name,
 ) -> Result<Notebook> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let template_arguments = serde_json::to_value(&args.template_arguments.unwrap_or_default())?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
+
     let notebook = template_expand(
-        &config,
-        &workspace_id.to_string(),
-        &template_name.to_string(),
-        Some(template_arguments),
+        &client,
+        workspace_id,
+        template_name.to_string(),
+        args.template_arguments
+            .map_or_else(TemplateExpandPayload::new, |args| {
+                Map::from_iter(args.0.into_iter())
+            }),
     )
     .await
     .with_context(|| format!("Error expanding template: {}", template_name))?;
+
     Ok(notebook)
 }
 
@@ -483,7 +491,7 @@ async fn expand_template_api(
 async fn expand_template_file(args: ExpandArguments, workspace_id: Base64Uuid) -> Result<Notebook> {
     let template = load_template(&args.template).await?;
 
-    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let client = api_client_configuration(args.config, args.base_url.clone()).await?;
 
     let template_args = if let Some(args) = args.template_arguments {
         args.0
@@ -491,37 +499,27 @@ async fn expand_template_file(args: ExpandArguments, workspace_id: Base64Uuid) -
         HashMap::new()
     };
 
-    let notebook =
-        expand_template(template, template_args).with_context(|| "expanding template")?;
+    let notebook = expand_template(template, template_args).context("expanding template")?;
 
-    // Convert to a string and back because the API client
-    // has a different model struct than the Rust notebooks types
-    let notebook: NewNotebook = serde_json::to_string(&notebook)
-        .and_then(|s| serde_json::from_str(&s))
-        .with_context(|| "Error converting notebook to API client NewNotebook type")?;
-
-    let notebook = notebook_create(&config, &workspace_id.to_string(), notebook)
+    let notebook = notebook_create(&client, workspace_id, notebook)
         .await
-        .with_context(|| "Error creating notebook")?;
+        .context("Error creating notebook")?;
+
     Ok(notebook)
 }
 
 async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
     // Load the notebook
-    let config = api_client_configuration(args.config.clone(), &args.base_url).await?;
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let client = api_client_configuration(args.config.clone(), args.base_url.clone()).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let notebook_id =
-        interactive::notebook_picker(&config, args.notebook_id, Some(workspace_id)).await?;
+        interactive::notebook_picker(&client, args.notebook_id, Some(workspace_id)).await?;
 
-    let notebook = notebook_get(&config, &notebook_id.to_string())
+    let mut notebook = notebook_get(&client, notebook_id)
         .await
-        .with_context(|| "Error fetching notebook")?;
-    let notebook_id = notebook.id.clone();
+        .context("Error fetching notebook")?;
 
-    // Convert the notebook from the type returned by the API to the notebooks type
-    let mut notebook: notebooks::NewNotebook = serde_json::to_string(&notebook)
-        .and_then(|s| serde_json::from_str(&s))
-        .with_context(|| "Error converting from API client model to notebooks model")?;
+    let notebook_id = notebook.id.clone();
     let notebook_title = notebook.title.clone();
 
     // Add image URLs to ImageCells that were uploaded to the Studio.
@@ -555,7 +553,7 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
 
     // Create or update the template
     let (template, trigger_url) = if let Some(template_name) = args.template_name {
-        if template_get(&config, &workspace_id.to_string(), &template_name)
+        if template_get(&client, workspace_id, template_name.to_string())
             .await
             .is_ok()
         {
@@ -563,32 +561,43 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
                 description,
                 body: Some(template),
             };
+
             let template = template_update(
-                &config,
-                &workspace_id.to_string(),
-                &template_name.to_string(),
-                template,
+                &client,
+                workspace_id,
+                template_name.to_string(),
+                template.clone(),
             )
             .await
             .with_context(|| format!("Error updating template {}", template_name))?;
+
             info!("Updated template");
             (template, None)
         } else {
-            let template = NewTemplate {
-                name: name.to_string(),
-                description: description.unwrap_or_default(),
-                body: template,
-            };
-            create_template_and_trigger(&config, workspace_id, args.create_trigger, template)
-                .await?
+            create_template_and_trigger(
+                &client,
+                workspace_id,
+                args.create_trigger,
+                NewTemplate {
+                    name,
+                    description: description.unwrap_or_default(),
+                    body: template,
+                },
+            )
+            .await?
         }
     } else {
-        let template = NewTemplate {
-            name: name.to_string(),
-            description: description.unwrap_or_default(),
-            body: template,
-        };
-        create_template_and_trigger(&config, workspace_id, args.create_trigger, template).await?
+        create_template_and_trigger(
+            &client,
+            workspace_id,
+            args.create_trigger,
+            NewTemplate {
+                name,
+                description: description.unwrap_or_default(),
+                body: template,
+            },
+        )
+        .await?
     };
 
     match args.output {
@@ -605,9 +614,9 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
 }
 
 async fn handle_create_command(args: CreateArguments) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
 
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let name = interactive::name_opt(
         "Name",
         args.template_name,
@@ -619,13 +628,13 @@ async fn handle_create_command(args: CreateArguments) -> Result<()> {
 
     let body = load_template(&args.template).await?;
     let template = NewTemplate {
-        name: name.to_string(),
+        name,
         description,
         body,
     };
 
     let (template, trigger_url) =
-        create_template_and_trigger(&config, workspace_id, args.create_trigger, template).await?;
+        create_template_and_trigger(&client, workspace_id, args.create_trigger, template).await?;
 
     match args.output {
         TemplateOutput::Table => output_details(GenericKeyValue::from_template_and_trigger_url(
@@ -641,16 +650,11 @@ async fn handle_create_command(args: CreateArguments) -> Result<()> {
 }
 
 async fn handle_get_command(args: GetArguments) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-
+    let client = api_client_configuration(args.config, args.base_url).await?;
     let (workspace_id, template_name) =
-        interactive::template_picker(&config, args.template_name, None).await?;
-    let template = template_get(
-        &config,
-        &workspace_id.to_string(),
-        &template_name.to_string(),
-    )
-    .await?;
+        interactive::template_picker(&client, args.template_name, None).await?;
+
+    let template = template_get(&client, workspace_id, template_name.to_string()).await?;
 
     match args.output {
         TemplateOutput::Table => output_details(GenericKeyValue::from_template(template)),
@@ -663,18 +667,13 @@ async fn handle_get_command(args: GetArguments) -> Result<()> {
 }
 
 async fn handle_delete_command(args: DeleteArguments) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-
+    let client = api_client_configuration(args.config, args.base_url).await?;
     let (workspace_id, template_name) =
-        interactive::template_picker(&config, args.template_name, None).await?;
+        interactive::template_picker(&client, args.template_name, None).await?;
 
-    template_delete(
-        &config,
-        &workspace_id.to_string(),
-        &template_name.to_string(),
-    )
-    .await
-    .with_context(|| format!("Error deleting template {}", template_name))?;
+    template_delete(&client, workspace_id, template_name.to_string())
+        .await
+        .with_context(|| format!("Error deleting template {}", template_name))?;
 
     info!(%template_name, "Deleted template");
     Ok(())
@@ -683,15 +682,16 @@ async fn handle_delete_command(args: DeleteArguments) -> Result<()> {
 async fn handle_list_command(args: ListArguments) -> Result<()> {
     debug!("handle list command");
 
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-
-    let workspace_id = interactive::workspace_picker(&config, args.workspace_id).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     let templates = template_list(
-        &config,
-        &workspace_id.to_string(),
-        args.sort_by.map(Into::into),
-        args.sort_direction.map(Into::into),
+        &client,
+        workspace_id,
+        args.sort_by.map(Into::<&str>::into).map(str::to_string),
+        args.sort_direction
+            .map(Into::<&str>::into)
+            .map(str::to_string),
     )
     .await?;
 
@@ -705,10 +705,9 @@ async fn handle_list_command(args: ListArguments) -> Result<()> {
 }
 
 async fn handle_update_command(args: UpdateArguments) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-
+    let client = api_client_configuration(args.config, args.base_url).await?;
     let (workspace_id, template_name) =
-        interactive::template_picker(&config, args.template_name, args.workspace_id).await?;
+        interactive::template_picker(&client, args.template_name, args.workspace_id).await?;
 
     let body = if let Some(template) = args.template {
         Some(template)
@@ -727,14 +726,9 @@ async fn handle_update_command(args: UpdateArguments) -> Result<()> {
         body,
     };
 
-    let template = template_update(
-        &config,
-        &workspace_id.to_string(),
-        &template_name.to_string(),
-        template,
-    )
-    .await
-    .with_context(|| format!("Error updating template {}", template_name))?;
+    let template = template_update(&client, workspace_id, template_name.to_string(), template)
+        .await
+        .with_context(|| format!("Error updating template {}", template_name))?;
     info!("Updated template");
 
     match args.output {
@@ -820,9 +814,9 @@ impl From<TemplateSummary> for TemplateRow {
     fn from(template: TemplateSummary) -> Self {
         Self {
             description: template.description,
-            name: template.name,
-            updated_at: template.updated_at,
-            created_at: template.created_at,
+            name: template.name.to_string(),
+            updated_at: template.updated_at.format(&Rfc3339).unwrap_or_default(),
+            created_at: template.created_at.format(&Rfc3339).unwrap_or_default(),
         }
     }
 }
@@ -831,9 +825,9 @@ impl From<Template> for TemplateRow {
     fn from(template: Template) -> Self {
         Self {
             description: template.description,
-            name: template.name,
-            updated_at: template.updated_at,
-            created_at: template.created_at,
+            name: template.name.to_string(),
+            updated_at: template.updated_at.format(&Rfc3339).unwrap_or_default(),
+            created_at: template.created_at.format(&Rfc3339).unwrap_or_default(),
         }
     }
 }
@@ -870,59 +864,44 @@ fn format_template_parameters(parameters: Vec<TemplateParameter>) -> String {
 
     let mut result: Vec<String> = vec![];
     for parameter in parameters {
-        match parameter {
-            TemplateParameter::StringTemplateParameter {
-                name,
-                default_value,
-            } => {
+        match parameter.ty {
+            TemplateParameterType::String => {
                 result.push(format!(
                     "{}: string (default: \"{}\")",
-                    name,
-                    default_value.unwrap_or_default()
+                    parameter.name,
+                    parameter.default_value.unwrap_or_default()
                 ));
             }
-            TemplateParameter::NumberTemplateParameter {
-                name,
-                default_value,
-            } => {
+            TemplateParameterType::Number => {
                 result.push(format!(
                     "{}: number (default: {})",
-                    name,
-                    default_value.unwrap_or_default()
+                    parameter.name,
+                    parameter.default_value.unwrap_or_default()
                 ));
             }
-            TemplateParameter::BooleanTemplateParameter {
-                name,
-                default_value,
-            } => {
+            TemplateParameterType::Boolean => {
                 result.push(format!(
                     "{}: boolean (default: {})",
-                    name,
-                    default_value.unwrap_or_default()
+                    parameter.name,
+                    parameter.default_value.unwrap_or_default()
                 ));
             }
-            TemplateParameter::ArrayTemplateParameter {
-                name,
-                default_value,
-            } => {
+            TemplateParameterType::Array => {
                 result.push(format!(
                     "{}: array (default: {})",
-                    name,
-                    serde_json::to_string(&default_value).unwrap()
+                    parameter.name,
+                    serde_json::to_string(&parameter.default_value).unwrap()
                 ));
             }
-            TemplateParameter::ObjectTemplateParameter {
-                name,
-                default_value,
-            } => {
+            TemplateParameterType::Object => {
                 result.push(format!(
                     "{}: object (default: {})",
-                    name,
-                    serde_json::to_string(&default_value).unwrap()
+                    parameter.name,
+                    serde_json::to_string(&parameter.default_value).unwrap()
                 ));
             }
-            TemplateParameter::UnknownTemplateParameter { name } => {
-                result.push(format!("{}: (type unknown)", name));
+            TemplateParameterType::Unknown => {
+                result.push(format!("{}: (type unknown)", parameter.name));
             }
         };
     }
@@ -931,7 +910,7 @@ fn format_template_parameters(parameters: Vec<TemplateParameter>) -> String {
 }
 
 async fn create_template_and_trigger(
-    config: &Configuration,
+    client: &ApiClient,
     workspace_id: Base64Uuid,
     create_trigger: Option<bool>,
     template: NewTemplate,
@@ -942,15 +921,15 @@ async fn create_template_and_trigger(
         false,
     );
 
-    let template = template_create(config, &workspace_id.to_string(), template)
+    let template = template_create(client, workspace_id, template)
         .await
         .with_context(|| "Error creating template")?;
     info!("Uploaded template");
 
     let trigger_url = if create_trigger {
         let trigger = trigger_create(
-            config,
-            &workspace_id.to_string(),
+            client,
+            workspace_id,
             NewTrigger {
                 title: format!("{} Trigger", &template.name),
                 template_name: template.name.clone(),
@@ -961,7 +940,7 @@ async fn create_template_and_trigger(
         .context("Error creating trigger")?;
         let trigger_url = format!(
             "{}/api/triggers/{}/{}",
-            config.base_path,
+            client.server,
             trigger.id,
             trigger
                 .secret_key

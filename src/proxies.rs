@@ -4,14 +4,11 @@ use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use anyhow::{anyhow, Result};
 use clap::{Parser, ValueEnum};
 use cli_table::Table;
-use fiberplane::api_client::apis::default_api::{
-    data_source_list, proxy_create, proxy_delete, proxy_get, proxy_list,
-};
-use fiberplane::api_client::models::{
-    DataSource, DataSourceConnectionStatus, NewProxy, Proxy, ProxySummary,
-};
+use fiberplane::api_client::{data_source_list, proxy_create, proxy_delete, proxy_get, proxy_list};
 use fiberplane::base64uuid::Base64Uuid;
+use fiberplane::models::data_sources::{DataSource, DataSourceStatus};
 use fiberplane::models::names::Name;
+use fiberplane::models::proxies::{NewProxy, Proxy, ProxySummary};
 use petname::petname;
 use serde::Serialize;
 use std::{cmp::Ordering, collections::BTreeMap, path::PathBuf};
@@ -161,19 +158,19 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 async fn handle_create_command(args: CreateArgs) -> Result<()> {
     let default_name = Name::new(petname(2, "-")).expect("petname should be valid name");
     let name = name_req("Proxy name", args.name, Some(default_name))?;
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     let proxy = proxy_create(
-        &config,
-        &workspace_id.to_string(),
+        &client,
+        workspace_id,
         NewProxy {
-            name: name.into_string(),
+            name,
             description: args.description,
         },
     )
     .await
-    .map_err(|e| anyhow!(format!("Error adding proxy: {:?}", e)))?;
+    .map_err(|e| anyhow!("Error adding proxy: {:?}", e))?;
 
     match args.output {
         ProxyOutput::Table => {
@@ -197,17 +194,17 @@ struct ProxySummaryWithConnectedDataSources {
 }
 
 async fn handle_list_command(args: ListArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
-    let proxies = proxy_list(&config, &workspace_id.to_string()).await?;
-    let data_sources = data_source_list(&config, &workspace_id.to_string()).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
+    let proxies = proxy_list(&client, workspace_id).await?;
+    let data_sources = data_source_list(&client, workspace_id).await?;
 
     // Put all of the proxies in a map so we can easily look them up by ID and add the data source counts
     let mut proxies: BTreeMap<String, ProxySummaryWithConnectedDataSources> = proxies
         .into_iter()
         .map(|proxy| {
             (
-                proxy.name.clone(),
+                proxy.name.to_string(),
                 ProxySummaryWithConnectedDataSources {
                     proxy,
                     connected_data_sources: 0,
@@ -219,9 +216,9 @@ async fn handle_list_command(args: ListArgs) -> Result<()> {
     // Count the total and connected data sources for each proxy
     for data_source in data_sources {
         if let Some(proxy_name) = data_source.proxy_name {
-            if let Some(proxy) = proxies.get_mut(&proxy_name) {
+            if let Some(proxy) = proxies.get_mut(&proxy_name.to_string()) {
                 proxy.total_data_sources += 1;
-                if data_source.status == Some(DataSourceConnectionStatus::Connected) {
+                if data_source.status == Some(DataSourceStatus::Connected) {
                     proxy.connected_data_sources += 1;
                 }
             }
@@ -234,7 +231,7 @@ async fn handle_list_command(args: ListArgs) -> Result<()> {
         ProxyOutput::Table => {
             // Show connected proxies first, and then sort by the number of data sources
             proxies.sort_by(|a, b| {
-                use fiberplane::api_client::models::ProxyConnectionStatus::*;
+                use fiberplane::models::proxies::ProxyStatus::*;
                 match (a.proxy.status, b.proxy.status) {
                     (Connected, Disconnected) => Ordering::Less,
                     (Disconnected, Connected) => Ordering::Greater,
@@ -254,13 +251,13 @@ async fn handle_list_command(args: ListArgs) -> Result<()> {
 }
 
 async fn handle_get_command(args: GetArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let proxy_name =
-        interactive::proxy_picker(&config, Some(workspace_id), args.proxy_name.map(Into::into))
+        interactive::proxy_picker(&client, Some(workspace_id), args.proxy_name.map(Into::into))
             .await?;
 
-    let proxy = proxy_get(&config, &workspace_id.to_string(), &proxy_name.to_string()).await?;
+    let proxy = proxy_get(&client, workspace_id, proxy_name.to_string()).await?;
 
     match args.output {
         ProxyOutput::Table => {
@@ -272,9 +269,9 @@ async fn handle_get_command(args: GetArgs) -> Result<()> {
 }
 
 async fn handle_data_sources_command(args: DataSourcesArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
-    let data_sources = data_source_list(&config, &workspace_id.to_string()).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
+    let data_sources = data_source_list(&client, workspace_id).await?;
 
     match args.output {
         ProxyOutput::Table => {
@@ -288,13 +285,13 @@ async fn handle_data_sources_command(args: DataSourcesArgs) -> Result<()> {
 }
 
 async fn handle_delete_command(args: DeleteArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let name =
-        interactive::proxy_picker(&config, Some(workspace_id), args.proxy_name.map(Into::into))
+        interactive::proxy_picker(&client, Some(workspace_id), args.proxy_name.map(Into::into))
             .await?;
 
-    proxy_delete(&config, &workspace_id.to_string(), &name).await?;
+    proxy_delete(&client, workspace_id, name).await?;
 
     info!("Deleted proxy");
     Ok(())
@@ -318,8 +315,8 @@ pub struct ProxySummaryRow {
 impl From<ProxySummaryWithConnectedDataSources> for ProxySummaryRow {
     fn from(proxy: ProxySummaryWithConnectedDataSources) -> Self {
         Self {
-            name: proxy.proxy.name,
-            id: proxy.proxy.id,
+            name: proxy.proxy.name.to_string(),
+            id: proxy.proxy.id.to_string(),
             status: proxy.proxy.status.to_string(),
             data_sources_connected: format!(
                 "{} / {}",
@@ -347,15 +344,18 @@ pub struct DataSourceAndProxySummaryRow {
 impl From<DataSource> for DataSourceAndProxySummaryRow {
     fn from(data_source: DataSource) -> Self {
         let status = match data_source.status {
-            Some(DataSourceConnectionStatus::Connected) => "Connected".to_string(),
-            Some(DataSourceConnectionStatus::Error { .. }) => "Error".to_string(),
+            Some(DataSourceStatus::Connected) => "Connected".to_string(),
+            Some(DataSourceStatus::Error { .. }) => "Error".to_string(),
             None => String::new(),
         };
+
         Self {
-            name: data_source.name,
+            name: data_source.name.to_string(),
             provider_type: data_source.provider_type,
             status,
-            proxy_name: data_source.proxy_name.unwrap_or_default(),
+            proxy_name: data_source
+                .proxy_name
+                .map_or_else(String::new, |name| name.to_string()),
         }
     }
 }
@@ -373,8 +373,12 @@ impl GenericKeyValue {
                         "{} ({}): {}{}",
                         datasource.name,
                         datasource.provider_type,
-                        datasource.status.map(|s| s.to_string()).unwrap_or_default(),
-                        if let Some(error) = &datasource.error {
+                        datasource
+                            .status
+                            .as_ref()
+                            .map(|s| s.to_string())
+                            .unwrap_or_default(),
+                        if let Some(DataSourceStatus::Error(error)) = &datasource.status {
                             format!(" - {}", serde_json::to_string(error).unwrap())
                         } else {
                             String::new()

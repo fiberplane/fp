@@ -4,8 +4,8 @@ use crate::shell::shell_type::ShellType;
 use crate::{config::api_client_configuration, fp_urls::NotebookUrlBuilder, interactive};
 use anyhow::Result;
 use clap::{Parser, ValueEnum, ValueHint};
-use fiberplane::api_client::models::Cell;
 use fiberplane::base64uuid::Base64Uuid;
+use fiberplane::models::notebooks::Cell;
 use futures::StreamExt;
 use std::io::ErrorKind;
 use std::{env, path::PathBuf, process::Stdio};
@@ -56,12 +56,12 @@ enum ExecOutput {
 }
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
-    let config = api_client_configuration(args.config.clone(), &args.base_url).await?;
+    let client = api_client_configuration(args.config.clone(), args.base_url.clone()).await?;
     let command = args.command.join(" ");
 
-    let workspace_id = interactive::workspace_picker(&config, args.workspace_id).await?;
+    let workspace_id = interactive::workspace_picker(&client, args.workspace_id).await?;
     let notebook_id =
-        interactive::notebook_picker(&config, args.notebook_id, Some(workspace_id)).await?;
+        interactive::notebook_picker(&client, args.notebook_id, Some(workspace_id)).await?;
 
     let (shell_type, shell_path) = ShellType::auto_detect();
     debug!("Using {:?} to run command: \"{}\"", shell_type, &command);
@@ -87,7 +87,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
     let mut stdout = io::stdout();
     let mut stderr = io::stderr();
 
-    let mut cell_writer = CellWriter::new(config, notebook_id, args.command);
+    let mut cell_writer = CellWriter::new(client, notebook_id, args.command);
 
     loop {
         tokio::select! {

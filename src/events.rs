@@ -5,12 +5,13 @@ use crate::KeyValueArgument;
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
 use cli_table::Table;
-use fiberplane::api_client::apis::default_api::{event_create, event_delete, event_list};
-use fiberplane::api_client::models::{Event, NewEvent};
+use fiberplane::api_client::{event_create, event_delete, event_list};
 use fiberplane::base64uuid::Base64Uuid;
+use fiberplane::models::events::{Event, NewEvent};
 use fiberplane::models::sorting::{EventSortFields, SortDirection};
 use fiberplane::models::timestamps::Timestamp;
 use std::{collections::HashMap, fmt::Display, path::PathBuf};
+use time::format_description::well_known::Rfc3339;
 use tracing::info;
 use url::Url;
 
@@ -127,12 +128,12 @@ pub struct SearchArguments {
 }
 
 async fn handle_event_create_command(args: CreateArguments) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
 
-    let key_values: HashMap<String, String> = args
+    let key_values: HashMap<_, _> = args
         .labels
         .into_iter()
-        .map(|kv| (kv.key, kv.value))
+        .map(|kv| (kv.key, Some(kv.value)))
         .collect();
     let labels = if !key_values.is_empty() {
         Some(key_values)
@@ -141,16 +142,15 @@ async fn handle_event_create_command(args: CreateArguments) -> Result<()> {
     };
 
     let title = interactive::text_req("Title", args.title, None)?;
-    let time = args.time.map(|input| input.to_string());
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     let event = event_create(
-        &config,
-        &workspace_id.to_string(),
+        &client,
+        workspace_id,
         NewEvent {
             title,
             labels,
-            time,
+            time: args.time.map(|timestamp| timestamp.0),
         },
     )
     .await?;
@@ -164,19 +164,21 @@ async fn handle_event_create_command(args: CreateArguments) -> Result<()> {
 }
 
 async fn handle_event_search_command(args: SearchArguments) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
 
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     let events = event_list(
-        &config,
-        &workspace_id.to_string(),
-        args.start.to_string(),
-        args.end.to_string(),
+        &client,
+        workspace_id,
+        args.start.0,
+        args.end.0,
         args.labels
             .map(|args| args.into_iter().map(|kv| (kv.key, kv.value)).collect()),
-        args.sort_by.map(Into::into),
-        args.sort_direction.map(Into::into),
+        args.sort_by.map(Into::<&str>::into).map(str::to_string),
+        args.sort_direction
+            .map(Into::<&str>::into)
+            .map(str::to_string),
         args.page,
         args.limit,
     )
@@ -204,9 +206,9 @@ pub struct DeleteArguments {
 }
 
 async fn handle_event_delete_command(args: DeleteArguments) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
 
-    event_delete(&config, &args.id.to_string()).await?;
+    event_delete(&client, args.id).await?;
 
     info!("Successfully deleted event");
     Ok(())
@@ -221,7 +223,7 @@ struct EventRow {
     title: String,
 
     #[table(title = "Labels", display_fn = "print_labels")]
-    labels: HashMap<String, String>,
+    labels: HashMap<String, Option<String>>,
 
     #[table(title = "Time")]
     time: String,
@@ -230,22 +232,22 @@ struct EventRow {
 impl From<Event> for EventRow {
     fn from(event: Event) -> Self {
         EventRow {
-            id: event.id,
+            id: Base64Uuid(event.id).to_string(),
             title: event.title,
             labels: event.labels,
-            time: event.occurrence_time,
+            time: event.occurrence_time.format(&Rfc3339).unwrap_or_default(),
         }
     }
 }
 
-fn print_labels(input: &HashMap<String, String>) -> impl Display {
+fn print_labels(input: &HashMap<String, Option<String>>) -> impl Display {
     let mut output = String::new();
     let mut iterator = input.iter().peekable();
 
     while let Some((key, value)) = iterator.next() {
         output.push_str(key);
 
-        if !value.is_empty() {
+        if let Some(value) = value {
             output.push('=');
             output.push_str(value);
         }
@@ -263,8 +265,11 @@ impl GenericKeyValue {
         vec![
             GenericKeyValue::new("Title:", event.title),
             GenericKeyValue::new("Labels:", format!("{}", print_labels(&event.labels))),
-            GenericKeyValue::new("Occurrence Time:", event.occurrence_time),
-            GenericKeyValue::new("ID:", event.id),
+            GenericKeyValue::new(
+                "Occurrence Time:",
+                event.occurrence_time.format(&Rfc3339).unwrap_or_default(),
+            ),
+            GenericKeyValue::new("ID:", Base64Uuid(event.id).to_string()),
         ]
     }
 }

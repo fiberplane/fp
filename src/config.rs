@@ -1,6 +1,8 @@
 use anyhow::{anyhow, Error, Result};
 use directories::ProjectDirs;
-use fiberplane::api_client::apis::configuration::Configuration;
+use fiberplane::api_client::clients::{default_config, ApiClient};
+use hyper::http::HeaderValue;
+use hyper::HeaderMap;
 use serde::{Deserialize, Serialize};
 use std::io::ErrorKind;
 use std::path::PathBuf;
@@ -78,26 +80,30 @@ fn default_config_file_path() -> PathBuf {
 
 pub(crate) async fn api_client_configuration(
     config_path: Option<PathBuf>,
-    base_url: &Url,
-) -> Result<Configuration> {
+    base_url: Url,
+) -> Result<ApiClient> {
     let token = Config::load(config_path).await?.api_token.ok_or_else(|| {
         anyhow!("Must be logged in to run this command. Please run `fp login` first.")
     })?;
 
-    api_client_configuration_from_token(token, base_url)
+    api_client_configuration_from_token(&token, base_url)
 }
 
-pub(crate) fn api_client_configuration_from_token(
-    token: String,
-    base_url: &Url,
-) -> Result<Configuration> {
-    let base_path = base_url.to_string().trim_end_matches('/').to_owned();
-    let config = Configuration {
-        base_path,
-        bearer_access_token: Some(token),
-        user_agent: Some(format!("fp {}", MANIFEST.build_version)),
-        ..Configuration::default()
-    };
+pub(crate) fn api_client_configuration_from_token(token: &str, base_url: Url) -> Result<ApiClient> {
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        "Authorization",
+        HeaderValue::from_str(&format!("Bearer {}", token))?,
+    );
 
-    Ok(config)
+    let client = default_config(
+        None,
+        Some(&format!("fp {}", MANIFEST.build_version)),
+        Some(headers),
+    )?;
+
+    Ok(ApiClient {
+        client,
+        server: base_url,
+    })
 }

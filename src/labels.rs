@@ -3,7 +3,7 @@ use crate::interactive::{self, workspace_picker};
 use crate::output::{output_json, output_string_list};
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
-use fiberplane::api_client::apis::default_api::{label_keys_list, label_values_list};
+use fiberplane::api_client::{label_keys_list, label_values_list};
 use fiberplane::base64uuid::Base64Uuid;
 use std::path::PathBuf;
 use url::Url;
@@ -62,12 +62,12 @@ enum ListKeysOutput {
 }
 
 async fn handle_list_keys_command(args: ListKeysArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
 
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let prefix = interactive::text_opt("Prefix", args.prefix, None);
 
-    let keys = label_keys_list(&config, &workspace_id.to_string(), prefix.as_deref()).await?;
+    let keys = label_keys_list(&client, workspace_id, prefix).await?;
 
     match args.output {
         ListKeysOutput::List => output_string_list(keys),
@@ -107,19 +107,13 @@ enum ListValuesOutput {
 }
 
 async fn handle_list_values_command(args: ListValuesArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
 
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let label_key = interactive::text_req("Label key", args.label_key, None)?;
     let prefix = interactive::text_opt("Prefix", args.prefix, None);
 
-    let values = label_values_list(
-        &config,
-        &workspace_id.to_string(),
-        &label_key,
-        prefix.as_deref(),
-    )
-    .await?;
+    let values = label_values_list(&client, workspace_id, label_key, prefix).await?;
 
     match args.output {
         ListValuesOutput::List => output_string_list(values),
