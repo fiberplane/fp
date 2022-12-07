@@ -189,7 +189,7 @@ struct TokenRow {
 impl From<TokenSummary> for TokenRow {
     fn from(token: TokenSummary) -> Self {
         TokenRow {
-            id: Base64Uuid(token.id).to_string(),
+            id: token.id.to_string(),
             title: token.title,
             created_at: token.created_at.format(&Rfc3339).unwrap_or_default(),
             expires_at: token.expires_at.map_or_else(String::new, |time| {
@@ -202,7 +202,7 @@ impl From<TokenSummary> for TokenRow {
 impl GenericKeyValue {
     fn from_token(token: Token) -> Vec<Self> {
         vec![
-            GenericKeyValue::new("ID:", Base64Uuid(token.id).to_string()),
+            GenericKeyValue::new("ID:", token.id.to_string()),
             GenericKeyValue::new("Title:", token.title),
             GenericKeyValue::new("Token:", token.token),
             GenericKeyValue::new(

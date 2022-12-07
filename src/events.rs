@@ -232,7 +232,7 @@ struct EventRow {
 impl From<Event> for EventRow {
     fn from(event: Event) -> Self {
         EventRow {
-            id: Base64Uuid(event.id).to_string(),
+            id: event.id.to_string(),
             title: event.title,
             labels: event.labels,
             time: event.occurrence_time.format(&Rfc3339).unwrap_or_default(),
@@ -269,7 +269,7 @@ impl GenericKeyValue {
                 "Occurrence Time:",
                 event.occurrence_time.format(&Rfc3339).unwrap_or_default(),
             ),
-            GenericKeyValue::new("ID:", Base64Uuid(event.id).to_string()),
+            GenericKeyValue::new("ID:", event.id.to_string()),
         ]
     }
 }
