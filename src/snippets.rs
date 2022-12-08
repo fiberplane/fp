@@ -1,19 +1,26 @@
 use crate::api_client_configuration;
 use crate::interactive::{
-    name_req, notebook_picker, select_item, sluggify_str, text_opt, workspace_picker,
+    name_opt, name_req, notebook_picker, select_item, sluggify_str, snippet_picker, text_opt,
+    workspace_picker,
 };
-use crate::output::{output_details, output_json, GenericKeyValue};
-use anyhow::{anyhow, Result};
+use crate::output::{output_details, output_json, output_list, GenericKeyValue};
+use crate::templates::crop_description;
+use anyhow::{anyhow, bail, Context, Result};
 use clap::{Parser, ValueEnum, ValueHint};
+use cli_table::Table;
 use fiberplane::api_client::apis::default_api::{
-    notebook_convert_to_snippet, notebook_get, snippet_create,
+    notebook_convert_to_snippet, notebook_get, snippet_create, snippet_delete, snippet_get,
+    snippet_list, snippet_update,
 };
-use fiberplane::api_client::models::{NewSnippet, Snippet};
+use fiberplane::api_client::models::{NewSnippet, Snippet, SnippetSummary, UpdateSnippet};
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::names::Name;
 use fiberplane::models::notebooks::Cell;
 use fiberplane::models::sorting::{SnippetListSortFields, SortDirection};
-use std::path::PathBuf;
+use fiberplane::templates::expand_snippet;
+use std::{ffi::OsStr, path::PathBuf, str::FromStr};
+use tokio::fs;
+use tracing::{info, warn};
 use url::Url;
 
 #[derive(Parser)]
@@ -357,27 +364,192 @@ async fn handle_convert(args: ConvertArguments) -> Result<()> {
 }
 
 async fn handle_create(args: CreateArguments) -> Result<()> {
-    todo!()
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+
+    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let name = name_opt(
+        "Name",
+        args.snippet_name,
+        Some(Name::from_static("snippet")),
+    )
+    .unwrap();
+    let description = text_opt("Description", args.description.clone(), Some("".to_owned()));
+
+    let body = load_snippet(&args.snippet).await?;
+    let snippet = NewSnippet {
+        name: name.to_string(),
+        description,
+        body,
+    };
+
+    let snippet = snippet_create(&config, &workspace_id.to_string(), snippet).await?;
+
+    match args.output {
+        SnippetOutput::Table => output_details(GenericKeyValue::from_snippet(snippet)),
+        SnippetOutput::Body => {
+            println!("{}", snippet.body);
+            Ok(())
+        }
+        SnippetOutput::Json => output_json(&snippet),
+    }
 }
 
 async fn handle_delete(args: DeleteArguments) -> Result<()> {
-    todo!()
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+
+    let (workspace_id, snippet_name) = snippet_picker(&config, args.snippet_name, None).await?;
+
+    snippet_delete(
+        &config,
+        &workspace_id.to_string(),
+        &snippet_name.to_string(),
+    )
+    .await
+    .with_context(|| format!("Error deleting snippet {}", snippet_name))?;
+
+    info!(%snippet_name, "Deleted snippet");
+    Ok(())
 }
 
 async fn handle_list(args: ListArguments) -> Result<()> {
-    todo!()
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+
+    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+
+    let snippets = snippet_list(
+        &config,
+        &workspace_id.to_string(),
+        args.sort_by.map(Into::into),
+        args.sort_direction.map(Into::into),
+    )
+    .await?;
+
+    match args.output {
+        SnippetListOutput::Table => {
+            let snippets: Vec<SnippetRow> = snippets.into_iter().map(Into::into).collect();
+            output_list(snippets)
+        }
+        SnippetListOutput::Json => output_json(&snippets),
+    }
 }
 
 async fn handle_get(args: GetArguments) -> Result<()> {
-    todo!()
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+
+    let (workspace_id, snippet_name) = snippet_picker(&config, args.snippet_name, None).await?;
+    let snippet = snippet_get(
+        &config,
+        &workspace_id.to_string(),
+        &snippet_name.to_string(),
+    )
+    .await?;
+
+    match args.output {
+        SnippetOutput::Table => output_details(GenericKeyValue::from_snippet(snippet)),
+        SnippetOutput::Body => {
+            println!("{}", snippet.body);
+            Ok(())
+        }
+        SnippetOutput::Json => output_json(&snippet),
+    }
 }
 
 async fn handle_update(args: UpdateArguments) -> Result<()> {
-    todo!()
+    let config = api_client_configuration(args.config, &args.base_url).await?;
+
+    let (workspace_id, snippet_name) =
+        snippet_picker(&config, args.snippet_name, args.workspace_id).await?;
+
+    let body = if let Some(snippet) = args.snippet {
+        Some(snippet)
+    } else if let Some(snippet_path) = args.snippet_path {
+        Some(
+            fs::read_to_string(&snippet_path)
+                .await
+                .with_context(|| format!("Unable to read snippet from: {:?}", snippet_path))?,
+        )
+    } else {
+        None
+    };
+
+    let snippet = UpdateSnippet {
+        description: args.description,
+        body,
+    };
+
+    let snippet = snippet_update(
+        &config,
+        &workspace_id.to_string(),
+        &snippet_name.to_string(),
+        snippet,
+    )
+    .await
+    .with_context(|| format!("Error updating snippet {}", snippet_name))?;
+    info!("Updated snippet");
+
+    match args.output {
+        SnippetOutput::Table => output_details(GenericKeyValue::from_snippet(snippet)),
+        SnippetOutput::Body => {
+            println!("{}", snippet.body);
+            Ok(())
+        }
+        SnippetOutput::Json => output_json(&snippet),
+    }
 }
 
 async fn handle_validate(args: ValidateArguments) -> Result<()> {
-    todo!()
+    let snippet = if let Ok(path) = PathBuf::from_str(&args.snippet) {
+        fs::read_to_string(path).await?
+    } else {
+        args.snippet
+    };
+
+    match expand_snippet(&snippet) {
+        Ok(_) => {
+            info!("Snippet is valid");
+            Ok(())
+        }
+        Err(err) => {
+            bail!("Error evaluating snippet: {}", err)
+        }
+    }
+}
+
+#[derive(Table)]
+pub struct SnippetRow {
+    #[table(title = "Name")]
+    pub name: String,
+
+    #[table(title = "Description", display_fn = "crop_description")]
+    pub description: String,
+
+    #[table(title = "Updated at")]
+    pub updated_at: String,
+
+    #[table(title = "Created at")]
+    pub created_at: String,
+}
+
+impl From<SnippetSummary> for SnippetRow {
+    fn from(snippet: SnippetSummary) -> Self {
+        Self {
+            description: snippet.description,
+            name: snippet.name,
+            updated_at: snippet.updated_at,
+            created_at: snippet.created_at,
+        }
+    }
+}
+
+impl From<Snippet> for SnippetRow {
+    fn from(snippet: Snippet) -> Self {
+        Self {
+            description: snippet.description,
+            name: snippet.name,
+            updated_at: snippet.updated_at,
+            created_at: snippet.created_at,
+        }
+    }
 }
 
 impl GenericKeyValue {
@@ -387,5 +559,34 @@ impl GenericKeyValue {
             GenericKeyValue::new("Description:", snippet.description),
             GenericKeyValue::new("Body:", "omitted (use --output=body)"),
         ]
+    }
+}
+
+/// Load the snippet file, either from a server if the
+/// snippet_path is an HTTPS URL, or from a local file
+async fn load_snippet(snippet_path: &str) -> Result<String> {
+    if snippet_path.starts_with("https://") || snippet_path.starts_with("http://") {
+        if snippet_path.starts_with("http://") {
+            warn!(
+                "Snippets can be manually expanded from HTTP URLs but triggers must use HTTPS URLs"
+            );
+        }
+        reqwest::get(snippet_path)
+            .await
+            .with_context(|| format!("loading snippet from URL: {}", snippet_path))?
+            .error_for_status()
+            .with_context(|| format!("loading snippet from URL: {}", snippet_path))?
+            .text()
+            .await
+            .with_context(|| format!("reading remote file as text: {}", snippet_path))
+    } else {
+        let path = PathBuf::from(snippet_path);
+        if path.extension() == Some(OsStr::new("jsonnet")) {
+            fs::read_to_string(path)
+                .await
+                .with_context(|| "reading jsonnet file")
+        } else {
+            Err(anyhow!("Snippet must be a .jsonnet file"))
+        }
     }
 }

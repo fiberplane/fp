@@ -2,8 +2,8 @@ use anyhow::{anyhow, Context, Result};
 use dialoguer::{theme, FuzzySelect, Input, Select};
 use fiberplane::api_client::apis::configuration::Configuration;
 use fiberplane::api_client::apis::default_api::{
-    data_source_get, data_source_list, notebook_search, proxy_list, template_list, trigger_list,
-    workspace_list, workspace_users_list,
+    data_source_get, data_source_list, notebook_search, proxy_list, snippet_list, template_list,
+    trigger_list, workspace_list, workspace_users_list,
 };
 use fiberplane::api_client::models::{DataSource, NotebookSearch};
 use fiberplane::base64uuid::Base64Uuid;
@@ -328,6 +328,72 @@ pub async fn template_picker(
                 .context("invalid name was returned")?,
         )),
         None => Err(anyhow!("No template selected")),
+    }
+}
+
+/// Get a (workspace id, snippet name) pair from either a CLI argument, or from a interactive picker.
+///
+/// If the user has not specified the snippet ID through a CLI argument then it
+/// will retrieve recent snippets using the snippet list endpoint, and allow
+/// the user to select one.
+///
+/// NOTE: This currently does not do any limiting of the result. It will allow
+/// client side filtering.
+/// NOTE: If the user does not specifies a value through a cli argument, the
+/// interactive input will always be shown. This is a limitation that we
+/// currently not check if the invocation is interactive or not.
+pub async fn snippet_picker(
+    config: &Configuration,
+    snippet_name: Option<Name>,
+    workspace_id: Option<Base64Uuid>,
+) -> Result<(Base64Uuid, Name)> {
+    // If the user provided an argument _and_ the workspace, use that. Otherwise show the picker.
+    if let (Some(workspace), Some(name)) = (workspace_id, snippet_name) {
+        return Ok((workspace, name));
+    };
+
+    // No argument was provided, so we need to know the workspace ID in order to query
+    // the snippet name.
+    let workspace_id = workspace_picker(config, workspace_id).await?;
+
+    let pb = ProgressBar::new_spinner();
+    pb.set_message("Fetching snippets");
+    pb.enable_steady_tick(100);
+
+    let results = snippet_list(
+        config,
+        &workspace_id.to_string(),
+        Some("updated_at"),
+        Some("descending"),
+    )
+    .await?;
+
+    pb.finish_and_clear();
+
+    if results.is_empty() {
+        return Err(anyhow!("No snippets found"));
+    }
+
+    let display_items: Vec<_> = results
+        .iter()
+        .map(|snippet| snippet.name.to_string())
+        .collect();
+
+    let selection = FuzzySelect::with_theme(&default_theme())
+        .with_prompt("Template")
+        .items(&display_items)
+        .default(0)
+        .interact_opt()?;
+
+    match selection {
+        Some(selection) => Ok((
+            workspace_id,
+            results[selection]
+                .name
+                .parse()
+                .context("invalid name was returned")?,
+        )),
+        None => Err(anyhow!("No snippet selected")),
     }
 }
 
