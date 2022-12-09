@@ -245,7 +245,7 @@ async fn handle_crawl_command(args: CrawlArgs) -> Result<()> {
             file_path.display()
         );
         crawled_notebooks.insert(
-            notebook_id.clone(),
+            notebook_id,
             CrawledNotebook {
                 title: notebook.title.clone(),
                 file_name,

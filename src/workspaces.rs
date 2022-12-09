@@ -14,7 +14,7 @@ use fiberplane::api_client::{
     workspace_user_update, workspace_users_list,
 };
 use fiberplane::base64uuid::Base64Uuid;
-use fiberplane::models::data_sources::SelectedDataSource;
+use fiberplane::models::data_sources::{ProviderType, SelectedDataSource};
 use fiberplane::models::names::Name;
 use fiberplane::models::sorting::{
     SortDirection, WorkspaceInviteListingSortFields, WorkspaceListingSortFields,
@@ -24,7 +24,8 @@ use fiberplane::models::workspaces::{
     AuthRole, Membership, NewWorkspace, NewWorkspaceInvite, UpdateWorkspace, Workspace,
     WorkspaceInvite, WorkspaceInviteResponse, WorkspaceUserUpdate,
 };
-use std::{collections::HashMap, fmt::Display, path::PathBuf};
+use std::collections::BTreeMap;
+use std::{fmt::Display, path::PathBuf};
 use time::format_description::well_known::Rfc3339;
 use tracing::info;
 use url::Url;
@@ -898,7 +899,7 @@ struct WorkspaceRow {
     pub _type: String,
 
     #[table(title = "Default Data Sources", display_fn = "print_data_sources")]
-    pub default_data_sources: HashMap<String, SelectedDataSource>,
+    pub default_data_sources: BTreeMap<ProviderType, SelectedDataSource>,
 
     #[table(title = "Created at")]
     pub created_at: String,
@@ -913,10 +914,7 @@ impl From<Workspace> for WorkspaceRow {
             id: workspace.id.to_string(),
             name: workspace.name.to_string(),
             _type: workspace.ty.to_string(),
-            // required:    HashMap<String, SelectedDataSource>
-            // have:        BTreeMap<ProviderType, SelectedDataSource>
-            // thus we call `.into_iter().collect()`
-            default_data_sources: workspace.default_data_sources.into_iter().collect(),
+            default_data_sources: workspace.default_data_sources,
             created_at: workspace.created_at.0.format(&Rfc3339).unwrap_or_default(),
             updated_at: workspace.updated_at.0.format(&Rfc3339).unwrap_or_default(),
         }
@@ -974,7 +972,7 @@ impl From<Membership> for MembershipRow {
     }
 }
 
-fn print_data_sources(input: &HashMap<String, SelectedDataSource>) -> impl Display {
+fn print_data_sources(input: &BTreeMap<ProviderType, SelectedDataSource>) -> impl Display {
     let mut output = String::new();
     let mut iterator = input.iter().peekable();
 

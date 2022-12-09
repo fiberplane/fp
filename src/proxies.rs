@@ -216,7 +216,7 @@ async fn handle_list_command(args: ListArgs) -> Result<()> {
     // Count the total and connected data sources for each proxy
     for data_source in data_sources {
         if let Some(proxy_name) = data_source.proxy_name {
-            if let Some(proxy) = proxies.get_mut(&proxy_name.to_string()) {
+            if let Some(proxy) = proxies.get_mut(proxy_name.as_str()) {
                 proxy.total_data_sources += 1;
                 if data_source.status == Some(DataSourceStatus::Connected) {
                     proxy.connected_data_sources += 1;
