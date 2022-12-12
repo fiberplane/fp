@@ -8,14 +8,14 @@ use crate::templates::crop_description;
 use anyhow::{anyhow, bail, Context, Result};
 use clap::{Parser, ValueEnum, ValueHint};
 use cli_table::Table;
-use fiberplane::api_client::apis::default_api::{
+use fiberplane::api_client::{
     notebook_convert_to_snippet, notebook_get, snippet_create, snippet_delete, snippet_get,
     snippet_list, snippet_update,
 };
-use fiberplane::api_client::models::{NewSnippet, Snippet, SnippetSummary, UpdateSnippet};
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::names::Name;
 use fiberplane::models::notebooks::Cell;
+use fiberplane::models::snippets::{NewSnippet, Snippet, SnippetSummary, UpdateSnippet};
 use fiberplane::models::sorting::{SnippetListSortFields, SortDirection};
 use fiberplane::templates::expand_snippet;
 use std::{ffi::OsStr, path::PathBuf, str::FromStr};
@@ -279,10 +279,10 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 }
 
 async fn handle_convert(args: ConvertArguments) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
-    let notebook_id = notebook_picker(&config, args.notebook_id, Some(workspace_id)).await?;
-    let notebook = notebook_get(&config, &notebook_id.to_string()).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
+    let notebook_id = notebook_picker(&client, args.notebook_id, Some(workspace_id)).await?;
+    let notebook = notebook_get(&client, notebook_id).await?;
 
     let cells: Vec<Cell> = serde_json::from_str(&serde_json::to_string(&notebook.cells)?)?;
     let display_cells: Vec<String> = cells
@@ -330,28 +330,24 @@ async fn handle_convert(args: ConvertArguments) -> Result<()> {
     } else {
         select_item("End snippet at cell", &display_cells, Some(cells.len() - 1))?
     };
-    let start_cell_id = cells[start_cell_index].id();
-    let end_cell_id = cells[end_cell_index].id();
+    let start_cell_id = cells[start_cell_index].id().to_string();
+    let end_cell_id = cells[end_cell_index].id().to_string();
 
-    let body = notebook_convert_to_snippet(
-        &config,
-        &notebook_id.to_string(),
-        Some(start_cell_id),
-        Some(end_cell_id),
-    )
-    .await?;
+    let body =
+        notebook_convert_to_snippet(&client, notebook_id, Some(start_cell_id), Some(end_cell_id))
+            .await?;
 
     // Now create the snippet record
     let default_name = sluggify_str(&notebook.title);
     let name = name_req("Snippet name", args.snippet_name, default_name)?;
-    let description = text_opt("Description", args.description, None);
+    let description = text_opt("Description", args.description, None).unwrap_or_default();
 
     let snippet = NewSnippet {
-        name: name.to_string(),
+        name: name,
         description,
         body,
     };
-    let snippet = snippet_create(&config, &workspace_id.to_string(), snippet).await?;
+    let snippet = snippet_create(&client, workspace_id, snippet).await?;
 
     match args.output {
         SnippetOutput::Table => output_details(GenericKeyValue::from_snippet(snippet)),
@@ -364,25 +360,26 @@ async fn handle_convert(args: ConvertArguments) -> Result<()> {
 }
 
 async fn handle_create(args: CreateArguments) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
 
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let name = name_opt(
         "Name",
         args.snippet_name,
         Some(Name::from_static("snippet")),
     )
     .unwrap();
-    let description = text_opt("Description", args.description.clone(), Some("".to_owned()));
+    let description =
+        text_opt("Description", args.description.clone(), Some("".to_owned())).unwrap_or_default();
 
     let body = load_snippet(&args.snippet).await?;
     let snippet = NewSnippet {
-        name: name.to_string(),
+        name,
         description,
         body,
     };
 
-    let snippet = snippet_create(&config, &workspace_id.to_string(), snippet).await?;
+    let snippet = snippet_create(&client, workspace_id, snippet).await?;
 
     match args.output {
         SnippetOutput::Table => output_details(GenericKeyValue::from_snippet(snippet)),
@@ -395,32 +392,30 @@ async fn handle_create(args: CreateArguments) -> Result<()> {
 }
 
 async fn handle_delete(args: DeleteArguments) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
 
-    let (workspace_id, snippet_name) = snippet_picker(&config, args.snippet_name, None).await?;
+    let (workspace_id, snippet_name) = snippet_picker(&client, args.snippet_name, None).await?;
 
-    snippet_delete(
-        &config,
-        &workspace_id.to_string(),
-        &snippet_name.to_string(),
-    )
-    .await
-    .with_context(|| format!("Error deleting snippet {}", snippet_name))?;
+    snippet_delete(&client, workspace_id, snippet_name.to_string())
+        .await
+        .with_context(|| format!("Error deleting snippet {}", snippet_name))?;
 
     info!(%snippet_name, "Deleted snippet");
     Ok(())
 }
 
 async fn handle_list(args: ListArguments) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
 
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     let snippets = snippet_list(
-        &config,
-        &workspace_id.to_string(),
-        args.sort_by.map(Into::into),
-        args.sort_direction.map(Into::into),
+        &client,
+        workspace_id,
+        args.sort_by.map(Into::<&str>::into).map(str::to_string),
+        args.sort_direction
+            .map(Into::<&str>::into)
+            .map(str::to_string),
     )
     .await?;
 
@@ -434,15 +429,10 @@ async fn handle_list(args: ListArguments) -> Result<()> {
 }
 
 async fn handle_get(args: GetArguments) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
 
-    let (workspace_id, snippet_name) = snippet_picker(&config, args.snippet_name, None).await?;
-    let snippet = snippet_get(
-        &config,
-        &workspace_id.to_string(),
-        &snippet_name.to_string(),
-    )
-    .await?;
+    let (workspace_id, snippet_name) = snippet_picker(&client, args.snippet_name, None).await?;
+    let snippet = snippet_get(&client, workspace_id, snippet_name.to_string()).await?;
 
     match args.output {
         SnippetOutput::Table => output_details(GenericKeyValue::from_snippet(snippet)),
@@ -455,10 +445,10 @@ async fn handle_get(args: GetArguments) -> Result<()> {
 }
 
 async fn handle_update(args: UpdateArguments) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
 
     let (workspace_id, snippet_name) =
-        snippet_picker(&config, args.snippet_name, args.workspace_id).await?;
+        snippet_picker(&client, args.snippet_name, args.workspace_id).await?;
 
     let body = if let Some(snippet) = args.snippet {
         Some(snippet)
@@ -477,14 +467,9 @@ async fn handle_update(args: UpdateArguments) -> Result<()> {
         body,
     };
 
-    let snippet = snippet_update(
-        &config,
-        &workspace_id.to_string(),
-        &snippet_name.to_string(),
-        snippet,
-    )
-    .await
-    .with_context(|| format!("Error updating snippet {}", snippet_name))?;
+    let snippet = snippet_update(&client, workspace_id, snippet_name.to_string(), snippet)
+        .await
+        .with_context(|| format!("Error updating snippet {}", snippet_name))?;
     info!("Updated snippet");
 
     match args.output {
@@ -534,9 +519,9 @@ impl From<SnippetSummary> for SnippetRow {
     fn from(snippet: SnippetSummary) -> Self {
         Self {
             description: snippet.description,
-            name: snippet.name,
-            updated_at: snippet.updated_at,
-            created_at: snippet.created_at,
+            name: snippet.name.to_string(),
+            updated_at: snippet.updated_at.to_string(),
+            created_at: snippet.created_at.to_string(),
         }
     }
 }
@@ -545,9 +530,9 @@ impl From<Snippet> for SnippetRow {
     fn from(snippet: Snippet) -> Self {
         Self {
             description: snippet.description,
-            name: snippet.name,
-            updated_at: snippet.updated_at,
-            created_at: snippet.created_at,
+            name: snippet.name.to_string(),
+            updated_at: snippet.updated_at.to_string(),
+            created_at: snippet.created_at.to_string(),
         }
     }
 }

@@ -5,13 +5,17 @@ use crate::templates::TemplateArguments;
 use anyhow::{Context, Result};
 use clap::{Parser, ValueEnum};
 use cli_table::Table;
-use fiberplane::api_client::apis::configuration::Configuration;
-use fiberplane::api_client::apis::default_api::{
+use fiberplane::api_client::clients::{default_config, ApiClient};
+use fiberplane::api_client::{
     trigger_create, trigger_delete, trigger_get, trigger_invoke, trigger_list,
 };
-use fiberplane::api_client::models::{NewTrigger, Trigger, TriggerInvokeResponse};
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::names::Name;
+use fiberplane::models::notebooks::{
+    NewTrigger, TemplateExpandPayload, Trigger, TriggerInvokeResponse,
+};
+use serde_json::Map;
+use std::iter::FromIterator;
 use std::path::PathBuf;
 use tracing::info;
 use url::Url;
@@ -165,26 +169,21 @@ enum TriggerOutput {
 }
 
 async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let default_arguments = if let Some(default_arguments) = args.default_arguments {
-        Some(serde_json::to_value(default_arguments)?)
-    } else {
-        None
-    };
+    let client = api_client_configuration(args.config, args.base_url.clone()).await?;
 
-    let workspace_id = interactive::workspace_picker(&config, args.workspace_id).await?;
+    let workspace_id = interactive::workspace_picker(&client, args.workspace_id).await?;
     let (_, template_name) =
-        interactive::template_picker(&config, args.template_name, Some(workspace_id)).await?;
+        interactive::template_picker(&client, args.template_name, Some(workspace_id)).await?;
     let title = interactive::text_req("Title", args.title, None)?;
 
     let trigger = NewTrigger {
         title,
-        default_arguments,
-        template_name: template_name.to_string(),
+        template_name,
+        default_arguments: args.default_arguments.map(|args| Map::from_iter(args.0)),
     };
-    let trigger = trigger_create(&config, &workspace_id.to_string(), trigger)
+    let trigger = trigger_create(&client, workspace_id, trigger)
         .await
-        .with_context(|| "Error creating trigger")?;
+        .context("Error creating trigger")?;
 
     match args.output {
         TriggerOutput::Table => {
@@ -196,10 +195,10 @@ async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {
 }
 
 async fn handle_trigger_get_command(args: GetArguments) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let trigger_id = interactive::trigger_picker(&config, args.trigger_id, None).await?;
+    let client = api_client_configuration(args.config, args.base_url.clone()).await?;
+    let trigger_id = interactive::trigger_picker(&client, args.trigger_id, None).await?;
 
-    let trigger = trigger_get(&config, &trigger_id.to_string())
+    let trigger = trigger_get(&client, trigger_id.to_string())
         .await
         .with_context(|| "Error getting trigger details")?;
 
@@ -212,12 +211,12 @@ async fn handle_trigger_get_command(args: GetArguments) -> Result<()> {
 }
 
 async fn handle_trigger_delete_command(args: DeleteArguments) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let trigger_id = interactive::trigger_picker(&config, args.trigger_id, None).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
+    let trigger_id = interactive::trigger_picker(&client, args.trigger_id, None).await?;
 
-    trigger_delete(&config, &trigger_id.to_string())
+    trigger_delete(&client, trigger_id.to_string())
         .await
-        .with_context(|| "Error deleting trigger")?;
+        .context("Error deleting trigger")?;
 
     info!("Deleted trigger");
 
@@ -225,9 +224,9 @@ async fn handle_trigger_delete_command(args: DeleteArguments) -> Result<()> {
 }
 
 async fn handle_trigger_list_command(args: ListArguments) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let workspace_id = interactive::workspace_picker(&config, args.workspace_id).await?;
-    let mut triggers = trigger_list(&config, &workspace_id.to_string())
+    let client = api_client_configuration(args.config, args.base_url).await?;
+    let workspace_id = interactive::workspace_picker(&client, args.workspace_id).await?;
+    let mut triggers = trigger_list(&client, workspace_id)
         .await
         .with_context(|| "Error getting triggers")?;
 
@@ -244,19 +243,26 @@ async fn handle_trigger_list_command(args: ListArguments) -> Result<()> {
 }
 
 async fn handle_trigger_invoke_command(args: InvokeArguments) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let trigger_id = interactive::trigger_picker(&config, args.trigger_id, None).await?;
+    let client = api_client_configuration(args.config, args.base_url.clone()).await?;
+    let trigger_id = interactive::trigger_picker(&client, args.trigger_id, None).await?;
     let secret_key = interactive::text_req("Secret Key", args.secret_key, None)?;
 
-    let body = serde_json::to_value(&args.template_arguments)?;
-
-    let config = Configuration {
-        base_path: args.base_url.to_string(),
-        ..Configuration::default()
+    let anon_client = ApiClient {
+        client: default_config(None, None, None)?,
+        server: args.base_url,
     };
-    let response = trigger_invoke(&config, &trigger_id.to_string(), &secret_key, Some(body))
-        .await
-        .with_context(|| "Error invoking trigger")?;
+
+    let response = trigger_invoke(
+        &anon_client,
+        trigger_id.to_string(),
+        secret_key,
+        args.template_arguments
+            .map_or_else(TemplateExpandPayload::new, |args| {
+                Map::from_iter(args.0.into_iter())
+            }),
+    )
+    .await
+    .context("Error invoking trigger")?;
 
     match args.output {
         TriggerOutput::Table => {
@@ -283,8 +289,8 @@ impl From<Trigger> for TriggerRow {
     fn from(trigger: Trigger) -> Self {
         Self {
             title: trigger.title,
-            id: trigger.id,
-            template_id: trigger.template_id,
+            id: trigger.id.to_string(),
+            template_id: trigger.template_id.to_string(),
         }
     }
 }
@@ -302,17 +308,17 @@ impl GenericKeyValue {
 
         vec![
             GenericKeyValue::new("Title:", trigger.title),
-            GenericKeyValue::new("ID:", trigger.id),
+            GenericKeyValue::new("ID:", trigger.id.to_string()),
             GenericKeyValue::new("Invoke URL:", invoke_url),
-            GenericKeyValue::new("Template ID:", trigger.template_id),
+            GenericKeyValue::new("Template ID:", trigger.template_id.to_string()),
         ]
     }
 
     pub fn from_trigger_invoke_response(response: TriggerInvokeResponse) -> Vec<GenericKeyValue> {
         vec![
             GenericKeyValue::new("Notebook Title:", response.notebook_title),
-            GenericKeyValue::new("Notebook URL:", response.notebook_url),
-            GenericKeyValue::new("Notebook ID:", response.notebook_id),
+            GenericKeyValue::new("Notebook URL:", response.notebook_url.to_string()),
+            GenericKeyValue::new("Notebook ID:", response.notebook_id.to_string()),
         ]
     }
 }

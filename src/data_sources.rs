@@ -1,15 +1,16 @@
 use anyhow::{anyhow, Result};
 use clap::{Parser, ValueEnum};
 use cli_table::Table;
-use fiberplane::api_client::apis::default_api::{
+use fiberplane::api_client::{
     data_source_create, data_source_delete, data_source_list, data_source_update,
 };
-use fiberplane::api_client::models::{DataSource, NewDataSource, UpdateDataSource};
 use fiberplane::base64uuid::Base64Uuid;
+use fiberplane::models::data_sources::{DataSource, NewDataSource, UpdateDataSource};
 use fiberplane::models::names::Name;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::{path::PathBuf, str::FromStr};
+use time::format_description::well_known::Rfc3339;
 use url::Url;
 
 use crate::config::api_client_configuration;
@@ -197,10 +198,9 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 }
 
 async fn handle_create(args: CreateArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let workspace_id = workspace_picker(&config, args.workspace_id)
-        .await?
-        .to_string();
+    let client = api_client_configuration(args.config, args.base_url).await?;
+
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let name = name_req("Data source name", args.name, None)?;
     let description = text_opt("Description", args.description, None);
     let provider_type = text_req(
@@ -214,6 +214,7 @@ async fn handle_create(args: CreateArgs) -> Result<()> {
             .and_then(|c| serde_json::to_string(&c.0).ok()),
         None,
     )?;
+
     let provider_config = ProviderConfig::from_str(&provider_config)
         .map_err(|e| anyhow!("Error parsing provider config as JSON: {:?}", e))?;
 
@@ -223,13 +224,13 @@ async fn handle_create(args: CreateArgs) -> Result<()> {
     let protocol_version = 2;
 
     let data_source = NewDataSource {
-        name: name.to_string(),
+        name,
         description,
         protocol_version,
         provider_type,
-        config: Value::Object(provider_config.0),
+        config: provider_config.0,
     };
-    let data_source = data_source_create(&config, &workspace_id, data_source).await?;
+    let data_source = data_source_create(&client, workspace_id, data_source).await?;
 
     match args.output {
         DataSourceOutput::Table => output_details(GenericKeyValue::from_data_source(&data_source)),
@@ -241,23 +242,23 @@ async fn handle_create(args: CreateArgs) -> Result<()> {
 }
 
 async fn handle_delete(args: DeleteArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     let data_source =
-        data_source_picker(&config, Some(workspace_id), args.name.map(String::from)).await?;
+        data_source_picker(&client, Some(workspace_id), args.name.map(String::from)).await?;
 
-    data_source_delete(&config, &workspace_id.to_string(), &data_source.name).await?;
+    data_source_delete(&client, workspace_id, data_source.name.to_string()).await?;
 
     Ok(())
 }
 
 async fn handle_get(args: GetArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     let data_source =
-        data_source_picker(&config, Some(workspace_id), args.name.map(String::from)).await?;
+        data_source_picker(&client, Some(workspace_id), args.name.map(String::from)).await?;
 
     match args.output {
         DataSourceOutput::Table => output_details(GenericKeyValue::from_data_source(&data_source)),
@@ -269,24 +270,19 @@ async fn handle_get(args: GetArgs) -> Result<()> {
 }
 
 async fn handle_update(args: UpdateArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     let data_source =
-        data_source_picker(&config, Some(workspace_id), args.name.map(String::from)).await?;
+        data_source_picker(&client, Some(workspace_id), args.name.map(String::from)).await?;
 
     let update = UpdateDataSource {
         description: args.description,
-        config: args.provider_config.map(|c| Value::Object(c.0)),
+        config: args.provider_config.map(|c| c.0),
     };
 
-    let data_source = data_source_update(
-        &config,
-        &workspace_id.to_string(),
-        &data_source.name,
-        update,
-    )
-    .await?;
+    let data_source =
+        data_source_update(&client, workspace_id, data_source.name.to_string(), update).await?;
 
     match args.output {
         DataSourceOutput::Table => output_details(GenericKeyValue::from_data_source(&data_source)),
@@ -298,10 +294,10 @@ async fn handle_update(args: UpdateArgs) -> Result<()> {
 }
 
 async fn handle_list(args: ListArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
-    let data_sources = data_source_list(&config, &workspace_id.to_string()).await?;
+    let data_sources = data_source_list(&client, workspace_id).await?;
 
     match args.output {
         DataSourceOutput::Table => {
@@ -318,7 +314,7 @@ async fn handle_list(args: ListArgs) -> Result<()> {
 impl GenericKeyValue {
     pub fn from_data_source(data_source: &DataSource) -> Vec<GenericKeyValue> {
         vec![
-            GenericKeyValue::new("Name", &data_source.name),
+            GenericKeyValue::new("Name", data_source.name.to_string()),
             GenericKeyValue::new(
                 "Description",
                 data_source.description.clone().unwrap_or_default(),
@@ -334,11 +330,11 @@ impl GenericKeyValue {
             ),
             GenericKeyValue::new(
                 "Created At",
-                data_source.created_at.clone().unwrap_or_default(),
+                data_source.created_at.format(&Rfc3339).unwrap_or_default(),
             ),
             GenericKeyValue::new(
                 "Updated At",
-                data_source.updated_at.clone().unwrap_or_default(),
+                data_source.updated_at.format(&Rfc3339).unwrap_or_default(),
             ),
         ]
     }
@@ -365,11 +361,13 @@ pub struct DataSourceRow {
 impl From<DataSource> for DataSourceRow {
     fn from(data_source: DataSource) -> Self {
         Self {
-            name: data_source.name,
-            proxy_name: data_source.proxy_name.unwrap_or_default(),
+            name: data_source.name.to_string(),
+            proxy_name: data_source
+                .proxy_name
+                .map_or_else(String::new, |name| name.to_string()),
             provider_type: data_source.provider_type,
-            updated_at: data_source.updated_at.unwrap_or_default(),
-            created_at: data_source.created_at.unwrap_or_default(),
+            updated_at: data_source.updated_at.format(&Rfc3339).unwrap_or_default(),
+            created_at: data_source.created_at.format(&Rfc3339).unwrap_or_default(),
         }
     }
 }

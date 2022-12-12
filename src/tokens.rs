@@ -3,10 +3,12 @@ use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
 use cli_table::Table;
-use fiberplane::api_client::apis::default_api::{token_create, token_delete, token_list};
-use fiberplane::api_client::models::{NewToken, Token, TokenSummary};
+use fiberplane::api_client::{token_create, token_delete, token_list};
+use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::sorting::{SortDirection, TokenListSortFields};
+use fiberplane::models::tokens::{NewToken, Token, TokenSummary};
 use std::path::PathBuf;
+use time::format_description::well_known::Rfc3339;
 use tracing::info;
 use url::Url;
 
@@ -109,7 +111,7 @@ pub struct ListArguments {
 #[derive(Parser)]
 pub struct DeleteArguments {
     /// ID of the token that should be deleted
-    id: String,
+    id: Base64Uuid,
 
     #[clap(from_global)]
     base_url: Url,
@@ -119,9 +121,9 @@ pub struct DeleteArguments {
 }
 
 async fn handle_token_create_command(args: CreateArguments) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
 
-    let token = token_create(&config, NewToken::new(args.name)).await?;
+    let token = token_create(&client, NewToken { title: args.name }).await?;
 
     if !matches!(args.output, TokenCreateOutput::Token) {
         info!("Successfully created new token");
@@ -138,12 +140,14 @@ async fn handle_token_create_command(args: CreateArguments) -> Result<()> {
 }
 
 async fn handle_token_list_command(args: ListArguments) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
 
     let tokens = token_list(
-        &config,
-        args.sort_by.map(Into::into),
-        args.sort_direction.map(Into::into),
+        &client,
+        args.sort_by.map(Into::<&str>::into).map(str::to_string),
+        args.sort_direction
+            .map(Into::<&str>::into)
+            .map(str::to_string),
         args.page,
         args.limit,
     )
@@ -159,9 +163,9 @@ async fn handle_token_list_command(args: ListArguments) -> Result<()> {
 }
 
 async fn handle_token_delete_command(args: DeleteArguments) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
 
-    token_delete(&config, &args.id).await?;
+    token_delete(&client, args.id).await?;
 
     info!("Successfully deleted token");
     Ok(())
@@ -185,10 +189,12 @@ struct TokenRow {
 impl From<TokenSummary> for TokenRow {
     fn from(token: TokenSummary) -> Self {
         TokenRow {
-            id: token.id,
+            id: token.id.to_string(),
             title: token.title,
-            created_at: token.created_at,
-            expires_at: token.expires_at.unwrap_or_else(|| "Never".to_string()),
+            created_at: token.created_at.format(&Rfc3339).unwrap_or_default(),
+            expires_at: token.expires_at.map_or_else(String::new, |time| {
+                time.format(&Rfc3339).unwrap_or_default()
+            }),
         }
     }
 }
@@ -196,13 +202,18 @@ impl From<TokenSummary> for TokenRow {
 impl GenericKeyValue {
     fn from_token(token: Token) -> Vec<Self> {
         vec![
-            GenericKeyValue::new("ID:", token.id),
+            GenericKeyValue::new("ID:", token.id.to_string()),
             GenericKeyValue::new("Title:", token.title),
             GenericKeyValue::new("Token:", token.token),
-            GenericKeyValue::new("Created at:", token.created_at),
+            GenericKeyValue::new(
+                "Created at:",
+                token.created_at.format(&Rfc3339).unwrap_or_default(),
+            ),
             GenericKeyValue::new(
                 "Expires at:",
-                token.expires_at.unwrap_or_else(|| "Never".to_string()),
+                token.expires_at.map_or_else(String::new, |time| {
+                    time.format(&Rfc3339).unwrap_or_default()
+                }),
             ),
         ]
     }
