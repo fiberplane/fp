@@ -1,9 +1,9 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{bail, Context, Result};
 use dialoguer::{theme, FuzzySelect, Input, Select};
 use fiberplane::api_client::clients::ApiClient;
 use fiberplane::api_client::{
-    data_source_get, data_source_list, notebook_search, proxy_list, template_list, trigger_list,
-    workspace_list, workspace_users_list,
+    data_source_get, data_source_list, notebook_search, proxy_list, snippet_list, template_list,
+    trigger_list, workspace_list, workspace_users_list,
 };
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::data_sources::DataSource;
@@ -92,7 +92,7 @@ where
 {
     match text_opt(prompt, argument, default) {
         Some(value) => Ok(value),
-        None => Err(anyhow!("No value provided")),
+        None => bail!("No value provided"),
     }
 }
 
@@ -149,7 +149,7 @@ where
 {
     match name_opt(prompt, argument, default) {
         Some(value) => Ok(value),
-        None => Err(anyhow!("No value provided")),
+        None => bail!("No value provided"),
     }
 }
 
@@ -239,7 +239,7 @@ pub async fn notebook_picker_with_prompt(
     pb.finish_and_clear();
 
     if results.is_empty() {
-        return Err(anyhow!("No notebook id provided and no notebooks found"));
+        bail!("No notebook id provided and no notebooks found");
     }
 
     let display_items: Vec<_> = results
@@ -255,7 +255,7 @@ pub async fn notebook_picker_with_prompt(
 
     match selection {
         Some(selection) => Ok(results[selection].id),
-        None => Err(anyhow!("No notebook selected")),
+        None => bail!("No notebook selected"),
     }
 }
 
@@ -299,7 +299,7 @@ pub async fn template_picker(
     pb.finish_and_clear();
 
     if results.is_empty() {
-        return Err(anyhow!("No templates found"));
+        bail!("No templates found");
     }
 
     let display_items: Vec<_> = results
@@ -321,7 +321,74 @@ pub async fn template_picker(
                 .parse()
                 .context("invalid name was returned")?,
         )),
-        None => Err(anyhow!("No template selected")),
+        None => bail!("No template selected"),
+    }
+}
+
+/// Get a (workspace id, snippet name) pair from either a CLI argument, or from a interactive picker.
+///
+/// If the user has not specified the snippet ID through a CLI argument then it
+/// will retrieve recent snippets using the snippet list endpoint, and allow
+/// the user to select one.
+///
+/// NOTE: This currently does not do any limiting of the result. It will allow
+/// client side filtering.
+/// NOTE: If the user does not specifies a value through a cli argument, the
+/// interactive input will always be shown. This is a limitation that we
+/// currently not check if the invocation is interactive or not.
+pub async fn snippet_picker(
+    config: &ApiClient,
+    snippet_name: Option<Name>,
+    workspace_id: Option<Base64Uuid>,
+) -> Result<(Base64Uuid, Name)> {
+    // If the user provided an argument _and_ the workspace, use that. Otherwise show the picker.
+    if let (Some(workspace), Some(name)) = (workspace_id, snippet_name) {
+        return Ok((workspace, name));
+    };
+
+    // No argument was provided, so we need to know the workspace ID in order to query
+    // the snippet name.
+    let workspace_id =
+        workspace_picker_with_prompt("Workspace of the snippet", config, workspace_id).await?;
+
+    let pb = ProgressBar::new_spinner();
+    pb.set_message("Fetching snippets");
+    pb.enable_steady_tick(100);
+
+    let results = snippet_list(
+        config,
+        workspace_id,
+        Some("updated_at".to_string()),
+        Some("descending".to_string()),
+    )
+    .await?;
+
+    pb.finish_and_clear();
+
+    if results.is_empty() {
+        bail!("No snippets found");
+    }
+
+    let display_items: Vec<_> = results
+        .iter()
+        .map(|snippet| snippet.name.to_string())
+        .collect();
+
+    let selection = FuzzySelect::with_theme(&default_theme())
+        .with_prompt("Snippet")
+        .items(&display_items)
+        .default(0)
+        .interact_opt()?;
+
+    match selection {
+        Some(selection) => Ok((
+            workspace_id,
+            results[selection]
+                .name
+                .parse()
+                .context("invalid name was returned")?,
+        )),
+        None => bail!("No snippet selected"),
     }
 }
 
@@ -358,7 +425,7 @@ pub async fn trigger_picker(
     pb.finish_and_clear();
 
     if results.is_empty() {
-        return Err(anyhow!("No triggers found"));
+        bail!("No triggers found");
     }
 
     let display_items: Vec<_> = results
@@ -374,7 +441,7 @@ pub async fn trigger_picker(
 
     match selection {
         Some(selection) => Ok(results[selection].id),
-        None => Err(anyhow!("No trigger selected")),
+        None => bail!("No trigger selected"),
     }
 }
 
@@ -411,7 +478,7 @@ pub async fn proxy_picker(
     pb.finish_and_clear();
 
     if results.is_empty() {
-        return Err(anyhow!("No proxies found"));
+        bail!("No proxies found");
     }
 
     let display_items: Vec<_> = results.iter().map(|proxy| &proxy.name).collect();
@@ -424,7 +491,7 @@ pub async fn proxy_picker(
 
     match selection {
         Some(selection) => Ok(results[selection].name.to_string()),
-        None => Err(anyhow!("No proxy selected")),
+        None => bail!("No proxy selected"),
     }
 }
 
@@ -460,7 +527,7 @@ pub async fn data_source_picker(
     pb.finish_and_clear();
 
     if results.is_empty() {
-        return Err(anyhow!("No data sources found"));
+        bail!("No data sources found");
     }
 
     let display_items: Vec<_> = results
@@ -476,7 +543,7 @@ pub async fn data_source_picker(
 
     match selection {
         Some(selection) => Ok(results.remove(selection)),
-        None => Err(anyhow!("No data source selected")),
+        None => bail!("No data source selected"),
     }
 }
 
@@ -527,7 +594,7 @@ pub async fn workspace_picker_with_prompt(
     pb.finish_and_clear();
 
     if results.is_empty() {
-        return Err(anyhow!("No workspaces found"));
+        bail!("No workspaces found");
     }
 
     let display_items: Vec<_> = results
@@ -543,7 +610,7 @@ pub async fn workspace_picker_with_prompt(
 
     match selection {
         Some(selection) => Ok(results[selection].id),
-        None => Err(anyhow!("No workspace selected")),
+        None => bail!("No workspace selected"),
     }
 }
 
@@ -583,7 +650,7 @@ pub async fn workspace_user_picker(
     pb.finish_and_clear();
 
     if results.is_empty() {
-        return Err(anyhow!("No workspace users found"));
+        bail!("No workspace users found");
     }
 
     let display_items: Vec<_> = results
@@ -599,6 +666,20 @@ pub async fn workspace_user_picker(
 
     match selection {
         Some(selection) => Ok(results[selection].id),
-        None => Err(anyhow!("No workspace user selected")),
+        None => bail!("No workspace user selected"),
     }
+}
+
+/// Interactively select one of the given items
+pub fn select_item<P, T>(prompt: P, items: &[T], default: Option<usize>) -> Result<usize>
+where
+    P: Into<String>,
+    T: ToString,
+{
+    FuzzySelect::with_theme(&default_theme())
+        .with_prompt(prompt)
+        .items(items)
+        .default(default.unwrap_or(0))
+        .interact()
+        .map_err(|err| err.into())
 }

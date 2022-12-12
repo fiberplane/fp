@@ -791,7 +791,7 @@ pub struct TemplateRow {
 ///
 /// Only keep the first line, and if it is longer than max_len, use an ellipsis
 /// to tell users the description is longer.
-fn crop_description(description: &str) -> impl std::fmt::Display {
+pub fn crop_description(description: &str) -> impl std::fmt::Display {
     static DESC_MAX_LEN: usize = 24;
     static DESC_ELLIPSIS: &str = "...";
     static DESC_ELLIPSIS_LEN: usize = 3;
