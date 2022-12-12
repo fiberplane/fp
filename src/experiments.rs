@@ -5,10 +5,11 @@ use crate::templates::NOTEBOOK_ID_REGEX;
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, ValueEnum};
 use directories::ProjectDirs;
-use fiberplane::api_client::apis::default_api::{notebook_cells_append, notebook_get, profile_get};
-use fiberplane::api_client::models::{Annotation, Cell};
+use fiberplane::api_client::{notebook_cells_append, notebook_get, profile_get};
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::markdown::notebook_to_markdown;
+use fiberplane::models::formatting::{Annotation, AnnotationWithOffset, Mention};
+use fiberplane::models::notebooks::{Cell, TextCell};
 use fiberplane::models::{formatting, notebooks};
 use lazy_static::lazy_static;
 use regex::{Regex, Replacer};
@@ -96,19 +97,19 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 }
 
 async fn handle_message_command(args: MessageArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let notebook_id = interactive::notebook_picker(&config, args.notebook_id, None).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
+    let notebook_id = interactive::notebook_picker(&client, args.notebook_id, None).await?;
     let mut cache = Cache::load().await?;
 
     // If we don't already know the user name, load it from the API and save it
     let (user_id, name) = match (cache.user_id, cache.user_name) {
-        (Some(user_id), Some(user_name)) => (user_id, user_name),
+        (Some(user_id), Some(user_name)) => (Base64Uuid::from_str(&user_id)?, user_name),
         _ => {
-            let user = profile_get(&config)
+            let user = profile_get(&client)
                 .await
                 .with_context(|| "Error getting user profile")?;
             cache.user_name = Some(user.name.clone());
-            cache.user_id = Some(user.id.clone());
+            cache.user_id = Some(user.id.to_string());
             cache.save().await?;
             (user.id, user.name)
         }
@@ -120,17 +121,19 @@ async fn handle_message_command(args: MessageArgs) -> Result<()> {
     let prefix = format!("{}@{}:  ", timestamp_prefix, name);
     let content = format!("{}{}", prefix, args.message.join(" "));
 
-    let cell = Cell::TextCell {
+    let cell = Cell::Text(TextCell {
         id: String::new(),
         content,
-        formatting: Some(vec![Annotation::MentionAnnotation {
-            name,
-            user_id,
-            offset: mention_start as i32,
-        }]),
+        formatting: vec![AnnotationWithOffset {
+            offset: mention_start as u32,
+            annotation: Annotation::Mention(Mention {
+                name,
+                user_id: user_id.to_string(),
+            }),
+        }],
         read_only: None,
-    };
-    let cell = notebook_cells_append(&config, &notebook_id.to_string(), vec![cell])
+    });
+    let cell = notebook_cells_append(&client, notebook_id, vec![cell])
         .await
         .with_context(|| "Error appending cell to notebook")?
         .pop()
@@ -160,6 +163,7 @@ impl<'a> Replacer for NotebookUrlReplacer<'a> {
     }
 }
 
+#[derive(Clone)]
 struct CrawledNotebook {
     title: String,
     file_name: String,
@@ -172,22 +176,22 @@ async fn handle_crawl_command(args: CrawlArgs) -> Result<()> {
     let mut notebook_titles: HashMap<String, usize> = HashMap::new();
     let mut notebooks_to_crawl = VecDeque::new();
 
-    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let client = api_client_configuration(args.config, args.base_url.clone()).await?;
     let starting_notebook_id =
-        interactive::notebook_picker(&config, args.notebook_id, None).await?;
+        interactive::notebook_picker(&client, args.notebook_id, None).await?;
 
     fs::create_dir_all(&args.out_dir)
         .await
         .with_context(|| "Error creating output directory")?;
 
-    notebooks_to_crawl.push_back(starting_notebook_id.to_string());
+    notebooks_to_crawl.push_back(starting_notebook_id);
     let mut crawl_index = 0;
     while let Some(notebook_id) = notebooks_to_crawl.pop_front() {
         if crawled_notebooks.contains_key(&notebook_id) {
             continue;
         }
         crawl_index += 1;
-        let notebook = match notebook_get(&config, &notebook_id).await {
+        let notebook = match notebook_get(&client, notebook_id).await {
             Ok(notebook) => notebook,
             Err(err) => {
                 // TODO differentiate between 404 and other errors
@@ -205,7 +209,8 @@ async fn handle_crawl_command(args: CrawlArgs) -> Result<()> {
                         if url.starts_with(args.base_url.as_str()) {
                             if let Some(captures) = NOTEBOOK_ID_REGEX.captures(url) {
                                 if let Some(notebook_id) = captures.get(1) {
-                                    notebooks_to_crawl.push_back(notebook_id.as_str().to_string());
+                                    notebooks_to_crawl
+                                        .push_back(Base64Uuid::from_str(notebook_id.as_str())?);
                                 }
                             }
                         }
@@ -240,7 +245,7 @@ async fn handle_crawl_command(args: CrawlArgs) -> Result<()> {
             file_path.display()
         );
         crawled_notebooks.insert(
-            notebook_id.clone(),
+            notebook_id,
             CrawledNotebook {
                 title: notebook.title.clone(),
                 file_name,
@@ -260,8 +265,16 @@ async fn handle_crawl_command(args: CrawlArgs) -> Result<()> {
         let markdown = fs::read_to_string(&notebook.file_path)
             .await
             .with_context(|| "Error reading markdown file")?;
-        let markdown =
-            NOTEBOOK_URL_REGEX.replace_all(&markdown, NotebookUrlReplacer(&crawled_notebooks));
+
+        let markdown = NOTEBOOK_URL_REGEX.replace_all(
+            &markdown,
+            NotebookUrlReplacer(
+                &crawled_notebooks
+                    .iter()
+                    .map(|(id, notebook)| (id.to_string(), notebook.clone()))
+                    .collect(),
+            ),
+        );
         fs::write(&notebook.file_path, markdown.as_bytes())
             .await
             .with_context(|| "Error replacing markdown file")?;

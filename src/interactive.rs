@@ -1,13 +1,14 @@
 use anyhow::{anyhow, Context, Result};
 use dialoguer::{theme, FuzzySelect, Input, Select};
-use fiberplane::api_client::apis::configuration::Configuration;
-use fiberplane::api_client::apis::default_api::{
+use fiberplane::api_client::clients::ApiClient;
+use fiberplane::api_client::{
     data_source_get, data_source_list, notebook_search, proxy_list, template_list, trigger_list,
     workspace_list, workspace_users_list,
 };
-use fiberplane::api_client::models::{DataSource, NotebookSearch};
 use fiberplane::base64uuid::Base64Uuid;
+use fiberplane::models::data_sources::DataSource;
 use fiberplane::models::names::Name;
+use fiberplane::models::notebooks::NotebookSearch;
 use indicatif::ProgressBar;
 
 pub fn default_theme() -> impl theme::Theme {
@@ -188,11 +189,11 @@ where
 /// It works exactly as [notebook_picker_with_prompt](), but has a generic, default
 /// prompt.
 pub async fn notebook_picker(
-    config: &Configuration,
+    client: &ApiClient,
     argument: Option<Base64Uuid>,
     workspace_id: Option<Base64Uuid>,
 ) -> Result<Base64Uuid> {
-    notebook_picker_with_prompt("Notebook", config, argument, workspace_id).await
+    notebook_picker_with_prompt("Notebook", client, argument, workspace_id).await
 }
 
 /// Get a notebook ID from either a CLI argument, or from a interactive picker.
@@ -212,7 +213,7 @@ pub async fn notebook_picker(
 /// currently not check if the invocation is interactive or not.
 pub async fn notebook_picker_with_prompt(
     prompt: &str,
-    config: &Configuration,
+    client: &ApiClient,
     argument: Option<Base64Uuid>,
     workspace_id: Option<Base64Uuid>,
 ) -> Result<Base64Uuid> {
@@ -224,7 +225,7 @@ pub async fn notebook_picker_with_prompt(
     // No argument was provided, so we need to know the workspace ID.
     let workspace_id = workspace_picker_with_prompt(
         &format!("Workspace (to pick {})", prompt),
-        config,
+        client,
         workspace_id,
     )
     .await?;
@@ -233,12 +234,7 @@ pub async fn notebook_picker_with_prompt(
     pb.set_message("Fetching recent notebooks");
     pb.enable_steady_tick(100);
 
-    let results = notebook_search(
-        config,
-        &workspace_id.to_string(),
-        NotebookSearch { labels: None },
-    )
-    .await?;
+    let results = notebook_search(client, workspace_id, NotebookSearch { labels: None }).await?;
 
     pb.finish_and_clear();
 
@@ -258,9 +254,7 @@ pub async fn notebook_picker_with_prompt(
         .interact_opt()?;
 
     match selection {
-        Some(selection) => {
-            Ok(Base64Uuid::parse_str(&results[selection].id).context("invalid id was returned")?)
-        }
+        Some(selection) => Ok(results[selection].id),
         None => Err(anyhow!("No notebook selected")),
     }
 }
@@ -277,7 +271,7 @@ pub async fn notebook_picker_with_prompt(
 /// interactive input will always be shown. This is a limitation that we
 /// currently not check if the invocation is interactive or not.
 pub async fn template_picker(
-    config: &Configuration,
+    client: &ApiClient,
     template_name: Option<Name>,
     workspace_id: Option<Base64Uuid>,
 ) -> Result<(Base64Uuid, Name)> {
@@ -288,17 +282,17 @@ pub async fn template_picker(
 
     // No argument was provided, so we need to know the workspace ID in order to query
     // the template name.
-    let workspace_id = workspace_picker(config, workspace_id).await?;
+    let workspace_id = workspace_picker(client, workspace_id).await?;
 
     let pb = ProgressBar::new_spinner();
     pb.set_message("Fetching templates");
     pb.enable_steady_tick(100);
 
     let results = template_list(
-        config,
-        &workspace_id.to_string(),
-        Some("updated_at"),
-        Some("descending"),
+        client,
+        workspace_id,
+        Some("updated_at".to_string()),
+        Some("descending".to_string()),
     )
     .await?;
 
@@ -343,7 +337,7 @@ pub async fn template_picker(
 /// interactive input will always be shown. This is a limitation that we
 /// currently not check if the invocation is interactive or not.
 pub async fn trigger_picker(
-    config: &Configuration,
+    client: &ApiClient,
     argument: Option<Base64Uuid>,
     workspace_id: Option<Base64Uuid>,
 ) -> Result<Base64Uuid> {
@@ -353,13 +347,13 @@ pub async fn trigger_picker(
     };
 
     // No argument was provided, so we need to know the workspace ID.
-    let workspace_id = workspace_picker(config, workspace_id).await?;
+    let workspace_id = workspace_picker(client, workspace_id).await?;
 
     let pb = ProgressBar::new_spinner();
     pb.set_message("Fetching triggers");
     pb.enable_steady_tick(100);
 
-    let results = trigger_list(config, &workspace_id.to_string()).await?;
+    let results = trigger_list(client, workspace_id).await?;
 
     pb.finish_and_clear();
 
@@ -379,9 +373,7 @@ pub async fn trigger_picker(
         .interact_opt()?;
 
     match selection {
-        Some(selection) => {
-            Ok(Base64Uuid::parse_str(&results[selection].id).context("invalid id was returned")?)
-        }
+        Some(selection) => Ok(results[selection].id),
         None => Err(anyhow!("No trigger selected")),
     }
 }
@@ -398,7 +390,7 @@ pub async fn trigger_picker(
 /// interactive input will always be shown. This is a limitation that we
 /// currently not check if the invocation is interactive or not.
 pub async fn proxy_picker(
-    config: &Configuration,
+    client: &ApiClient,
     workspace_id: Option<Base64Uuid>,
     argument: Option<String>,
 ) -> Result<String> {
@@ -408,13 +400,13 @@ pub async fn proxy_picker(
     };
 
     // No argument was provided, so we need to know the workspace ID.
-    let workspace_id = workspace_picker(config, workspace_id).await?;
+    let workspace_id = workspace_picker(client, workspace_id).await?;
 
     let pb = ProgressBar::new_spinner();
     pb.set_message("Fetching proxies");
     pb.enable_steady_tick(100);
 
-    let results = proxy_list(config, &workspace_id.to_string()).await?;
+    let results = proxy_list(client, workspace_id).await?;
 
     pb.finish_and_clear();
 
@@ -431,7 +423,7 @@ pub async fn proxy_picker(
         .interact_opt()?;
 
     match selection {
-        Some(selection) => Ok(results[selection].name.clone()),
+        Some(selection) => Ok(results[selection].name.to_string()),
         None => Err(anyhow!("No proxy selected")),
     }
 }
@@ -448,22 +440,22 @@ pub async fn proxy_picker(
 /// interactive input will always be shown. This is a limitation that we
 /// currently not check if the invocation is interactive or not.
 pub async fn data_source_picker(
-    config: &Configuration,
+    client: &ApiClient,
     workspace_id: Option<Base64Uuid>,
     argument: Option<String>,
 ) -> Result<DataSource> {
-    let workspace_id = workspace_picker(config, workspace_id).await?;
+    let workspace_id = workspace_picker(client, workspace_id).await?;
 
     if let Some(name) = argument {
-        let data_source = data_source_get(config, &workspace_id.to_string(), &name).await?;
+        let data_source = data_source_get(client, workspace_id, name).await?;
         return Ok(data_source);
-    };
+    }
 
     let pb = ProgressBar::new_spinner();
     pb.set_message("Fetching data sources");
     pb.enable_steady_tick(100);
 
-    let mut results = data_source_list(config, &workspace_id.to_string()).await?;
+    let mut results = data_source_list(client, workspace_id).await?;
 
     pb.finish_and_clear();
 
@@ -494,10 +486,10 @@ pub async fn data_source_picker(
 /// It works exactly as [workspace_picker_with_prompt](), but it uses a default,
 /// generic prompt.
 pub async fn workspace_picker(
-    config: &Configuration,
+    client: &ApiClient,
     argument: Option<Base64Uuid>,
 ) -> Result<Base64Uuid> {
-    workspace_picker_with_prompt("Workspace", config, argument).await
+    workspace_picker_with_prompt("Workspace", client, argument).await
 }
 
 /// Get a workspace ID from either a CLI argument, or from a interactive picker.
@@ -513,7 +505,7 @@ pub async fn workspace_picker(
 /// currently not check if the invocation is interactive or not.
 pub async fn workspace_picker_with_prompt(
     prompt: &str,
-    config: &Configuration,
+    client: &ApiClient,
     argument: Option<Base64Uuid>,
 ) -> Result<Base64Uuid> {
     // If the user provided an argument, use that. Otherwise show the picker.
@@ -525,7 +517,12 @@ pub async fn workspace_picker_with_prompt(
     pb.set_message("Fetching workspaces");
     pb.enable_steady_tick(100);
 
-    let results = workspace_list(config, Some("name"), Some("ascending")).await?;
+    let results = workspace_list(
+        client,
+        Some("name".to_string()),
+        Some("ascending".to_string()),
+    )
+    .await?;
 
     pb.finish_and_clear();
 
@@ -545,9 +542,7 @@ pub async fn workspace_picker_with_prompt(
         .interact_opt()?;
 
     match selection {
-        Some(selection) => {
-            Ok(Base64Uuid::parse_str(&results[selection].id).context("invalid id was returned")?)
-        }
+        Some(selection) => Ok(results[selection].id),
         None => Err(anyhow!("No workspace selected")),
     }
 }
@@ -564,7 +559,7 @@ pub async fn workspace_picker_with_prompt(
 /// interactive input will always be shown. This is a limitation that we
 /// currently not check if the invocation is interactive or not.
 pub async fn workspace_user_picker(
-    config: &Configuration,
+    client: &ApiClient,
     workspace: &Base64Uuid,
     argument: Option<Base64Uuid>,
 ) -> Result<Base64Uuid> {
@@ -578,10 +573,10 @@ pub async fn workspace_user_picker(
     pb.enable_steady_tick(100);
 
     let results = workspace_users_list(
-        config,
-        &workspace.to_string(),
-        Some("name"),
-        Some("ascending"),
+        client,
+        *workspace,
+        Some("name".to_string()),
+        Some("ascending".to_string()),
     )
     .await?;
 
@@ -603,9 +598,7 @@ pub async fn workspace_user_picker(
         .interact_opt()?;
 
     match selection {
-        Some(selection) => {
-            Ok(Base64Uuid::parse_str(&results[selection].id).context("invalid id was returned")?)
-        }
+        Some(selection) => Ok(results[selection].id),
         None => Err(anyhow!("No workspace user selected")),
     }
 }

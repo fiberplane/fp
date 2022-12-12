@@ -1,7 +1,7 @@
 use crate::config::{api_client_configuration_from_token, Config};
 use crate::Arguments;
 use anyhow::Error;
-use fiberplane::api_client::apis::default_api::logout;
+use fiberplane::api_client::logout;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Response, Server, StatusCode};
 use qstring::QString;
@@ -111,8 +111,8 @@ pub async fn handle_logout_command(args: Arguments) -> Result<(), Error> {
 
     match config.api_token {
         Some(token) => {
-            let api_config = &api_client_configuration_from_token(token, &args.base_url)?;
-            logout(api_config).await?;
+            let api_config = api_client_configuration_from_token(&token, args.base_url)?;
+            logout(&api_config).await?;
 
             config.api_token = None;
             config.save().await?;

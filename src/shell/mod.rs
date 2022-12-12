@@ -44,8 +44,8 @@ pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
         ));
     }
 
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let notebook_id = interactive::notebook_picker(&config, args.notebook_id, None).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
+    let notebook_id = interactive::notebook_picker(&client, args.notebook_id, None).await?;
 
     let launcher = ShellLauncher::new(notebook_id.into());
     let mut term_renderer = TerminalRenderer::new(tokio::io::stdout());
@@ -53,7 +53,7 @@ pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
     let mut interval = tokio::time::interval(Duration::from_millis(250));
 
     let (notebook_writer, (mut terminal, pty_reader)) = tokio::try_join!(
-        NotebookWriter::new(config, notebook_id.into()),
+        NotebookWriter::new(client, notebook_id),
         PtyTerminal::new(launcher)
     )?;
 

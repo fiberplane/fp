@@ -5,20 +5,22 @@ use crate::{config::api_client_configuration, fp_urls::NotebookUrlBuilder};
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, ValueEnum, ValueHint};
 use cli_table::Table;
-use fiberplane::api_client::apis::default_api::{
+use fiberplane::api_client::{
     notebook_cells_append, notebook_create, notebook_delete, notebook_duplicate, notebook_get,
     notebook_list, notebook_search,
 };
-use fiberplane::api_client::models::{
-    Cell, Label, NewNotebook, NewTimeRange, Notebook, NotebookCopyDestination, NotebookSearch,
-    NotebookSummary, NotebookVisibility, TimeRange,
-};
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::markdown::{markdown_to_notebook, notebook_to_markdown};
+use fiberplane::models::labels::Label;
 use fiberplane::models::notebooks;
-use fiberplane::models::timestamps::Timestamp;
+use fiberplane::models::notebooks::{
+    Cell, CodeCell, NewNotebook, Notebook, NotebookCopyDestination, NotebookSearch,
+    NotebookSummary, TextCell,
+};
+use fiberplane::models::timestamps::{NewTimeRange, TimeRange, Timestamp};
 use std::collections::HashMap;
 use std::path::PathBuf;
+use time::format_description::well_known::Rfc3339;
 use time::{ext::NumericalDuration, OffsetDateTime};
 use tracing::info;
 use url::Url;
@@ -149,25 +151,21 @@ pub struct CreateArgs {
 }
 
 async fn handle_create_command(args: CreateArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let client = api_client_configuration(args.config, args.base_url.clone()).await?;
 
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
-    let labels = match args.labels.len() {
-        0 => None,
-        _ => Some(
-            args.labels
-                .into_iter()
-                .map(|input| Label {
-                    key: input.key,
-                    value: input.value,
-                })
-                .collect(),
-        ),
-    };
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
+    let labels = args
+        .labels
+        .into_iter()
+        .map(|input| Label {
+            key: input.key,
+            value: input.value,
+        })
+        .collect();
 
     let now = OffsetDateTime::now_utc();
     let from = args.from.unwrap_or_else(|| (now - 1.hours()).into());
-    let to = args.to.unwrap_or(now.into());
+    let to = args.to.unwrap_or_else(|| now.into());
 
     // Optionally parse the notebook from Markdown
     let notebook = match args.markdown {
@@ -178,10 +176,7 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
         }
         None => NewNotebook {
             title: String::new(),
-            time_range: Box::new(NewTimeRange::Absolute(TimeRange {
-                from: from.to_string(),
-                to: to.to_string(),
-            })),
+            time_range: NewTimeRange::Absolute(TimeRange { from, to }),
             cells: Vec::new(),
             selected_data_sources: Default::default(),
             labels: Default::default(),
@@ -197,15 +192,12 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
 
     let notebook = NewNotebook {
         title,
-        time_range: Box::new(NewTimeRange::Absolute(TimeRange {
-            from: from.to_string(),
-            to: to.to_string(),
-        })),
+        time_range: NewTimeRange::Absolute(TimeRange { from, to }),
         labels,
         ..notebook
     };
 
-    let notebook = notebook_create(&config, &workspace_id.to_string(), notebook).await?;
+    let notebook = notebook_create(&client, workspace_id, notebook).await?;
 
     match args.output {
         NotebookOutput::Table => {
@@ -248,20 +240,20 @@ pub struct DuplicateArgs {
 }
 
 async fn handle_duplicate_command(args: DuplicateArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let client = api_client_configuration(args.config, args.base_url.clone()).await?;
 
     let notebook_id = interactive::notebook_picker_with_prompt(
         "Source Notebook",
-        &config,
+        &client,
         args.notebook_id,
         None,
     )
     .await?;
 
-    let source_notebook = notebook_get(&config, &notebook_id.to_string()).await?;
+    let source_notebook = notebook_get(&client, notebook_id).await?;
 
     let workspace_id =
-        interactive::workspace_picker_with_prompt("Target workspace", &config, args.workspace_id)
+        interactive::workspace_picker_with_prompt("Target workspace", &client, args.workspace_id)
             .await?;
     let new_title = args.title.clone().unwrap_or_else(|| {
         format!(
@@ -276,12 +268,15 @@ async fn handle_duplicate_command(args: DuplicateArgs) -> Result<()> {
 
     let title = interactive::text_req("Title", args.title, Some(new_title))?;
 
-    let notebook_copy = NotebookCopyDestination {
-        title,
-        workspace_id: workspace_id.to_string(),
-    };
-
-    let notebook = notebook_duplicate(&config, &notebook_id.to_string(), notebook_copy).await?;
+    let notebook = notebook_duplicate(
+        &client,
+        notebook_id,
+        NotebookCopyDestination {
+            title,
+            workspace_id,
+        },
+    )
+    .await?;
 
     match args.output {
         NotebookOutput::Table => {
@@ -317,13 +312,13 @@ pub struct GetArgs {
 }
 
 async fn handle_get_command(args: GetArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let notebook_id = notebook_picker(&config, args.notebook_id, args.workspace_id).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
+    let notebook_id = notebook_picker(&client, args.notebook_id, args.workspace_id).await?;
 
-    let notebook = notebook_get(&config, &notebook_id.to_string()).await?;
+    let notebook = notebook_get(&client, notebook_id).await?;
 
     match args.output {
-        SingleNotebookOutput::Table => output_details(GenericKeyValue::from_notebook(notebook)),
+        SingleNotebookOutput::Table => output_details(GenericKeyValue::from_notebook(notebook)?),
         SingleNotebookOutput::Json => output_json(&notebook),
         SingleNotebookOutput::Markdown => {
             let notebook = serde_json::to_string(&notebook)?;
@@ -353,10 +348,10 @@ pub struct ListArgs {
 }
 
 async fn handle_list_command(args: ListArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
 
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
-    let notebooks = notebook_list(&config, &workspace_id.to_string()).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
+    let notebooks = notebook_list(&client, workspace_id).await?;
 
     match args.output {
         NotebookOutput::Table => {
@@ -394,26 +389,21 @@ pub struct SearchArgs {
 }
 
 async fn handle_search_command(args: SearchArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
 
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
-    let labels: Option<HashMap<String, String>> = if !args.labels.is_empty() {
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
+    let labels: Option<HashMap<_, _>> = if !args.labels.is_empty() {
         Some(
             args.labels
                 .into_iter()
-                .map(|kv| (kv.key, kv.value))
+                .map(|kv| (kv.key, Some(kv.value)))
                 .collect(),
         )
     } else {
         None
     };
 
-    let notebooks = notebook_search(
-        &config,
-        &workspace_id.to_string(),
-        NotebookSearch { labels },
-    )
-    .await?;
+    let notebooks = notebook_search(&client, workspace_id, NotebookSearch { labels }).await?;
 
     match args.output {
         NotebookOutput::Table => {
@@ -443,13 +433,14 @@ pub struct OpenArgs {
 }
 
 async fn handle_open_command(args: OpenArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let workspace_id = workspace_picker(&config, args.workspace_id).await?;
-    let notebook_id = interactive::notebook_picker(&config, args.notebook_id, None).await?;
+    let client = api_client_configuration(args.config, args.base_url.clone()).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
+    let notebook_id = notebook_picker(&client, args.notebook_id, None).await?;
 
     let url = NotebookUrlBuilder::new(workspace_id, notebook_id)
         .base_url(args.base_url)
         .url()?;
+
     if open(url.as_str()).is_err() {
         info!("Please go to {} to view the notebook", url);
     }
@@ -474,11 +465,10 @@ pub struct DeleteArgs {
 }
 
 async fn handle_delete_command(args: DeleteArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-    let notebook_id =
-        interactive::notebook_picker(&config, args.notebook_id, args.workspace_id).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
+    let notebook_id = notebook_picker(&client, args.notebook_id, args.workspace_id).await?;
 
-    notebook_delete(&config, &notebook_id.to_string())
+    notebook_delete(&client, notebook_id)
         .await
         .with_context(|| format!("Error deleting notebook {}", notebook_id))?;
 
@@ -512,32 +502,32 @@ pub struct AppendCellArgs {
 }
 
 async fn handle_append_cell_command(args: AppendCellArgs) -> Result<()> {
-    let config = api_client_configuration(args.config, &args.base_url).await?;
-
-    let notebook_id = interactive::notebook_picker(&config, args.notebook_id, None).await?;
+    let client = api_client_configuration(args.config, args.base_url).await?;
+    let notebook_id = notebook_picker(&client, args.notebook_id, None).await?;
 
     let cell = if let Some(content) = args.text {
-        Cell::TextCell {
+        Cell::Text(TextCell {
             content,
             id: String::new(),
-            formatting: None,
+            formatting: vec![],
             read_only: None,
-        }
+        })
     } else if let Some(content) = args.code {
-        Cell::CodeCell {
+        Cell::Code(CodeCell {
             content,
             id: String::new(),
             syntax: None,
             read_only: None,
-        }
+        })
     } else {
         unreachable!();
     };
 
-    let cell = notebook_cells_append(&config, &notebook_id.to_string(), vec![cell])
+    let cell = notebook_cells_append(&client, notebook_id, vec![cell])
         .await?
         .pop()
         .ok_or_else(|| anyhow!("Expected a single cell"))?;
+
     match args.output {
         CellOutput::Json => output_json(&cell),
         CellOutput::Table => {
@@ -548,11 +538,8 @@ async fn handle_append_cell_command(args: AppendCellArgs) -> Result<()> {
 }
 
 impl GenericKeyValue {
-    pub fn from_notebook(notebook: Notebook) -> Vec<GenericKeyValue> {
-        let visibility = notebook
-            .visibility
-            .unwrap_or(NotebookVisibility::Private)
-            .to_string();
+    pub fn from_notebook(notebook: Notebook) -> Result<Vec<GenericKeyValue>> {
+        let visibility = notebook.visibility.to_string();
 
         let labels = if notebook.labels.is_empty() {
             String::from("(none)")
@@ -571,22 +558,22 @@ impl GenericKeyValue {
             labels.join("\n")
         };
 
-        vec![
+        Ok(vec![
             GenericKeyValue::new("Title:", notebook.title),
-            GenericKeyValue::new("ID:", notebook.id),
+            GenericKeyValue::new("ID:", notebook.id.to_string()),
             //GenericKeyValue::new("Created by:", notebook.created_by.name),
             GenericKeyValue::new("Visibility:", visibility),
-            GenericKeyValue::new("Updated at:", notebook.updated_at),
-            GenericKeyValue::new("Created at:", notebook.created_at),
+            GenericKeyValue::new("Updated at:", notebook.updated_at.0.format(&Rfc3339)?),
+            GenericKeyValue::new("Created at:", notebook.created_at.0.format(&Rfc3339)?),
             GenericKeyValue::new("Current revision:", notebook.revision.to_string()),
             GenericKeyValue::new("Label:", labels),
-        ]
+        ])
     }
 
     pub fn from_cell(cell: Cell) -> Vec<GenericKeyValue> {
         let (id, cell_type) = match cell {
-            Cell::TextCell { id, .. } => (id, "Text"),
-            Cell::CodeCell { id, .. } => (id, "Code"),
+            Cell::Text(text_cell) => (text_cell.id, "Text"),
+            Cell::Code(code_cell) => (code_cell.id, "Code"),
             _ => unimplemented!(),
         };
         vec![
@@ -618,17 +605,15 @@ pub struct NotebookSummaryRow {
 
 impl From<NotebookSummary> for NotebookSummaryRow {
     fn from(notebook: NotebookSummary) -> Self {
-        let visibility = notebook
-            .visibility
-            .unwrap_or(NotebookVisibility::Private)
-            .to_string();
+        let visibility = notebook.visibility.to_string();
+
         Self {
-            id: notebook.id,
+            id: notebook.id.to_string(),
             title: notebook.title,
             //created_by: notebook.created_by.name,
             visibility,
-            updated_at: notebook.updated_at,
-            created_at: notebook.created_at,
+            updated_at: notebook.updated_at.format(&Rfc3339).unwrap_or_default(),
+            created_at: notebook.created_at.format(&Rfc3339).unwrap_or_default(),
         }
     }
 }

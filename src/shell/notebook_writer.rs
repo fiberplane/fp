@@ -1,23 +1,27 @@
 use anyhow::{anyhow, Result};
-use fiberplane::api_client::apis::configuration::Configuration;
-use fiberplane::api_client::apis::default_api::{
-    notebook_cell_append_text, notebook_cells_append, profile_get,
-};
-use fiberplane::api_client::models::{cell::HeadingType, Annotation, Cell, CellAppendText};
+use fiberplane::api_client::clients::ApiClient;
+use fiberplane::api_client::{notebook_cell_append_text, notebook_cells_append, profile_get};
+use fiberplane::base64uuid::Base64Uuid;
+use fiberplane::models::formatting::{Annotation, AnnotationWithOffset, Formatting, Mention};
+use fiberplane::models::notebooks::operations::CellAppendText;
+use fiberplane::models::notebooks::{Cell, CodeCell, HeadingCell, HeadingType};
 use fiberplane::string_utils::char_count;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
 pub struct NotebookWriter {
-    config: Configuration,
-    notebook_id: String,
+    config: ApiClient,
+    notebook_id: Base64Uuid,
     code_cell_id: String,
     heading_cell_id: String,
 }
 
 impl NotebookWriter {
-    pub async fn new(config: Configuration, notebook_id: String) -> Result<Self> {
+    pub async fn new(config: ApiClient, notebook_id: Base64Uuid) -> Result<Self> {
         let user = profile_get(&config).await?;
-        let timestamp = time::OffsetDateTime::now_utc().format(&Rfc3339).unwrap();
+
+        let raw_timestamp = OffsetDateTime::now_utc();
+        let timestamp = raw_timestamp.format(&Rfc3339).unwrap();
+
         let content = format!(
             "@{}'s shell session\n🟢 Started at:\t{}",
             user.name, timestamp
@@ -25,24 +29,28 @@ impl NotebookWriter {
         let timestamp_offset = char_count(&content) - char_count(&timestamp);
         let header_cell = notebook_cells_append(
             &config,
-            &notebook_id,
-            vec![Cell::HeadingCell {
+            notebook_id,
+            vec![Cell::Heading(HeadingCell {
                 id: String::new(),
                 heading_type: HeadingType::H3,
                 content,
-                formatting: Some(vec![
-                    Annotation::MentionAnnotation {
+                formatting: vec![
+                    AnnotationWithOffset {
                         offset: 0,
-                        name: user.name,
-                        user_id: user.id,
+                        annotation: Annotation::Mention(Mention {
+                            name: user.name,
+                            user_id: user.id.to_string(),
+                        }),
                     },
-                    Annotation::TimestampAnnotation {
-                        offset: timestamp_offset as i32,
-                        timestamp,
+                    AnnotationWithOffset {
+                        offset: timestamp_offset,
+                        annotation: Annotation::Timestamp {
+                            timestamp: raw_timestamp,
+                        },
                     },
-                ]),
+                ],
                 read_only: Some(true),
-            }],
+            })],
         )
         .await?
         .pop()
@@ -50,25 +58,25 @@ impl NotebookWriter {
 
         let code_cell = notebook_cells_append(
             &config,
-            &notebook_id,
-            vec![Cell::CodeCell {
+            notebook_id,
+            vec![Cell::Code(CodeCell {
                 id: String::new(),
                 content: String::new(),
                 read_only: Some(true),
                 syntax: None,
-            }],
+            })],
         )
         .await?
         .pop()
         .ok_or_else(|| anyhow!("No cells returned"))?;
 
         let code_cell_id = match code_cell {
-            Cell::CodeCell { id, .. } => id,
+            Cell::Code(CodeCell { id, .. }) => id,
             _ => unreachable!(),
         };
 
         let heading_cell_id = match header_cell {
-            Cell::HeadingCell { id, .. } => id,
+            Cell::Heading(HeadingCell { id, .. }) => id,
             _ => unreachable!(),
         };
 
@@ -85,11 +93,11 @@ impl NotebookWriter {
 
         notebook_cell_append_text(
             &self.config,
-            &self.notebook_id,
-            &self.code_cell_id,
+            self.notebook_id,
+            self.code_cell_id.clone(),
             CellAppendText {
                 content,
-                formatting: None,
+                formatting: Formatting::new(),
             },
         )
         .await?;
@@ -98,22 +106,24 @@ impl NotebookWriter {
     }
 
     pub async fn close(&self) -> Result<()> {
-        let timestamp = OffsetDateTime::now_utc().format(&Rfc3339).unwrap();
+        let now = OffsetDateTime::now_utc();
+        let timestamp = now.format(&Rfc3339).unwrap();
         let content = format!("\n🔴 Ended at: \t{}", timestamp);
-        let timestamp_offset = char_count(&content) - char_count(&timestamp);
+
         notebook_cell_append_text(
             &self.config,
-            &self.notebook_id,
-            &self.heading_cell_id,
+            self.notebook_id,
+            self.heading_cell_id.clone(),
             CellAppendText {
                 content,
-                formatting: Some(vec![Annotation::TimestampAnnotation {
-                    offset: timestamp_offset as i32,
-                    timestamp,
-                }]),
+                formatting: vec![AnnotationWithOffset::new(
+                    0,
+                    Annotation::Timestamp { timestamp: now },
+                )],
             },
         )
         .await?;
+
         Ok(())
     }
 }
