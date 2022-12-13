@@ -3,7 +3,7 @@ use dialoguer::{theme, FuzzySelect, Input, Select};
 use fiberplane::api_client::clients::ApiClient;
 use fiberplane::api_client::{
     data_source_get, data_source_list, notebook_search, proxy_list, snippet_list, template_list,
-    trigger_list, workspace_list, workspace_users_list,
+    trigger_list, views_get, workspace_list, workspace_users_list,
 };
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::data_sources::DataSource;
@@ -234,7 +234,15 @@ pub async fn notebook_picker_with_prompt(
     pb.set_message("Fetching recent notebooks");
     pb.enable_steady_tick(100);
 
-    let results = notebook_search(client, workspace_id, NotebookSearch { labels: None }).await?;
+    let results = notebook_search(
+        client,
+        workspace_id,
+        NotebookSearch {
+            labels: None,
+            view: None,
+        },
+    )
+    .await?;
 
     pb.finish_and_clear();
 
@@ -544,6 +552,57 @@ pub async fn data_source_picker(
     match selection {
         Some(selection) => Ok(results.remove(selection)),
         None => bail!("No data source selected"),
+    }
+}
+
+/// Get a view ID from either a CLI argument, or from a interactive picker.
+///
+/// If the user has not specified the view ID through a CLI argument then it
+/// will retrieve all views for the workspace using the views list endpoint, and allow
+/// the user to select one.
+///
+/// NOTE: This currently does not do any limiting of the result nor does it do
+/// any sorting. It will allow client side filtering.
+/// NOTE: If the user does not specify a value through a cli argument, the
+/// interactive input will always be shown. This is a limitation that we
+/// currently not check if the invocation is interactive or not.
+pub async fn view_picker(
+    client: &ApiClient,
+    workspace_id: Option<Base64Uuid>,
+    argument: Option<Base64Uuid>,
+) -> Result<Base64Uuid> {
+    let workspace_id = workspace_picker(client, workspace_id).await?;
+
+    if let Some(id) = argument {
+        return Ok(id);
+    }
+
+    let pb = ProgressBar::new_spinner();
+    pb.set_message("Fetching views");
+    pb.enable_steady_tick(100);
+
+    let results = views_get(client, workspace_id, None, None, None, None).await?;
+
+    pb.finish_and_clear();
+
+    if results.is_empty() {
+        bail!("No views found");
+    }
+
+    let display_items: Vec<_> = results
+        .iter()
+        .map(|view| format!("{} ({})", view.title, view.id))
+        .collect();
+
+    let selection = FuzzySelect::with_theme(&default_theme())
+        .with_prompt("View")
+        .items(&display_items)
+        .default(0)
+        .interact_opt()?;
+
+    match selection {
+        Some(selection) => Ok(results[selection].id),
+        None => bail!("No workspace selected"),
     }
 }
 

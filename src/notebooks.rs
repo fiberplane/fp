@@ -1,4 +1,4 @@
-use crate::interactive::{self, notebook_picker, workspace_picker};
+use crate::interactive::{self, notebook_picker, view_picker, workspace_picker};
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use crate::KeyValueArgument;
 use crate::{config::api_client_configuration, fp_urls::NotebookUrlBuilder};
@@ -375,7 +375,10 @@ pub struct SearchArgs {
 
     /// Labels to search notebooks for (you can specify multiple labels).
     #[clap(name = "label", short, long)]
-    labels: Vec<KeyValueArgument>,
+    labels: Option<Vec<KeyValueArgument>>,
+
+    /// View used to search for notebooks
+    view: Option<Base64Uuid>,
 
     /// Output of the notebooks
     #[clap(long, short, default_value = "table", value_enum)]
@@ -392,18 +395,28 @@ async fn handle_search_command(args: SearchArgs) -> Result<()> {
     let client = api_client_configuration(args.config, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
-    let labels: Option<HashMap<_, _>> = if !args.labels.is_empty() {
-        Some(
-            args.labels
-                .into_iter()
-                .map(|kv| (kv.key, Some(kv.value)))
-                .collect(),
-        )
+    let labels: Option<HashMap<_, _>> = if let Some(labels) = args.labels {
+        if !labels.is_empty() {
+            Some(
+                labels
+                    .into_iter()
+                    .map(|kv| (kv.key, Some(kv.value)))
+                    .collect(),
+            )
+        } else {
+            None
+        }
     } else {
         None
     };
 
-    let notebooks = notebook_search(&client, workspace_id, NotebookSearch { labels }).await?;
+    let view = if labels.is_none() {
+        Some(view_picker(&client, Some(workspace_id), args.view).await?)
+    } else {
+        None
+    };
+
+    let notebooks = notebook_search(&client, workspace_id, NotebookSearch { labels, view }).await?;
 
     match args.output {
         NotebookOutput::Table => {

@@ -48,6 +48,7 @@ mod triggers;
 mod update;
 mod users;
 mod version;
+mod views;
 mod workspaces;
 
 /// The current build manifest associated with this binary
@@ -167,6 +168,10 @@ enum SubCommand {
     /// Snippets allow you to save reusable groups of cells and insert them into notebooks.
     Snippets(snippets::Arguments),
 
+    /// Views allow you to save label searches and display them as a view, allowing you to search for
+    /// notebooks easier and more convenient
+    Views(views::Arguments),
+
     /// Interact with triggers
     ///
     /// Triggers allow you to expose webhooks that will expand templates.
@@ -270,6 +275,7 @@ async fn main() {
         Run(args) => run::handle_command(args).await,
         Shell(args) => shell::handle_command(args).await,
         Snippets(args) => snippets::handle_command(args).await,
+        Views(args) => views::handle_command(args).await,
         Templates(args) => templates::handle_command(args).await,
         Triggers(args) => triggers::handle_command(args).await,
         Events(args) => events::handle_command(args).await,
