@@ -341,7 +341,7 @@ async fn handle_display_name_update(args: ChangeDisplayNameArguments) -> Result<
             new_display_name: None,
         },
     )
-        .await?;
+    .await?;
 
     info!("Successfully updated view with a new display name");
     Ok(())

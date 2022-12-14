@@ -12,6 +12,7 @@ use fiberplane::api_client::{
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::markdown::{markdown_to_notebook, notebook_to_markdown};
 use fiberplane::models::labels::Label;
+use fiberplane::models::names::Name;
 use fiberplane::models::notebooks;
 use fiberplane::models::notebooks::{
     Cell, CodeCell, NewNotebook, Notebook, NotebookCopyDestination, NotebookSearch,
@@ -20,7 +21,6 @@ use fiberplane::models::notebooks::{
 use fiberplane::models::timestamps::{NewTimeRange, TimeRange, Timestamp};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use fiberplane::models::names::Name;
 use time::format_description::well_known::Rfc3339;
 use time::{ext::NumericalDuration, OffsetDateTime};
 use tracing::info;
