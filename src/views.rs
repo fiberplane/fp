@@ -29,7 +29,8 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
         SubCommand::List(args) => handle_list(args).await,
         SubCommand::Delete(args) => handle_delete(args).await,
         SubCommand::Update(args) => match args {
-            UpdateSubCommand::Title(args) => handle_title_update(args).await,
+            UpdateSubCommand::Name(args) => handle_name_update(args).await,
+            UpdateSubCommand::DisplayName(args) => handle_display_name_update(args).await,
             UpdateSubCommand::Description(args) => handle_description_update(args).await,
             UpdateSubCommand::Labels(args) => handle_label_update(args).await,
         },
@@ -56,8 +57,13 @@ enum SubCommand {
 
 #[derive(Parser)]
 struct CreateArguments {
-    /// Title of the view that should be created
-    title: Option<Name>,
+    /// Name of the view that should be created.
+    /// This is distinct from `display_name`, which is not constrained
+    name: Option<Name>,
+
+    /// Display name of the view that should be created.
+    /// This is distinct from `name`, which is constrained
+    display_name: Option<String>,
 
     /// Description of the view that should be created
     description: Option<String>,
@@ -84,12 +90,13 @@ async fn handle_create(args: CreateArguments) -> Result<()> {
     let client = api_client_configuration(args.config, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
-    let title = name_opt("Title", args.title, Some(Name::from_static("view"))).unwrap();
+    let name = name_opt("Name", args.name, Some(Name::from_static("view"))).unwrap();
     let description =
         text_opt("Description", args.description.clone(), Some("".to_owned())).unwrap_or_default();
 
     let view = NewView {
-        title,
+        name,
+        display_name: args.display_name,
         description,
         labels: args
             .labels
@@ -176,9 +183,9 @@ struct DeleteArguments {
     #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
-    /// ID of the view which should be deleted
+    /// Name of the view which should be deleted
     #[clap(long)]
-    view_id: Option<Base64Uuid>,
+    view_name: Option<Name>,
 
     #[clap(from_global)]
     base_url: Url,
@@ -191,9 +198,9 @@ async fn handle_delete(args: DeleteArguments) -> Result<()> {
     let client = api_client_configuration(args.config, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
-    let view_id = view_picker(&client, args.workspace_id, args.view_id).await?;
+    let view_name = view_picker(&client, args.workspace_id, args.view_name).await?;
 
-    views_delete(&client, workspace_id, view_id).await?;
+    views_delete(&client, workspace_id, view_name.into_string()).await?;
 
     info!("Successfully deleted view");
     Ok(())
@@ -201,8 +208,11 @@ async fn handle_delete(args: DeleteArguments) -> Result<()> {
 
 #[derive(Parser)]
 enum UpdateSubCommand {
-    /// Change title of the view
-    Title(ChangeTitleArguments),
+    /// Change name of the view
+    Name(ChangeNameArguments),
+
+    /// Change display name of the view
+    DisplayName(ChangeDisplayNameArguments),
 
     /// Change description of the view
     Description(ChangeDescriptionArguments),
@@ -212,14 +222,34 @@ enum UpdateSubCommand {
 }
 
 #[derive(Parser)]
-struct ChangeTitleArguments {
-    /// New title for the view
-    #[clap(long, short = 't', env)]
-    new_title: Name,
+struct ChangeNameArguments {
+    /// New name for the view
+    #[clap(long, short = 'n', env)]
+    new_name: Name,
 
-    /// ID of the view which should be updated
+    /// Name of the view which should be updated
     #[clap(long)]
-    view_id: Option<Base64Uuid>,
+    view_name: Option<Name>,
+
+    #[clap(from_global)]
+    workspace_id: Option<Base64Uuid>,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
+#[derive(Parser)]
+struct ChangeDisplayNameArguments {
+    /// New display name for the view
+    #[clap(long, short = 'n', env)]
+    new_display_name: String,
+
+    /// Name of the view which should be updated
+    #[clap(long)]
+    view_name: Option<Name>,
 
     #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
@@ -237,9 +267,9 @@ struct ChangeDescriptionArguments {
     #[clap(long, short = 'd', env)]
     new_description: String,
 
-    /// ID of the view which should be updated
+    /// Name of the view which should be updated
     #[clap(long)]
-    view_id: Option<Base64Uuid>,
+    view_name: Option<Name>,
 
     #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
@@ -257,9 +287,9 @@ struct ChangeLabelArguments {
     #[clap(long, short = 'l', env)]
     new_labels: Vec<KeyValueArgument>,
 
-    /// ID of the view which should be updated
+    /// Name of the view which should be updated
     #[clap(long)]
-    view_id: Option<Base64Uuid>,
+    view_name: Option<Name>,
 
     #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
@@ -271,25 +301,49 @@ struct ChangeLabelArguments {
     config: Option<PathBuf>,
 }
 
-async fn handle_title_update(args: ChangeTitleArguments) -> Result<()> {
+async fn handle_name_update(args: ChangeNameArguments) -> Result<()> {
     let client = api_client_configuration(args.config, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
-    let view_id = view_picker(&client, args.workspace_id, args.view_id).await?;
+    let view_name = view_picker(&client, args.workspace_id, args.view_name).await?;
 
     views_update(
         &client,
         workspace_id,
-        view_id,
+        view_name.into_string(),
         UpdateView {
-            new_title: Some(args.new_title),
+            new_name: Some(args.new_name),
             new_description: None,
             new_labels: None,
+            new_display_name: None,
         },
     )
     .await?;
 
-    info!("Successfully updated view with a new title");
+    info!("Successfully updated view with a new name");
+    Ok(())
+}
+
+async fn handle_display_name_update(args: ChangeDisplayNameArguments) -> Result<()> {
+    let client = api_client_configuration(args.config, args.base_url).await?;
+
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
+    let view_name = view_picker(&client, args.workspace_id, args.view_name).await?;
+
+    views_update(
+        &client,
+        workspace_id,
+        view_name.into_string(),
+        UpdateView {
+            new_name: None,
+            new_description: Some(args.new_display_name),
+            new_labels: None,
+            new_display_name: None,
+        },
+    )
+        .await?;
+
+    info!("Successfully updated view with a new display name");
     Ok(())
 }
 
@@ -297,14 +351,15 @@ async fn handle_description_update(args: ChangeDescriptionArguments) -> Result<(
     let client = api_client_configuration(args.config, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
-    let view_id = view_picker(&client, args.workspace_id, args.view_id).await?;
+    let view_name = view_picker(&client, args.workspace_id, args.view_name).await?;
 
     views_update(
         &client,
         workspace_id,
-        view_id,
+        view_name.into_string(),
         UpdateView {
-            new_title: None,
+            new_name: None,
+            new_display_name: None,
             new_description: Some(args.new_description),
             new_labels: None,
         },
@@ -319,14 +374,15 @@ async fn handle_label_update(args: ChangeLabelArguments) -> Result<()> {
     let client = api_client_configuration(args.config, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
-    let view_id = view_picker(&client, args.workspace_id, args.view_id).await?;
+    let view_name = view_picker(&client, args.workspace_id, args.view_name).await?;
 
     views_update(
         &client,
         workspace_id,
-        view_id,
+        view_name.into_string(),
         UpdateView {
-            new_title: None,
+            new_name: None,
+            new_display_name: None,
             new_description: None,
             new_labels: Some(
                 args.new_labels
@@ -366,7 +422,8 @@ enum ViewListOutput {
 impl GenericKeyValue {
     fn from_view(view: View) -> Vec<Self> {
         vec![
-            GenericKeyValue::new("Title:", view.title),
+            GenericKeyValue::new("Name:", view.name),
+            GenericKeyValue::new("Display Name:", view.display_name),
             GenericKeyValue::new("Description:", view.description),
             GenericKeyValue::new("Labels:", format!("{}", print_labels(&view.labels))),
             GenericKeyValue::new(
@@ -387,10 +444,13 @@ struct ViewRow {
     #[table(title = "ID")]
     id: String,
 
-    #[table(title = "Title")]
-    title: String,
+    #[table(title = "Name")]
+    name: String,
 
-    #[table(title = "Title")]
+    #[table(title = "Display Name")]
+    display_name: String,
+
+    #[table(title = "Description")]
     description: String,
 
     #[table(title = "Labels", display_fn = "print_labels")]
@@ -407,7 +467,8 @@ impl From<View> for ViewRow {
     fn from(view: View) -> Self {
         Self {
             id: view.id.to_string(),
-            title: view.title.to_string(),
+            name: view.name.to_string(),
+            display_name: view.display_name,
             description: view.description,
             labels: view.labels,
             created_at: view.created_at.format(&Rfc3339).unwrap_or_default(),

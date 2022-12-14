@@ -555,9 +555,9 @@ pub async fn data_source_picker(
     }
 }
 
-/// Get a view ID from either a CLI argument, or from a interactive picker.
+/// Get a view name from either a CLI argument, or from a interactive picker.
 ///
-/// If the user has not specified the view ID through a CLI argument then it
+/// If the user has not specified the view name through a CLI argument then it
 /// will retrieve all views for the workspace using the views list endpoint, and allow
 /// the user to select one.
 ///
@@ -569,8 +569,8 @@ pub async fn data_source_picker(
 pub async fn view_picker(
     client: &ApiClient,
     workspace_id: Option<Base64Uuid>,
-    argument: Option<Base64Uuid>,
-) -> Result<Base64Uuid> {
+    argument: Option<Name>,
+) -> Result<Name> {
     let workspace_id = workspace_picker(client, workspace_id).await?;
 
     if let Some(id) = argument {
@@ -591,7 +591,7 @@ pub async fn view_picker(
 
     let display_items: Vec<_> = results
         .iter()
-        .map(|view| format!("{} ({})", view.title, view.id))
+        .map(|view| format!("{} ({})", view.display_name, view.id))
         .collect();
 
     let selection = FuzzySelect::with_theme(&default_theme())
@@ -601,7 +601,7 @@ pub async fn view_picker(
         .interact_opt()?;
 
     match selection {
-        Some(selection) => Ok(results[selection].id),
+        Some(selection) => Ok(results[selection].name.clone()),
         None => bail!("No workspace selected"),
     }
 }

@@ -20,6 +20,7 @@ use fiberplane::models::notebooks::{
 use fiberplane::models::timestamps::{NewTimeRange, TimeRange, Timestamp};
 use std::collections::HashMap;
 use std::path::PathBuf;
+use fiberplane::models::names::Name;
 use time::format_description::well_known::Rfc3339;
 use time::{ext::NumericalDuration, OffsetDateTime};
 use tracing::info;
@@ -378,7 +379,7 @@ pub struct SearchArgs {
     labels: Option<Vec<KeyValueArgument>>,
 
     /// View used to search for notebooks
-    view: Option<Base64Uuid>,
+    view: Option<Name>,
 
     /// Output of the notebooks
     #[clap(long, short, default_value = "table", value_enum)]
