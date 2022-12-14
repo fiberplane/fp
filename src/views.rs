@@ -29,7 +29,6 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
         SubCommand::List(args) => handle_list(args).await,
         SubCommand::Delete(args) => handle_delete(args).await,
         SubCommand::Update(args) => match args {
-            UpdateSubCommand::Name(args) => handle_name_update(args).await,
             UpdateSubCommand::DisplayName(args) => handle_display_name_update(args).await,
             UpdateSubCommand::Description(args) => handle_description_update(args).await,
             UpdateSubCommand::Labels(args) => handle_label_update(args).await,
@@ -208,9 +207,6 @@ async fn handle_delete(args: DeleteArguments) -> Result<()> {
 
 #[derive(Parser)]
 enum UpdateSubCommand {
-    /// Change name of the view
-    Name(ChangeNameArguments),
-
     /// Change display name of the view
     DisplayName(ChangeDisplayNameArguments),
 
@@ -219,26 +215,6 @@ enum UpdateSubCommand {
 
     /// Change Labels
     Labels(ChangeLabelArguments),
-}
-
-#[derive(Parser)]
-struct ChangeNameArguments {
-    /// New name for the view
-    #[clap(long, short = 'n', env)]
-    new_name: Name,
-
-    /// Name of the view which should be updated
-    #[clap(long)]
-    view_name: Option<Name>,
-
-    #[clap(from_global)]
-    workspace_id: Option<Base64Uuid>,
-
-    #[clap(from_global)]
-    base_url: Url,
-
-    #[clap(from_global)]
-    config: Option<PathBuf>,
 }
 
 #[derive(Parser)]
@@ -301,29 +277,6 @@ struct ChangeLabelArguments {
     config: Option<PathBuf>,
 }
 
-async fn handle_name_update(args: ChangeNameArguments) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
-
-    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
-    let view_name = view_picker(&client, args.workspace_id, args.view_name).await?;
-
-    views_update(
-        &client,
-        workspace_id,
-        view_name.into_string(),
-        UpdateView {
-            new_name: Some(args.new_name),
-            new_description: None,
-            new_labels: None,
-            new_display_name: None,
-        },
-    )
-    .await?;
-
-    info!("Successfully updated view with a new name");
-    Ok(())
-}
-
 async fn handle_display_name_update(args: ChangeDisplayNameArguments) -> Result<()> {
     let client = api_client_configuration(args.config, args.base_url).await?;
 
@@ -335,7 +288,6 @@ async fn handle_display_name_update(args: ChangeDisplayNameArguments) -> Result<
         workspace_id,
         view_name.into_string(),
         UpdateView {
-            new_name: None,
             new_description: Some(args.new_display_name),
             new_labels: None,
             new_display_name: None,
@@ -358,7 +310,6 @@ async fn handle_description_update(args: ChangeDescriptionArguments) -> Result<(
         workspace_id,
         view_name.into_string(),
         UpdateView {
-            new_name: None,
             new_display_name: None,
             new_description: Some(args.new_description),
             new_labels: None,
@@ -381,7 +332,6 @@ async fn handle_label_update(args: ChangeLabelArguments) -> Result<()> {
         workspace_id,
         view_name.into_string(),
         UpdateView {
-            new_name: None,
             new_display_name: None,
             new_description: None,
             new_labels: Some(
