@@ -459,8 +459,8 @@ pub async fn trigger_picker(
 pub async fn proxy_picker(
     client: &ApiClient,
     workspace_id: Option<Base64Uuid>,
-    argument: Option<String>,
-) -> Result<String> {
+    argument: Option<Name>,
+) -> Result<Name> {
     // If the user provided an argument, use that. Otherwise show the picker.
     if let Some(name) = argument {
         return Ok(name);
@@ -490,7 +490,7 @@ pub async fn proxy_picker(
         .interact_opt()?;
 
     match selection {
-        Some(selection) => Ok(results[selection].name.to_string()),
+        Some(selection) => Ok(results[selection].name.clone()),
         None => bail!("No proxy selected"),
     }
 }
@@ -509,7 +509,7 @@ pub async fn proxy_picker(
 pub async fn data_source_picker(
     client: &ApiClient,
     workspace_id: Option<Base64Uuid>,
-    argument: Option<String>,
+    argument: Option<Name>,
 ) -> Result<DataSource> {
     let workspace_id = workspace_picker(client, workspace_id).await?;
 

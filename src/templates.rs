@@ -475,7 +475,7 @@ async fn expand_template_api(
     let notebook = template_expand(
         &client,
         workspace_id,
-        template_name.to_string(),
+        template_name.clone(),
         args.template_arguments
             .map_or_else(TemplateExpandPayload::new, |args| {
                 Map::from_iter(args.0.into_iter())
@@ -553,7 +553,7 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
 
     // Create or update the template
     let (template, trigger_url) = if let Some(template_name) = args.template_name {
-        if template_get(&client, workspace_id, template_name.to_string())
+        if template_get(&client, workspace_id, template_name.clone())
             .await
             .is_ok()
         {
@@ -565,7 +565,7 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
             let template = template_update(
                 &client,
                 workspace_id,
-                template_name.to_string(),
+                template_name.clone(),
                 template.clone(),
             )
             .await
@@ -654,7 +654,7 @@ async fn handle_get_command(args: GetArguments) -> Result<()> {
     let (workspace_id, template_name) =
         interactive::template_picker(&client, args.template_name, None).await?;
 
-    let template = template_get(&client, workspace_id, template_name.to_string()).await?;
+    let template = template_get(&client, workspace_id, template_name.clone()).await?;
 
     match args.output {
         TemplateOutput::Table => output_details(GenericKeyValue::from_template(template)),
@@ -671,7 +671,7 @@ async fn handle_delete_command(args: DeleteArguments) -> Result<()> {
     let (workspace_id, template_name) =
         interactive::template_picker(&client, args.template_name, None).await?;
 
-    template_delete(&client, workspace_id, template_name.to_string())
+    template_delete(&client, workspace_id, template_name.clone())
         .await
         .with_context(|| format!("Error deleting template {}", template_name))?;
 
@@ -726,7 +726,7 @@ async fn handle_update_command(args: UpdateArguments) -> Result<()> {
         body,
     };
 
-    let template = template_update(&client, workspace_id, template_name.to_string(), template)
+    let template = template_update(&client, workspace_id, template_name.clone(), template)
         .await
         .with_context(|| format!("Error updating template {}", template_name))?;
     info!("Updated template");

@@ -257,7 +257,7 @@ async fn handle_get_command(args: GetArgs) -> Result<()> {
         interactive::proxy_picker(&client, Some(workspace_id), args.proxy_name.map(Into::into))
             .await?;
 
-    let proxy = proxy_get(&client, workspace_id, proxy_name.to_string()).await?;
+    let proxy = proxy_get(&client, workspace_id, proxy_name).await?;
 
     match args.output {
         ProxyOutput::Table => {

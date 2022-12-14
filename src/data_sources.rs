@@ -245,10 +245,9 @@ async fn handle_delete(args: DeleteArgs) -> Result<()> {
     let client = api_client_configuration(args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
-    let data_source =
-        data_source_picker(&client, Some(workspace_id), args.name.map(String::from)).await?;
+    let data_source = data_source_picker(&client, Some(workspace_id), args.name).await?;
 
-    data_source_delete(&client, workspace_id, data_source.name.to_string()).await?;
+    data_source_delete(&client, workspace_id, data_source.name).await?;
 
     Ok(())
 }
@@ -257,8 +256,7 @@ async fn handle_get(args: GetArgs) -> Result<()> {
     let client = api_client_configuration(args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
-    let data_source =
-        data_source_picker(&client, Some(workspace_id), args.name.map(String::from)).await?;
+    let data_source = data_source_picker(&client, Some(workspace_id), args.name).await?;
 
     match args.output {
         DataSourceOutput::Table => output_details(GenericKeyValue::from_data_source(&data_source)),
@@ -273,8 +271,7 @@ async fn handle_update(args: UpdateArgs) -> Result<()> {
     let client = api_client_configuration(args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
-    let data_source =
-        data_source_picker(&client, Some(workspace_id), args.name.map(String::from)).await?;
+    let data_source = data_source_picker(&client, Some(workspace_id), args.name).await?;
 
     let update = UpdateDataSource {
         description: args.description,
@@ -282,7 +279,7 @@ async fn handle_update(args: UpdateArgs) -> Result<()> {
     };
 
     let data_source =
-        data_source_update(&client, workspace_id, data_source.name.to_string(), update).await?;
+        data_source_update(&client, workspace_id, data_source.name.clone(), update).await?;
 
     match args.output {
         DataSourceOutput::Table => output_details(GenericKeyValue::from_data_source(&data_source)),

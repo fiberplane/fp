@@ -605,11 +605,11 @@ pub(crate) struct GetDefaultDataSourcesArgs {
 pub(crate) struct SetDefaultDataSourcesArgs {
     /// Name of the data source which should be set as default for the given provider type
     #[clap(long, short, env)]
-    data_source_name: Option<String>,
+    data_source_name: Option<Name>,
 
     /// If the data source is a proxy data source, the name of the proxy
     #[clap(long, short, env)]
-    proxy_name: Option<String>,
+    proxy_name: Option<Name>,
 
     #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
