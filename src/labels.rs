@@ -67,7 +67,7 @@ async fn handle_list_keys_command(args: ListKeysArgs) -> Result<()> {
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let prefix = interactive::text_opt("Prefix", args.prefix, None);
 
-    let keys = label_keys_list(&client, workspace_id, prefix).await?;
+    let keys = label_keys_list(&client, workspace_id, prefix.as_deref()).await?;
 
     match args.output {
         ListKeysOutput::List => output_string_list(keys),
@@ -113,7 +113,7 @@ async fn handle_list_values_command(args: ListValuesArgs) -> Result<()> {
     let label_key = interactive::text_req("Label key", args.label_key, None)?;
     let prefix = interactive::text_opt("Prefix", args.prefix, None);
 
-    let values = label_values_list(&client, workspace_id, label_key, prefix).await?;
+    let values = label_values_list(&client, workspace_id, &label_key, prefix.as_deref()).await?;
 
     match args.output {
         ListValuesOutput::List => output_string_list(values),

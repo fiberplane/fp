@@ -288,13 +288,8 @@ pub async fn template_picker(
     pb.set_message("Fetching templates");
     pb.enable_steady_tick(100);
 
-    let results = template_list(
-        client,
-        workspace_id,
-        Some("updated_at".to_string()),
-        Some("descending".to_string()),
-    )
-    .await?;
+    let results =
+        template_list(client, workspace_id, Some("updated_at"), Some("descending")).await?;
 
     pb.finish_and_clear();
 
@@ -355,13 +350,8 @@ pub async fn snippet_picker(
     pb.set_message("Fetching snippets");
     pb.enable_steady_tick(100);
 
-    let results = snippet_list(
-        config,
-        workspace_id,
-        Some("updated_at".to_string()),
-        Some("descending".to_string()),
-    )
-    .await?;
+    let results =
+        snippet_list(config, workspace_id, Some("updated_at"), Some("descending")).await?;
 
     pb.finish_and_clear();
 
@@ -514,7 +504,7 @@ pub async fn data_source_picker(
     let workspace_id = workspace_picker(client, workspace_id).await?;
 
     if let Some(name) = argument {
-        let data_source = data_source_get(client, workspace_id, name).await?;
+        let data_source = data_source_get(client, workspace_id, &name).await?;
         return Ok(data_source);
     }
 
@@ -584,12 +574,7 @@ pub async fn workspace_picker_with_prompt(
     pb.set_message("Fetching workspaces");
     pb.enable_steady_tick(100);
 
-    let results = workspace_list(
-        client,
-        Some("name".to_string()),
-        Some("ascending".to_string()),
-    )
-    .await?;
+    let results = workspace_list(client, Some("name"), Some("ascending")).await?;
 
     pb.finish_and_clear();
 
@@ -639,13 +624,7 @@ pub async fn workspace_user_picker(
     pb.set_message("Fetching workspace users");
     pb.enable_steady_tick(100);
 
-    let results = workspace_users_list(
-        client,
-        *workspace,
-        Some("name".to_string()),
-        Some("ascending".to_string()),
-    )
-    .await?;
+    let results = workspace_users_list(client, *workspace, Some("name"), Some("ascending")).await?;
 
     pb.finish_and_clear();
 

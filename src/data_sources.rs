@@ -247,7 +247,7 @@ async fn handle_delete(args: DeleteArgs) -> Result<()> {
 
     let data_source = data_source_picker(&client, Some(workspace_id), args.name).await?;
 
-    data_source_delete(&client, workspace_id, data_source.name).await?;
+    data_source_delete(&client, workspace_id, &data_source.name).await?;
 
     Ok(())
 }
@@ -278,8 +278,7 @@ async fn handle_update(args: UpdateArgs) -> Result<()> {
         config: args.provider_config.map(|c| c.0),
     };
 
-    let data_source =
-        data_source_update(&client, workspace_id, data_source.name.clone(), update).await?;
+    let data_source = data_source_update(&client, workspace_id, &data_source.name, update).await?;
 
     match args.output {
         DataSourceOutput::Table => output_details(GenericKeyValue::from_data_source(&data_source)),
