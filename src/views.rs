@@ -28,11 +28,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
         SubCommand::Create(args) => handle_create(args).await,
         SubCommand::List(args) => handle_list(args).await,
         SubCommand::Delete(args) => handle_delete(args).await,
-        SubCommand::Update(args) => match args {
-            UpdateSubCommand::DisplayName(args) => handle_display_name_update(args).await,
-            UpdateSubCommand::Description(args) => handle_description_update(args).await,
-            UpdateSubCommand::Labels(args) => handle_label_update(args).await,
-        },
+        SubCommand::Update(args) => handle_update(args).await,
     }
 }
 
@@ -50,8 +46,7 @@ enum SubCommand {
     Delete(DeleteArguments),
 
     /// Update an existing view
-    #[clap(subcommand)]
-    Update(UpdateSubCommand),
+    Update(UpdateArguments),
 }
 
 #[derive(Parser)]
@@ -89,22 +84,14 @@ async fn handle_create(args: CreateArguments) -> Result<()> {
     let client = api_client_configuration(args.config, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
-    let name = name_opt("Name", args.name, Some(Name::from_static("view"))).unwrap();
-    let description =
-        text_opt("Description", args.description.clone(), Some("".to_owned())).unwrap_or_default();
+    let name = name_opt("Name", args.name, None).unwrap();
+    let description = text_opt("Description", args.description.clone(), None).unwrap_or_default();
 
     let view = NewView {
         name,
         display_name: args.display_name,
         description,
-        labels: args
-            .labels
-            .into_iter()
-            .map(|kv| Label {
-                key: kv.key,
-                value: kv.value,
-            })
-            .collect(),
+        labels: args.labels.into_iter().map(Into::into).collect(),
     };
 
     let view = views_create(&client, workspace_id, view).await?;
@@ -206,62 +193,18 @@ async fn handle_delete(args: DeleteArguments) -> Result<()> {
 }
 
 #[derive(Parser)]
-enum UpdateSubCommand {
-    /// Change display name of the view
-    DisplayName(ChangeDisplayNameArguments),
-
-    /// Change description of the view
-    Description(ChangeDescriptionArguments),
-
-    /// Change Labels
-    Labels(ChangeLabelArguments),
-}
-
-#[derive(Parser)]
-struct ChangeDisplayNameArguments {
+struct UpdateArguments {
     /// New display name for the view
-    #[clap(long, short = 'n', env)]
-    new_display_name: String,
+    #[clap(long, short = 'n', env, required_unless_present_any = ["new_description", "new_labels"])]
+    new_display_name: Option<String>,
 
-    /// Name of the view which should be updated
-    #[clap(long)]
-    view_name: Option<Name>,
-
-    #[clap(from_global)]
-    workspace_id: Option<Base64Uuid>,
-
-    #[clap(from_global)]
-    base_url: Url,
-
-    #[clap(from_global)]
-    config: Option<PathBuf>,
-}
-
-#[derive(Parser)]
-struct ChangeDescriptionArguments {
     /// New description for the view
-    #[clap(long, short = 'd', env)]
-    new_description: String,
+    #[clap(long, short = 'd', env, required_unless_present_any = ["new_display_name", "new_labels"])]
+    new_description: Option<String>,
 
-    /// Name of the view which should be updated
-    #[clap(long)]
-    view_name: Option<Name>,
-
-    #[clap(from_global)]
-    workspace_id: Option<Base64Uuid>,
-
-    #[clap(from_global)]
-    base_url: Url,
-
-    #[clap(from_global)]
-    config: Option<PathBuf>,
-}
-
-#[derive(Parser)]
-struct ChangeLabelArguments {
     /// New labels for the view
-    #[clap(long, short = 'l', env)]
-    new_labels: Vec<KeyValueArgument>,
+    #[clap(long, short = 'l', env, required_unless_present_any = ["new_display_name", "new_labels"])]
+    new_labels: Option<Vec<KeyValueArgument>>,
 
     /// Name of the view which should be updated
     #[clap(long)]
@@ -277,7 +220,7 @@ struct ChangeLabelArguments {
     config: Option<PathBuf>,
 }
 
-async fn handle_display_name_update(args: ChangeDisplayNameArguments) -> Result<()> {
+async fn handle_update(args: UpdateArguments) -> Result<()> {
     let client = api_client_configuration(args.config, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
@@ -288,66 +231,16 @@ async fn handle_display_name_update(args: ChangeDisplayNameArguments) -> Result<
         workspace_id,
         view_name.into_string(),
         UpdateView {
-            new_description: Some(args.new_display_name),
-            new_labels: None,
-            new_display_name: None,
+            new_display_name: args.new_display_name,
+            new_description: args.new_description,
+            new_labels: args
+                .new_labels
+                .map(|new_labels| new_labels.into_iter().map(Into::into).collect()),
         },
     )
     .await?;
 
-    info!("Successfully updated view with a new display name");
-    Ok(())
-}
-
-async fn handle_description_update(args: ChangeDescriptionArguments) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
-
-    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
-    let view_name = view_picker(&client, args.workspace_id, args.view_name).await?;
-
-    views_update(
-        &client,
-        workspace_id,
-        view_name.into_string(),
-        UpdateView {
-            new_display_name: None,
-            new_description: Some(args.new_description),
-            new_labels: None,
-        },
-    )
-    .await?;
-
-    info!("Successfully updated view with a new description");
-    Ok(())
-}
-
-async fn handle_label_update(args: ChangeLabelArguments) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
-
-    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
-    let view_name = view_picker(&client, args.workspace_id, args.view_name).await?;
-
-    views_update(
-        &client,
-        workspace_id,
-        view_name.into_string(),
-        UpdateView {
-            new_display_name: None,
-            new_description: None,
-            new_labels: Some(
-                args.new_labels
-                    .into_iter()
-                    .map(|kv| Label {
-                        key: kv.key,
-                        value: kv.value,
-                    })
-                    .collect(),
-            ),
-        },
-    )
-    .await?;
-
-    info!("Successfully updated view with new labels");
+    info!("Successfully updated view");
     Ok(())
 }
 
@@ -429,18 +322,17 @@ impl From<View> for ViewRow {
 
 fn print_labels(input: &Vec<Label>) -> impl Display {
     let mut output = String::new();
-    let mut iterator = input.iter().peekable();
 
-    while let Some(label) = iterator.next() {
+    for label in input {
+        if !output.is_empty() {
+            output.push_str(", ");
+        }
+
         output.push_str(&label.key);
 
         if !label.value.is_empty() {
             output.push('=');
             output.push_str(&label.value);
-        }
-
-        if iterator.peek().is_some() {
-            output.push_str(", ");
         }
     }
 

@@ -11,7 +11,6 @@ use fiberplane::api_client::{
 };
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::markdown::{markdown_to_notebook, notebook_to_markdown};
-use fiberplane::models::labels::Label;
 use fiberplane::models::names::Name;
 use fiberplane::models::notebooks;
 use fiberplane::models::notebooks::{
@@ -155,14 +154,7 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
     let client = api_client_configuration(args.config, args.base_url.clone()).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
-    let labels = args
-        .labels
-        .into_iter()
-        .map(|input| Label {
-            key: input.key,
-            value: input.value,
-        })
-        .collect();
+    let labels = args.labels.into_iter().map(Into::into).collect();
 
     let now = OffsetDateTime::now_utc();
     let from = args.from.unwrap_or_else(|| (now - 1.hours()).into());

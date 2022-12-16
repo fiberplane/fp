@@ -7,6 +7,7 @@ use directories::ProjectDirs;
 use fiberplane::api_client::notebook_create;
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::data_sources::SelectedDataSources;
+use fiberplane::models::labels::Label;
 use fiberplane::models::notebooks::NewNotebook;
 use fiberplane::models::timestamps::{NewTimeRange, RelativeTimeRange};
 use interactive::workspace_picker;
@@ -453,6 +454,15 @@ impl FromStr for KeyValueArgument {
             key: key.to_owned(),
             value: value.to_owned(),
         })
+    }
+}
+
+impl From<KeyValueArgument> for Label {
+    fn from(kv: KeyValueArgument) -> Self {
+        Self {
+            key: kv.key,
+            value: kv.value,
+        }
     }
 }
 
