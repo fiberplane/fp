@@ -257,7 +257,7 @@ async fn handle_get_command(args: GetArgs) -> Result<()> {
         interactive::proxy_picker(&client, Some(workspace_id), args.proxy_name.map(Into::into))
             .await?;
 
-    let proxy = proxy_get(&client, workspace_id, proxy_name.to_string()).await?;
+    let proxy = proxy_get(&client, workspace_id, &proxy_name).await?;
 
     match args.output {
         ProxyOutput::Table => {
@@ -287,11 +287,11 @@ async fn handle_data_sources_command(args: DataSourcesArgs) -> Result<()> {
 async fn handle_delete_command(args: DeleteArgs) -> Result<()> {
     let client = api_client_configuration(args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
-    let name =
+    let proxy_name =
         interactive::proxy_picker(&client, Some(workspace_id), args.proxy_name.map(Into::into))
             .await?;
 
-    proxy_delete(&client, workspace_id, name).await?;
+    proxy_delete(&client, workspace_id, &proxy_name).await?;
 
     info!("Deleted proxy");
     Ok(())

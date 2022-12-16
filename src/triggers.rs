@@ -198,7 +198,7 @@ async fn handle_trigger_get_command(args: GetArguments) -> Result<()> {
     let client = api_client_configuration(args.config, args.base_url.clone()).await?;
     let trigger_id = interactive::trigger_picker(&client, args.trigger_id, None).await?;
 
-    let trigger = trigger_get(&client, trigger_id.to_string())
+    let trigger = trigger_get(&client, trigger_id)
         .await
         .with_context(|| "Error getting trigger details")?;
 
@@ -214,7 +214,7 @@ async fn handle_trigger_delete_command(args: DeleteArguments) -> Result<()> {
     let client = api_client_configuration(args.config, args.base_url).await?;
     let trigger_id = interactive::trigger_picker(&client, args.trigger_id, None).await?;
 
-    trigger_delete(&client, trigger_id.to_string())
+    trigger_delete(&client, trigger_id)
         .await
         .context("Error deleting trigger")?;
 
@@ -254,8 +254,8 @@ async fn handle_trigger_invoke_command(args: InvokeArguments) -> Result<()> {
 
     let response = trigger_invoke(
         &anon_client,
-        trigger_id.to_string(),
-        secret_key,
+        trigger_id,
+        &secret_key,
         args.template_arguments
             .map_or_else(TemplateExpandPayload::new, |args| {
                 Map::from_iter(args.0.into_iter())

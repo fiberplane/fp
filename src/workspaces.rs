@@ -231,10 +231,8 @@ async fn handle_workspace_list(args: ListArgs) -> Result<()> {
 
     let list = workspace_list(
         &client,
-        args.sort_by.map(Into::<&str>::into).map(str::to_string),
-        args.sort_direction
-            .map(Into::<&str>::into)
-            .map(str::to_string),
+        args.sort_by.map(Into::<&str>::into),
+        args.sort_direction.map(Into::<&str>::into),
     )
     .await?;
 
@@ -364,10 +362,8 @@ async fn handle_invite_list(args: InviteListArgs) -> Result<()> {
     let invites = workspace_invite_get(
         &client,
         workspace_id,
-        args.sort_by.map(Into::<&str>::into).map(str::to_string),
-        args.sort_direction
-            .map(Into::<&str>::into)
-            .map(str::to_string),
+        args.sort_by.map(Into::<&str>::into),
+        args.sort_direction.map(Into::<&str>::into),
         args.page,
         args.limit,
     )
@@ -444,10 +440,8 @@ async fn handle_user_list(args: UserListArgs) -> Result<()> {
     let users = workspace_users_list(
         &client,
         workspace_id,
-        args.sort_by.map(Into::<&str>::into).map(str::to_string),
-        args.sort_direction
-            .map(Into::<&str>::into)
-            .map(str::to_string),
+        args.sort_by.map(Into::<&str>::into),
+        args.sort_direction.map(Into::<&str>::into),
     )
     .await?;
 
@@ -605,11 +599,11 @@ pub(crate) struct GetDefaultDataSourcesArgs {
 pub(crate) struct SetDefaultDataSourcesArgs {
     /// Name of the data source which should be set as default for the given provider type
     #[clap(long, short, env)]
-    data_source_name: Option<String>,
+    data_source_name: Option<Name>,
 
     /// If the data source is a proxy data source, the name of the proxy
     #[clap(long, short, env)]
-    proxy_name: Option<String>,
+    proxy_name: Option<Name>,
 
     #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,

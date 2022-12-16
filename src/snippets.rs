@@ -310,11 +310,13 @@ async fn handle_convert(args: ConvertArguments) -> Result<()> {
         cells
             .iter()
             .position(|cell| cell.id() == cell_id)
-            .ok_or(anyhow!(
-                "Could not find cell with ID {} in notebook {}",
-                cell_id,
-                notebook_id
-            ))?
+            .ok_or_else(|| {
+                anyhow!(
+                    "Could not find cell with ID {} in notebook {}",
+                    cell_id,
+                    notebook_id
+                )
+            })?
     } else {
         select_item("Start snippet from cell", &display_cells, Some(0))?
     };
@@ -322,16 +324,18 @@ async fn handle_convert(args: ConvertArguments) -> Result<()> {
         cells
             .iter()
             .position(|cell| cell.id() == cell_id)
-            .ok_or(anyhow!(
-                "Could not find cell with ID {} in notebook {}",
-                cell_id,
-                notebook_id
-            ))?
+            .ok_or_else(|| {
+                anyhow!(
+                    "Could not find cell with ID {} in notebook {}",
+                    cell_id,
+                    notebook_id
+                )
+            })?
     } else {
         select_item("End snippet at cell", &display_cells, Some(cells.len() - 1))?
     };
-    let start_cell_id = cells[start_cell_index].id().to_string();
-    let end_cell_id = cells[end_cell_index].id().to_string();
+    let start_cell_id = cells[start_cell_index].id();
+    let end_cell_id = cells[end_cell_index].id();
 
     let body =
         notebook_convert_to_snippet(&client, notebook_id, Some(start_cell_id), Some(end_cell_id))
@@ -343,7 +347,7 @@ async fn handle_convert(args: ConvertArguments) -> Result<()> {
     let description = text_opt("Description", args.description, None).unwrap_or_default();
 
     let snippet = NewSnippet {
-        name: name,
+        name,
         description,
         body,
     };
@@ -396,7 +400,7 @@ async fn handle_delete(args: DeleteArguments) -> Result<()> {
 
     let (workspace_id, snippet_name) = snippet_picker(&client, args.snippet_name, None).await?;
 
-    snippet_delete(&client, workspace_id, snippet_name.to_string())
+    snippet_delete(&client, workspace_id, &snippet_name)
         .await
         .with_context(|| format!("Error deleting snippet {}", snippet_name))?;
 
@@ -412,10 +416,8 @@ async fn handle_list(args: ListArguments) -> Result<()> {
     let snippets = snippet_list(
         &client,
         workspace_id,
-        args.sort_by.map(Into::<&str>::into).map(str::to_string),
-        args.sort_direction
-            .map(Into::<&str>::into)
-            .map(str::to_string),
+        args.sort_by.map(Into::<&str>::into),
+        args.sort_direction.map(Into::<&str>::into),
     )
     .await?;
 
@@ -432,7 +434,7 @@ async fn handle_get(args: GetArguments) -> Result<()> {
     let client = api_client_configuration(args.config, args.base_url).await?;
 
     let (workspace_id, snippet_name) = snippet_picker(&client, args.snippet_name, None).await?;
-    let snippet = snippet_get(&client, workspace_id, snippet_name.to_string()).await?;
+    let snippet = snippet_get(&client, workspace_id, &snippet_name).await?;
 
     match args.output {
         SnippetOutput::Table => output_details(GenericKeyValue::from_snippet(snippet)),
@@ -467,7 +469,7 @@ async fn handle_update(args: UpdateArguments) -> Result<()> {
         body,
     };
 
-    let snippet = snippet_update(&client, workspace_id, snippet_name.to_string(), snippet)
+    let snippet = snippet_update(&client, workspace_id, &snippet_name, snippet)
         .await
         .with_context(|| format!("Error updating snippet {}", snippet_name))?;
     info!("Updated snippet");
