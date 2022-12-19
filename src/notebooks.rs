@@ -1,4 +1,6 @@
-use crate::interactive::{self, notebook_picker, workspace_picker};
+use crate::interactive::{
+    self, notebook_picker, snippet_picker, workspace_picker, workspace_picker_with_prompt,
+};
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use crate::KeyValueArgument;
 use crate::{config::api_client_configuration, fp_urls::NotebookUrlBuilder};
@@ -7,11 +9,12 @@ use clap::{Parser, ValueEnum, ValueHint};
 use cli_table::Table;
 use fiberplane::api_client::{
     notebook_cells_append, notebook_create, notebook_delete, notebook_duplicate, notebook_get,
-    notebook_list, notebook_search,
+    notebook_list, notebook_search, notebook_snippet_insert,
 };
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::markdown::{markdown_to_notebook, notebook_to_markdown};
 use fiberplane::models::labels::Label;
+use fiberplane::models::names::Name;
 use fiberplane::models::notebooks;
 use fiberplane::models::notebooks::{
     Cell, CodeCell, NewNotebook, Notebook, NotebookCopyDestination, NotebookSearch,
@@ -45,6 +48,9 @@ pub enum SubCommand {
     /// Retrieve a notebook
     Get(GetArgs),
 
+    /// Insert a snippet into the notebook
+    InsertSnippet(InsertSnippetArgs),
+
     /// List all notebooks
     List(ListArgs),
 
@@ -70,6 +76,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
         Create(args) => handle_create_command(args).await,
         Duplicate(args) => handle_duplicate_command(args).await,
         Get(args) => handle_get_command(args).await,
+        InsertSnippet(args) => handle_insert_snippet_command(args).await,
         List(args) => handle_list_command(args).await,
         Search(args) => handle_search_command(args).await,
         Open(args) => handle_open_command(args).await,
@@ -535,6 +542,66 @@ async fn handle_append_cell_command(args: AppendCellArgs) -> Result<()> {
             output_details(GenericKeyValue::from_cell(cell))
         }
     }
+}
+
+#[derive(Parser)]
+pub struct InsertSnippetArgs {
+    /// The workspace to get the snippet from
+    #[clap(long, short, env)]
+    workspace_id: Option<Base64Uuid>,
+
+    /// The Name of the snippet
+    ///
+    /// Names must:
+    /// - be between 1 and 63 characters long
+    /// - start and end with an alphanumeric character
+    /// - contain only lowercase alphanumeric ASCII characters and dashes
+    ///
+    /// Names must be unique within a namespace such as a Workspace.
+    snippet_name: Option<Name>,
+
+    /// The notebook to insert the snippet into
+    #[clap(long, short, env)]
+    notebook_id: Option<Base64Uuid>,
+
+    /// The cell ID after which the snippet should be inserted.
+    ///
+    /// Note that the cell will be replaced if it is an empty text-based cell.
+    #[clap(long, short)]
+    cell_id: Option<String>,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
+pub(crate) async fn handle_insert_snippet_command(args: InsertSnippetArgs) -> Result<()> {
+    let client = api_client_configuration(args.config, args.base_url.clone()).await?;
+
+    let workspace_id = workspace_picker_with_prompt(
+        "Workspace of the snippet and notebook",
+        &client,
+        args.workspace_id,
+    )
+    .await?;
+    let (workspace_id, snippet_name) =
+        snippet_picker(&client, args.snippet_name, Some(workspace_id)).await?;
+    let notebook_id = notebook_picker(&client, args.notebook_id, Some(workspace_id)).await?;
+
+    let cells =
+        notebook_snippet_insert(&client, notebook_id, &snippet_name, args.cell_id.as_deref())
+            .await?;
+
+    let url = NotebookUrlBuilder::new(workspace_id, notebook_id)
+        .base_url(args.base_url)
+        .cell_id(cells[0].id())
+        .url()
+        .context("Error constructing notebook URL")?;
+    info!("Inserted snippet into notebook: {}", url);
+
+    Ok(())
 }
 
 impl GenericKeyValue {
