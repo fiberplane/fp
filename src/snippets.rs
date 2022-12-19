@@ -3,6 +3,7 @@ use crate::interactive::{
     name_opt, name_req, notebook_picker, select_item, sluggify_str, snippet_picker, text_opt,
     workspace_picker,
 };
+use crate::notebooks;
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use crate::templates::crop_description;
 use anyhow::{anyhow, bail, Context, Result};
@@ -38,12 +39,16 @@ enum SubCommand {
     #[clap(alias = "add")]
     Create(CreateArguments),
 
-    /// Get a snippet
-    Get(GetArguments),
-
     /// Delete a snippet
     #[clap(aliases = &["remove", "rm"])]
     Delete(DeleteArguments),
+
+    /// Get a snippet
+    Get(GetArguments),
+
+    /// Insert the snippet into a notebook
+    #[clap(alias = "expand")]
+    Insert(notebooks::InsertSnippetArgs),
 
     /// List of the snippets that have been uploaded to Fiberplane
     List(ListArguments),
@@ -272,6 +277,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
         SubCommand::Create(args) => handle_create(args).await,
         SubCommand::Delete(args) => handle_delete(args).await,
         SubCommand::Get(args) => handle_get(args).await,
+        SubCommand::Insert(args) => notebooks::handle_insert_snippet_command(args).await,
         SubCommand::List(args) => handle_list(args).await,
         SubCommand::Update(args) => handle_update(args).await,
         SubCommand::Validate(args) => handle_validate(args).await,
