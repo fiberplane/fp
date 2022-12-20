@@ -144,10 +144,8 @@ async fn handle_token_list_command(args: ListArguments) -> Result<()> {
 
     let tokens = token_list(
         &client,
-        args.sort_by.map(Into::<&str>::into).map(str::to_string),
-        args.sort_direction
-            .map(Into::<&str>::into)
-            .map(str::to_string),
+        args.sort_by.map(Into::<&str>::into),
+        args.sort_direction.map(Into::<&str>::into),
         args.page,
         args.limit,
     )

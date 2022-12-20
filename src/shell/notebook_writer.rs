@@ -94,7 +94,7 @@ impl NotebookWriter {
         notebook_cell_append_text(
             &self.config,
             self.notebook_id,
-            self.code_cell_id.clone(),
+            &self.code_cell_id,
             CellAppendText {
                 content,
                 formatting: Formatting::new(),
@@ -113,7 +113,7 @@ impl NotebookWriter {
         notebook_cell_append_text(
             &self.config,
             self.notebook_id,
-            self.heading_cell_id.clone(),
+            &self.heading_cell_id,
             CellAppendText {
                 content,
                 formatting: vec![AnnotationWithOffset::new(

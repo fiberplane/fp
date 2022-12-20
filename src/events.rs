@@ -175,10 +175,8 @@ async fn handle_event_search_command(args: SearchArguments) -> Result<()> {
         args.end.0,
         args.labels
             .map(|args| args.into_iter().map(|kv| (kv.key, kv.value)).collect()),
-        args.sort_by.map(Into::<&str>::into).map(str::to_string),
-        args.sort_direction
-            .map(Into::<&str>::into)
-            .map(str::to_string),
+        args.sort_by.map(Into::<&str>::into),
+        args.sort_direction.map(Into::<&str>::into),
         args.page,
         args.limit,
     )

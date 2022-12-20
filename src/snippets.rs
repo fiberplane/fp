@@ -3,6 +3,7 @@ use crate::interactive::{
     name_opt, name_req, notebook_picker, select_item, sluggify_str, snippet_picker, text_opt,
     workspace_picker,
 };
+use crate::notebooks;
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use crate::templates::crop_description;
 use anyhow::{anyhow, bail, Context, Result};
@@ -38,12 +39,16 @@ enum SubCommand {
     #[clap(alias = "add")]
     Create(CreateArguments),
 
-    /// Get a snippet
-    Get(GetArguments),
-
     /// Delete a snippet
     #[clap(aliases = &["remove", "rm"])]
     Delete(DeleteArguments),
+
+    /// Get a snippet
+    Get(GetArguments),
+
+    /// Insert the snippet into a notebook
+    #[clap(alias = "expand")]
+    Insert(notebooks::InsertSnippetArgs),
 
     /// List of the snippets that have been uploaded to Fiberplane
     List(ListArguments),
@@ -272,6 +277,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
         SubCommand::Create(args) => handle_create(args).await,
         SubCommand::Delete(args) => handle_delete(args).await,
         SubCommand::Get(args) => handle_get(args).await,
+        SubCommand::Insert(args) => notebooks::handle_insert_snippet_command(args).await,
         SubCommand::List(args) => handle_list(args).await,
         SubCommand::Update(args) => handle_update(args).await,
         SubCommand::Validate(args) => handle_validate(args).await,
@@ -310,11 +316,13 @@ async fn handle_convert(args: ConvertArguments) -> Result<()> {
         cells
             .iter()
             .position(|cell| cell.id() == cell_id)
-            .ok_or(anyhow!(
-                "Could not find cell with ID {} in notebook {}",
-                cell_id,
-                notebook_id
-            ))?
+            .ok_or_else(|| {
+                anyhow!(
+                    "Could not find cell with ID {} in notebook {}",
+                    cell_id,
+                    notebook_id
+                )
+            })?
     } else {
         select_item("Start snippet from cell", &display_cells, Some(0))?
     };
@@ -322,16 +330,18 @@ async fn handle_convert(args: ConvertArguments) -> Result<()> {
         cells
             .iter()
             .position(|cell| cell.id() == cell_id)
-            .ok_or(anyhow!(
-                "Could not find cell with ID {} in notebook {}",
-                cell_id,
-                notebook_id
-            ))?
+            .ok_or_else(|| {
+                anyhow!(
+                    "Could not find cell with ID {} in notebook {}",
+                    cell_id,
+                    notebook_id
+                )
+            })?
     } else {
         select_item("End snippet at cell", &display_cells, Some(cells.len() - 1))?
     };
-    let start_cell_id = cells[start_cell_index].id().to_string();
-    let end_cell_id = cells[end_cell_index].id().to_string();
+    let start_cell_id = cells[start_cell_index].id();
+    let end_cell_id = cells[end_cell_index].id();
 
     let body =
         notebook_convert_to_snippet(&client, notebook_id, Some(start_cell_id), Some(end_cell_id))
@@ -343,7 +353,7 @@ async fn handle_convert(args: ConvertArguments) -> Result<()> {
     let description = text_opt("Description", args.description, None).unwrap_or_default();
 
     let snippet = NewSnippet {
-        name: name,
+        name,
         description,
         body,
     };
@@ -396,7 +406,7 @@ async fn handle_delete(args: DeleteArguments) -> Result<()> {
 
     let (workspace_id, snippet_name) = snippet_picker(&client, args.snippet_name, None).await?;
 
-    snippet_delete(&client, workspace_id, snippet_name.to_string())
+    snippet_delete(&client, workspace_id, &snippet_name)
         .await
         .with_context(|| format!("Error deleting snippet {}", snippet_name))?;
 
@@ -412,10 +422,8 @@ async fn handle_list(args: ListArguments) -> Result<()> {
     let snippets = snippet_list(
         &client,
         workspace_id,
-        args.sort_by.map(Into::<&str>::into).map(str::to_string),
-        args.sort_direction
-            .map(Into::<&str>::into)
-            .map(str::to_string),
+        args.sort_by.map(Into::<&str>::into),
+        args.sort_direction.map(Into::<&str>::into),
     )
     .await?;
 
@@ -432,7 +440,7 @@ async fn handle_get(args: GetArguments) -> Result<()> {
     let client = api_client_configuration(args.config, args.base_url).await?;
 
     let (workspace_id, snippet_name) = snippet_picker(&client, args.snippet_name, None).await?;
-    let snippet = snippet_get(&client, workspace_id, snippet_name.to_string()).await?;
+    let snippet = snippet_get(&client, workspace_id, &snippet_name).await?;
 
     match args.output {
         SnippetOutput::Table => output_details(GenericKeyValue::from_snippet(snippet)),
@@ -467,7 +475,7 @@ async fn handle_update(args: UpdateArguments) -> Result<()> {
         body,
     };
 
-    let snippet = snippet_update(&client, workspace_id, snippet_name.to_string(), snippet)
+    let snippet = snippet_update(&client, workspace_id, &snippet_name, snippet)
         .await
         .with_context(|| format!("Error updating snippet {}", snippet_name))?;
     info!("Updated snippet");
