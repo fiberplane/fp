@@ -1,5 +1,6 @@
 use crate::interactive::{
-    self, notebook_picker, snippet_picker, workspace_picker, workspace_picker_with_prompt,
+    self, notebook_picker, snippet_picker, view_picker, workspace_picker,
+    workspace_picker_with_prompt,
 };
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use crate::KeyValueArgument;
@@ -13,7 +14,6 @@ use fiberplane::api_client::{
 };
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::markdown::{markdown_to_notebook, notebook_to_markdown};
-use fiberplane::models::labels::Label;
 use fiberplane::models::names::Name;
 use fiberplane::models::notebooks;
 use fiberplane::models::notebooks::{
@@ -161,14 +161,7 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
     let client = api_client_configuration(args.config, args.base_url.clone()).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
-    let labels = args
-        .labels
-        .into_iter()
-        .map(|input| Label {
-            key: input.key,
-            value: input.value,
-        })
-        .collect();
+    let labels = args.labels.into_iter().map(Into::into).collect();
 
     let now = OffsetDateTime::now_utc();
     let from = args.from.unwrap_or_else(|| (now - 1.hours()).into());
@@ -382,7 +375,10 @@ pub struct SearchArgs {
 
     /// Labels to search notebooks for (you can specify multiple labels).
     #[clap(name = "label", short, long)]
-    labels: Vec<KeyValueArgument>,
+    labels: Option<Vec<KeyValueArgument>>,
+
+    /// View used to search for notebooks
+    view: Option<Name>,
 
     /// Output of the notebooks
     #[clap(long, short, default_value = "table", value_enum)]
@@ -399,18 +395,28 @@ async fn handle_search_command(args: SearchArgs) -> Result<()> {
     let client = api_client_configuration(args.config, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
-    let labels: Option<HashMap<_, _>> = if !args.labels.is_empty() {
-        Some(
-            args.labels
-                .into_iter()
-                .map(|kv| (kv.key, Some(kv.value)))
-                .collect(),
-        )
+    let labels: Option<HashMap<_, _>> = if let Some(labels) = args.labels {
+        if !labels.is_empty() {
+            Some(
+                labels
+                    .into_iter()
+                    .map(|kv| (kv.key, Some(kv.value)))
+                    .collect(),
+            )
+        } else {
+            None
+        }
     } else {
         None
     };
 
-    let notebooks = notebook_search(&client, workspace_id, NotebookSearch { labels }).await?;
+    let view = if labels.is_none() {
+        Some(view_picker(&client, Some(workspace_id), args.view).await?)
+    } else {
+        None
+    };
+
+    let notebooks = notebook_search(&client, workspace_id, NotebookSearch { labels, view }).await?;
 
     match args.output {
         NotebookOutput::Table => {
