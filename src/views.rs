@@ -5,7 +5,7 @@ use crate::KeyValueArgument;
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
 use cli_table::Table;
-use fiberplane::api_client::{views_create, views_delete, views_get, views_update};
+use fiberplane::api_client::{view_delete, view_update, views_create, views_get};
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::labels::Label;
 use fiberplane::models::names::Name;
@@ -145,10 +145,8 @@ async fn handle_list(args: ListArguments) -> Result<()> {
     let views = views_get(
         &client,
         workspace_id,
-        args.sort_by.map(Into::<&str>::into).map(str::to_string),
-        args.sort_direction
-            .map(Into::<&str>::into)
-            .map(str::to_string),
+        args.sort_by.map(Into::<&str>::into),
+        args.sort_direction.map(Into::<&str>::into),
         args.page,
         args.limit,
     )
@@ -186,7 +184,7 @@ async fn handle_delete(args: DeleteArguments) -> Result<()> {
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let view_name = view_picker(&client, args.workspace_id, args.view_name).await?;
 
-    views_delete(&client, workspace_id, view_name.into_string()).await?;
+    view_delete(&client, workspace_id, &view_name).await?;
 
     info!("Successfully deleted view");
     Ok(())
@@ -226,10 +224,10 @@ async fn handle_update(args: UpdateArguments) -> Result<()> {
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let view_name = view_picker(&client, args.workspace_id, args.view_name).await?;
 
-    views_update(
+    view_update(
         &client,
         workspace_id,
-        view_name.into_string(),
+        &view_name,
         UpdateView {
             new_display_name: args.new_display_name,
             new_description: args.new_description,

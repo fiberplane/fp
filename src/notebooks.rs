@@ -1,4 +1,7 @@
-use crate::interactive::{self, snippet_picker, notebook_picker, view_picker, workspace_picker};
+use crate::interactive::{
+    self, notebook_picker, snippet_picker, view_picker, workspace_picker,
+    workspace_picker_with_prompt,
+};
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use crate::KeyValueArgument;
 use crate::{config::api_client_configuration, fp_urls::NotebookUrlBuilder};
@@ -11,7 +14,6 @@ use fiberplane::api_client::{
 };
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::markdown::{markdown_to_notebook, notebook_to_markdown};
-use fiberplane::models::names::Name;
 use fiberplane::models::names::Name;
 use fiberplane::models::notebooks;
 use fiberplane::models::notebooks::{
