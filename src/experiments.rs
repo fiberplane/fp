@@ -40,6 +40,11 @@ enum SubCommand {
     /// Starting with the given notebook, recursively crawl all linked notebooks
     /// and save them to the given directory as Markdown
     Crawl(CrawlArgs),
+
+    /// Panics the CLI in order to test out `human-panic`
+    #[clap(hide = true)]
+    #[doc(hidden)]
+    Panic,
 }
 
 #[derive(Parser)]
@@ -93,6 +98,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
     match args.sub_command {
         SubCommand::Message(args) => handle_message_command(args).await,
         SubCommand::Crawl(args) => handle_crawl_command(args).await,
+        SubCommand::Panic => panic!("manually created panic called by `fpx experiments panic`"),
     }
 }
 
