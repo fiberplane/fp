@@ -222,7 +222,7 @@ async fn main() {
     setup_panic!(Metadata {
         name: "fp".into(),
         version: env!("CARGO_PKG_VERSION").into(),
-        authors: "hello@fiberplane.com".into(),
+        authors: "issues@fiberplane.com".into(),
         homepage: "https://fiberplane.com".into(),
     });
 
