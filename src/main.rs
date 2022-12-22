@@ -10,6 +10,7 @@ use fiberplane::models::data_sources::SelectedDataSources;
 use fiberplane::models::labels::Label;
 use fiberplane::models::notebooks::NewNotebook;
 use fiberplane::models::timestamps::{NewTimeRange, RelativeTimeRange};
+use human_panic::setup_panic;
 use interactive::workspace_picker;
 use manifest::Manifest;
 use once_cell::sync::Lazy;
@@ -216,6 +217,15 @@ enum SubCommand {
 
 #[tokio::main]
 async fn main() {
+    // Set the human panic handler first thing first so in case we have a panic when setting
+    // up the CLI, it also gets caught
+    setup_panic!(Metadata {
+        name: "fp".into(),
+        version: env!("CARGO_PKG_VERSION").into(),
+        authors: "issues@fiberplane.com".into(),
+        homepage: "https://fiberplane.com".into(),
+    });
+
     // We would like to override the builtin version display behavior, so we
     // will try to parse the arguments. If it failed, we will check if it was
     // the DisplayVersion error and show our version, otherwise just fallback to
