@@ -16,11 +16,9 @@ use fiberplane::models::notebooks::{
     TemplateSummary, TextCell, UpdateTemplate,
 };
 use fiberplane::models::sorting::{SortDirection, TemplateListSortFields};
+use fiberplane::models::templates::{Template, TemplateParameter, TemplateParameterType};
 use fiberplane::models::timestamps;
-use fiberplane::templates::{
-    expand_template, notebook_to_template, Error as TemplateError, Template, TemplateParameter,
-    TemplateParameterType,
-};
+use fiberplane::templates::{expand_template, notebook_to_template, Error as TemplateError};
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
