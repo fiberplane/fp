@@ -149,7 +149,7 @@ checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 [[package]]
 name = "base64uuid"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=fix_patch_view#0d3bc356974ed12c2905c5ee5db28666c2ceceab"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#7813a89585891d96a76da0cc11477a6b5058b88f"
 dependencies = [
  "base64",
  "serde",
@@ -874,7 +874,7 @@ dependencies = [
 [[package]]
 name = "fiberplane"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=fix_patch_view#0d3bc356974ed12c2905c5ee5db28666c2ceceab"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#7813a89585891d96a76da0cc11477a6b5058b88f"
 dependencies = [
  "base64uuid",
  "fiberplane-api-client",
@@ -888,7 +888,7 @@ dependencies = [
 [[package]]
 name = "fiberplane-api-client"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=fix_patch_view#0d3bc356974ed12c2905c5ee5db28666c2ceceab"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#7813a89585891d96a76da0cc11477a6b5058b88f"
 dependencies = [
  "anyhow",
  "base64uuid",
@@ -905,7 +905,7 @@ dependencies = [
 [[package]]
 name = "fiberplane-markdown"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=fix_patch_view#0d3bc356974ed12c2905c5ee5db28666c2ceceab"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#7813a89585891d96a76da0cc11477a6b5058b88f"
 dependencies = [
  "fiberplane-models",
  "fiberplane-string-utils",
@@ -918,7 +918,7 @@ dependencies = [
 [[package]]
 name = "fiberplane-models"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=fix_patch_view#0d3bc356974ed12c2905c5ee5db28666c2ceceab"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#7813a89585891d96a76da0cc11477a6b5058b88f"
 dependencies = [
  "base64",
  "base64uuid",
@@ -940,7 +940,7 @@ dependencies = [
 [[package]]
 name = "fiberplane-provider-runtime"
 version = "2.0.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=fix_patch_view#0d3bc356974ed12c2905c5ee5db28666c2ceceab"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#7813a89585891d96a76da0cc11477a6b5058b88f"
 dependencies = [
  "bytes",
  "fiberplane-models",
@@ -960,12 +960,12 @@ dependencies = [
 [[package]]
 name = "fiberplane-string-utils"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=fix_patch_view#0d3bc356974ed12c2905c5ee5db28666c2ceceab"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#7813a89585891d96a76da0cc11477a6b5058b88f"
 
 [[package]]
 name = "fiberplane-templates"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=fix_patch_view#0d3bc356974ed12c2905c5ee5db28666c2ceceab"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#7813a89585891d96a76da0cc11477a6b5058b88f"
 dependencies = [
  "base64uuid",
  "fiberplane-models",
