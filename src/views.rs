@@ -192,21 +192,21 @@ async fn handle_delete(args: DeleteArguments) -> Result<()> {
 
 #[derive(Parser)]
 struct UpdateArguments {
-    /// New display name for the view
-    #[clap(long, short = 'n', env, required_unless_present_any = ["new_description", "new_labels"])]
-    new_display_name: Option<String>,
-
-    /// New description for the view
-    #[clap(long, short = 'd', env, required_unless_present_any = ["new_display_name", "new_labels"])]
-    new_description: Option<String>,
-
-    /// New labels for the view
-    #[clap(long, short = 'l', env, required_unless_present_any = ["new_display_name", "new_labels"])]
-    new_labels: Option<Vec<KeyValueArgument>>,
-
     /// Name of the view which should be updated
     #[clap(long)]
     view_name: Option<Name>,
+
+    /// New display name for the view
+    #[clap(long, env, required_unless_present_any = ["description", "labels"])]
+    display_name: Option<String>,
+
+    /// New description for the view
+    #[clap(long, env, required_unless_present_any = ["display_name", "labels"])]
+    description: Option<String>,
+
+    /// New labels for the view
+    #[clap(long, env, required_unless_present_any = ["display_name", "description"])]
+    labels: Option<Vec<KeyValueArgument>>,
 
     #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
@@ -229,11 +229,11 @@ async fn handle_update(args: UpdateArguments) -> Result<()> {
         workspace_id,
         &view_name,
         UpdateView {
-            new_display_name: args.new_display_name,
-            new_description: args.new_description,
-            new_labels: args
-                .new_labels
-                .map(|new_labels| new_labels.into_iter().map(Into::into).collect()),
+            display_name: args.display_name,
+            description: args.description,
+            labels: args
+                .labels
+                .map(|labels| labels.into_iter().map(Into::into).collect()),
         },
     )
     .await?;
