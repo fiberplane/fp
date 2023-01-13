@@ -30,6 +30,8 @@ impl NotebookWriter {
         let header_cell = notebook_cells_append(
             &config,
             notebook_id,
+            None,
+            None,
             vec![Cell::Heading(HeadingCell {
                 id: String::new(),
                 heading_type: HeadingType::H3,
@@ -59,6 +61,8 @@ impl NotebookWriter {
         let code_cell = notebook_cells_append(
             &config,
             notebook_id,
+            None,
+            None,
             vec![Cell::Code(CodeCell {
                 id: String::new(),
                 content: String::new(),

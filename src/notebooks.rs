@@ -536,7 +536,7 @@ async fn handle_append_cell_command(args: AppendCellArgs) -> Result<()> {
         unreachable!();
     };
 
-    let cell = notebook_cells_append(&client, notebook_id, vec![cell])
+    let cell = notebook_cells_append(&client, notebook_id, None, None, vec![cell])
         .await?
         .pop()
         .ok_or_else(|| anyhow!("Expected a single cell"))?;

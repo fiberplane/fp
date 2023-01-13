@@ -139,7 +139,7 @@ async fn handle_message_command(args: MessageArgs) -> Result<()> {
         }],
         read_only: None,
     });
-    let cell = notebook_cells_append(&client, notebook_id, vec![cell])
+    let cell = notebook_cells_append(&client, notebook_id, None, None, vec![cell])
         .await
         .with_context(|| "Error appending cell to notebook")?
         .pop()
