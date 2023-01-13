@@ -132,7 +132,7 @@ impl CellWriter {
     }
 
     async fn append_cell(&self, cell: Cell) -> Result<Cell> {
-        let cell = notebook_cells_append(&self.client, self.notebook_id, vec![cell])
+        let cell = notebook_cells_append(&self.client, self.notebook_id, None, None, vec![cell])
             .await
             .with_context(|| "Error appending cell to notebook")?
             .pop()
