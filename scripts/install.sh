@@ -74,9 +74,7 @@ if [ "$FP_UPDATE_RC" = "true" ]; then
         echo "source $shell_completions" >> "$shell_profile"
       fi
 
-      source "$shell_profile"
-
-      echo "Fiberplane CLI (fp) successfully installed. Run 'fp help' to see available commands."
+      echo "Fiberplane CLI (fp) successfully installed. Restart your terminal or run 'source \"$shell_profile\", then run 'fp help' to see available commands."
       exit 0
     fi
   fi
