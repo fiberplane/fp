@@ -46,8 +46,8 @@ enum SubCommand {
     /// and save them to the given directory as Markdown
     Crawl(CrawlArgs),
 
-    /// Add Prometheus queries to a given notebook
-    PrometheusRedirect(PrometheusRedirectArgs),
+    /// Open Prometheus graphs in a given notebook
+    PrometheusGraphToNotebook(PrometheusGraphToNotebookArgs),
 
     /// Panics the CLI in order to test out `human-panic`
     #[clap(hide = true)]
@@ -94,7 +94,7 @@ struct CrawlArgs {
 }
 
 #[derive(Parser)]
-struct PrometheusRedirectArgs {
+struct PrometheusGraphToNotebookArgs {
     #[clap(long, short, env)]
     notebook_id: Option<Base64Uuid>,
 
@@ -129,7 +129,9 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
     match args.sub_command {
         SubCommand::Message(args) => handle_message_command(args).await,
         SubCommand::Crawl(args) => handle_crawl_command(args).await,
-        SubCommand::PrometheusRedirect(args) => handle_prometheus_redirect_command(args).await,
+        SubCommand::PrometheusGraphToNotebook(args) => {
+            handle_prometheus_redirect_command(args).await
+        }
         SubCommand::Panic => panic!("manually created panic called by `fpx experiments panic`"),
     }
 }
@@ -383,11 +385,15 @@ fn cache_file_path() -> PathBuf {
         .join("cache.toml")
 }
 
-async fn handle_prometheus_redirect_command(args: PrometheusRedirectArgs) -> Result<()> {
+async fn handle_prometheus_redirect_command(args: PrometheusGraphToNotebookArgs) -> Result<()> {
     let client = Arc::new(api_client_configuration(args.config, args.base_url).await?);
     let workspace_id = interactive::workspace_picker(&client, args.workspace_id).await?;
     let notebook_id =
         interactive::notebook_picker(&client, args.notebook_id, Some(workspace_id)).await?;
+    let notebook_url = NotebookUrlBuilder::new(workspace_id, notebook_id)
+        .base_url(client.server.clone())
+        .url()
+        .expect("Error building URL");
 
     let listen_addr = (args.listen_host, args.port).into();
     let make_service = make_service_fn(move |_| {
@@ -395,12 +401,22 @@ async fn handle_prometheus_redirect_command(args: PrometheusRedirectArgs) -> Res
         async move {
             Ok::<_, Infallible>(service_fn(move |req| {
                 let client = client.clone();
-                let query = req
-                    .uri()
-                    .query()
-                    .and_then(|query| QString::from(query).get("g0.expr").map(String::from));
-
                 async move {
+                    if !req.uri().path().starts_with("/graph") {
+                        return Ok::<_, Error>(
+                            Response::builder()
+                                .status(StatusCode::NOT_FOUND)
+                                .body(Body::from(
+                                    "Prometheus-to-notebook can only be used for graph URLs",
+                                ))
+                                .expect("Error creating response"),
+                        );
+                    }
+                    let query = req
+                        .uri()
+                        .query()
+                        .and_then(|query| QString::from(query).get("g0.expr").map(String::from));
+
                     match query {
                         Some(query) => {
                             // Append cell to notebook and return the URL
@@ -440,6 +456,8 @@ async fn handle_prometheus_redirect_command(args: PrometheusRedirectArgs) -> Res
                                 .url()
                                 .expect("Error building URL");
 
+                            debug!("Redirecting to: {}", url.as_str());
+
                             Ok::<_, Error>(
                                 Response::builder()
                                     .status(StatusCode::TEMPORARY_REDIRECT)
@@ -461,7 +479,9 @@ async fn handle_prometheus_redirect_command(args: PrometheusRedirectArgs) -> Res
     });
     let server = Server::bind(&listen_addr).serve(make_service);
 
-    info!("Waiting for Prometheus queries on: http://{}", listen_addr);
+    info!(
+        "Opening Prometheus graph URLs that start with: http://{listen_addr}/graph will now add them to the notebook: {notebook_url} ",
+    );
 
     server.await?;
 
