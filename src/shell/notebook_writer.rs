@@ -5,7 +5,7 @@ use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::formatting::{Annotation, AnnotationWithOffset, Formatting, Mention};
 use fiberplane::models::notebooks::operations::CellAppendText;
 use fiberplane::models::notebooks::{Cell, CodeCell, HeadingCell, HeadingType};
-use fiberplane::string_utils::char_count;
+use fiberplane::models::utils::char_count;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
 pub struct NotebookWriter {

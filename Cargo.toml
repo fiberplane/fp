@@ -25,7 +25,6 @@ fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch
     "markdown",
     "models",
     "provider-runtime",
-    "string-utils",
     "templates",
 ] }
 futures = "0.3"
