@@ -71,6 +71,7 @@ url = "2.2"
 uuid = { version = "1", features = ["serde", "v4"] }
 vmap = "0.5.1"
 webbrowser = "0.7.1"
+zip = "0.6.3"
 
 [build-dependencies]
 anyhow = "1.0"
