@@ -17,7 +17,7 @@ use fiberplane::markdown::{markdown_to_notebook, notebook_to_markdown};
 use fiberplane::models::names::Name;
 use fiberplane::models::notebooks;
 use fiberplane::models::notebooks::{
-    Cell, CodeCell, NewNotebook, Notebook, NotebookCopyDestination, NotebookSearch,
+    Cell, CodeCell, FrontMatter, NewNotebook, Notebook, NotebookCopyDestination, NotebookSearch,
     NotebookSummary, TextCell,
 };
 use fiberplane::models::timestamps::{NewTimeRange, TimeRange, Timestamp};
@@ -140,6 +140,10 @@ pub struct CreateArgs {
     #[clap(long)]
     to: Option<Timestamp>,
 
+    /// Front matter which should be added to the notebook upon creation. Leave empty to attach no front matter.
+    #[clap(long, value_parser = crate::front_matter::parse_from_str)]
+    front_matter: Option<FrontMatter>,
+
     /// Create the notebook from the given Markdown
     ///
     /// To read the Markdown from a file use `--markdown=$(cat file.md)`
@@ -180,6 +184,7 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
             cells: Vec::new(),
             selected_data_sources: Default::default(),
             labels: Default::default(),
+            front_matter: args.front_matter.unwrap_or_else(FrontMatter::new),
         },
     };
 

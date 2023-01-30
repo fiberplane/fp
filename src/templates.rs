@@ -12,8 +12,8 @@ use fiberplane::api_client::{
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::names::Name;
 use fiberplane::models::notebooks::{
-    self, Cell, HeadingCell, HeadingType, NewTemplate, NewTrigger, Notebook, TemplateExpandPayload,
-    TemplateSummary, TextCell, UpdateTemplate,
+    self, Cell, FrontMatter, HeadingCell, HeadingType, NewTemplate, NewTrigger, Notebook,
+    TemplateExpandPayload, TemplateSummary, TextCell, UpdateTemplate,
 };
 use fiberplane::models::sorting::{SortDirection, TemplateListSortFields};
 use fiberplane::models::templates::{Template, TemplateParameter, TemplateParameterType};
@@ -389,6 +389,7 @@ async fn handle_init_command(args: InitArguments) -> Result<()> {
             }),
         ],
         labels: Vec::new(),
+        front_matter: FrontMatter::new(),
     };
     let template = notebook_to_template(notebook);
 

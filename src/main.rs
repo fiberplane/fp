@@ -8,7 +8,7 @@ use fiberplane::api_client::notebook_create;
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::data_sources::SelectedDataSources;
 use fiberplane::models::labels::Label;
-use fiberplane::models::notebooks::NewNotebook;
+use fiberplane::models::notebooks::{FrontMatter, NewNotebook};
 use fiberplane::models::timestamps::{NewTimeRange, RelativeTimeRange};
 use human_panic::setup_panic;
 use interactive::workspace_picker;
@@ -34,6 +34,7 @@ mod data_sources;
 mod events;
 mod experiments;
 mod fp_urls;
+mod front_matter;
 mod interactive;
 mod labels;
 mod manifest;
@@ -204,6 +205,12 @@ enum SubCommand {
     #[clap(alias = "workspace")]
     Workspaces(workspaces::Arguments),
 
+    /// Interact with front matter
+    ///
+    /// Front matter adds additional metadata to notebooks.
+    #[clap(alias = "fm")]
+    FrontMatter(front_matter::Arguments),
+
     /// Display extra version information
     #[clap()]
     Version(version::Arguments),
@@ -294,6 +301,7 @@ async fn main() {
         Update(args) => update::handle_command(args).await,
         Users(args) => users::handle_command(args).await,
         Workspaces(args) => workspaces::handle_command(args).await,
+        FrontMatter(args) => front_matter::handle_command(args).await,
         Version(args) => version::handle_command(args).await,
         Completions { shell } => {
             let output = generate_completions(shell);
@@ -544,6 +552,7 @@ async fn handle_new_command(args: NewArguments) -> Result<()> {
         cells: vec![],
         labels: vec![],
         selected_data_sources: SelectedDataSources::new(),
+        front_matter: FrontMatter::new(),
     };
     let notebook = notebook_create(&client, workspace_id, new_notebook).await?;
 
