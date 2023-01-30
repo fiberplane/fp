@@ -134,7 +134,7 @@ enum SubCommand {
     /// Interact with notebooks
     ///
     /// Notebooks are the main resource that Studio exposes.
-    #[clap(alias = "notebook")]
+    #[clap(aliases = &["notebook", "nb"])]
     Notebooks(notebooks::Arguments),
 
     /// Interact with providers
