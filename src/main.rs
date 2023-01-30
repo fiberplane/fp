@@ -34,7 +34,6 @@ mod data_sources;
 mod events;
 mod experiments;
 mod fp_urls;
-mod front_matter;
 mod interactive;
 mod labels;
 mod manifest;
@@ -205,12 +204,6 @@ enum SubCommand {
     #[clap(alias = "workspace")]
     Workspaces(workspaces::Arguments),
 
-    /// Interact with front matter
-    ///
-    /// Front matter adds additional metadata to notebooks.
-    #[clap(alias = "fm")]
-    FrontMatter(front_matter::Arguments),
-
     /// Display extra version information
     #[clap()]
     Version(version::Arguments),
@@ -301,7 +294,6 @@ async fn main() {
         Update(args) => update::handle_command(args).await,
         Users(args) => users::handle_command(args).await,
         Workspaces(args) => workspaces::handle_command(args).await,
-        FrontMatter(args) => front_matter::handle_command(args).await,
         Version(args) => version::handle_command(args).await,
         Completions { shell } => {
             let output = generate_completions(shell);

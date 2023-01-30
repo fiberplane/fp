@@ -9,8 +9,9 @@ use anyhow::{anyhow, Context, Result};
 use clap::{Parser, ValueEnum, ValueHint};
 use cli_table::Table;
 use fiberplane::api_client::{
-    notebook_cells_append, notebook_create, notebook_delete, notebook_duplicate, notebook_get,
-    notebook_list, notebook_search, notebook_snippet_insert,
+    front_matter_delete, front_matter_update, notebook_cells_append, notebook_create,
+    notebook_delete, notebook_duplicate, notebook_get, notebook_list, notebook_search,
+    notebook_snippet_insert,
 };
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::markdown::{markdown_to_notebook, notebook_to_markdown};
@@ -68,6 +69,12 @@ pub enum SubCommand {
     /// Append a cell to the notebook
     #[clap(alias = "append")]
     AppendCell(AppendCellArgs),
+
+    /// Interact with front matter
+    ///
+    /// Front matter adds additional metadata to notebooks.
+    #[clap(alias = "fm")]
+    FrontMatter(FrontMatterArguments),
 }
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
@@ -82,6 +89,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
         Open(args) => handle_open_command(args).await,
         Delete(args) => handle_delete_command(args).await,
         AppendCell(args) => handle_append_cell_command(args).await,
+        FrontMatter(args) => handle_front_matter_command(args).await,
     }
 }
 
@@ -141,7 +149,7 @@ pub struct CreateArgs {
     to: Option<Timestamp>,
 
     /// Front matter which should be added to the notebook upon creation. Leave empty to attach no front matter.
-    #[clap(long, value_parser = crate::front_matter::parse_from_str)]
+    #[clap(long, value_parser = parse_from_str)]
     front_matter: Option<FrontMatter>,
 
     /// Create the notebook from the given Markdown
@@ -613,6 +621,96 @@ pub(crate) async fn handle_insert_snippet_command(args: InsertSnippetArgs) -> Re
     info!("Inserted snippet into notebook: {}", url);
 
     Ok(())
+}
+
+#[derive(Parser)]
+pub struct FrontMatterArguments {
+    #[clap(subcommand)]
+    sub_command: FrontMatterSubCommand,
+}
+
+pub async fn handle_front_matter_command(args: FrontMatterArguments) -> Result<()> {
+    use FrontMatterSubCommand::*;
+    match args.sub_command {
+        Update(args) => handle_front_matter_update_command(args).await,
+        Clear(args) => handle_front_matter_clear_command(args).await,
+    }
+}
+
+#[derive(Parser)]
+enum FrontMatterSubCommand {
+    /// Updates front matter for an existing notebook
+    Update(FrontMatterUpdateArguments),
+
+    /// Clears all front matter from an existing notebook
+    Clear(FrontMatterClearArguments),
+}
+
+#[derive(Parser)]
+struct FrontMatterUpdateArguments {
+    /// Front matter which should be added. Can override existing keys.
+    /// To delete an existing key, set its value to `null`
+    #[clap(value_parser = parse_from_str)]
+    front_matter: FrontMatter,
+
+    /// Notebook for which front matter should be updated for
+    #[clap(long)]
+    notebook_id: Option<Base64Uuid>,
+
+    /// Workspace in which the notebook resides in
+    #[clap(from_global)]
+    workspace_id: Option<Base64Uuid>,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
+async fn handle_front_matter_update_command(args: FrontMatterUpdateArguments) -> Result<()> {
+    let client = api_client_configuration(args.config, args.base_url).await?;
+
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
+    let notebook_id = notebook_picker(&client, args.notebook_id, Some(workspace_id)).await?;
+
+    front_matter_update(&client, notebook_id, args.front_matter).await?;
+
+    info!("Successfully updated front matter");
+    Ok(())
+}
+
+#[derive(Parser)]
+struct FrontMatterClearArguments {
+    /// Notebook for which front matter should be cleared for
+    #[clap(long)]
+    notebook_id: Option<Base64Uuid>,
+
+    /// Workspace in which the notebook resides in
+    #[clap(from_global)]
+    workspace_id: Option<Base64Uuid>,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+}
+
+async fn handle_front_matter_clear_command(args: FrontMatterClearArguments) -> Result<()> {
+    let client = api_client_configuration(args.config, args.base_url).await?;
+
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
+    let notebook_id = notebook_picker(&client, args.notebook_id, Some(workspace_id)).await?;
+
+    front_matter_delete(&client, notebook_id).await?;
+
+    info!("Successfully cleared front matter");
+    Ok(())
+}
+
+pub fn parse_from_str(input: &str) -> serde_json::Result<FrontMatter> {
+    serde_json::from_str(input)
 }
 
 impl GenericKeyValue {
