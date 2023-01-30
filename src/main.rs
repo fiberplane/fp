@@ -8,7 +8,7 @@ use fiberplane::api_client::notebook_create;
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::data_sources::SelectedDataSources;
 use fiberplane::models::labels::Label;
-use fiberplane::models::notebooks::NewNotebook;
+use fiberplane::models::notebooks::{FrontMatter, NewNotebook};
 use fiberplane::models::timestamps::{NewTimeRange, RelativeTimeRange};
 use human_panic::setup_panic;
 use interactive::workspace_picker;
@@ -134,7 +134,7 @@ enum SubCommand {
     /// Interact with notebooks
     ///
     /// Notebooks are the main resource that Studio exposes.
-    #[clap(alias = "notebook")]
+    #[clap(aliases = &["notebook", "nb"])]
     Notebooks(notebooks::Arguments),
 
     /// Interact with providers
@@ -544,6 +544,7 @@ async fn handle_new_command(args: NewArguments) -> Result<()> {
         cells: vec![],
         labels: vec![],
         selected_data_sources: SelectedDataSources::new(),
+        front_matter: FrontMatter::new(),
     };
     let notebook = notebook_create(&client, workspace_id, new_notebook).await?;
 
