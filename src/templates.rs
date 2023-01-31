@@ -932,7 +932,7 @@ async fn create_template_and_trigger(
         .context("Error creating trigger")?;
 
         let trigger_url = client.server.join(&format!(
-            "/api/triggers/{}/{}",
+            "api/triggers/{}/{}",
             trigger.id,
             trigger
                 .secret_key
