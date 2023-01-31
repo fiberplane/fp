@@ -930,15 +930,15 @@ async fn create_template_and_trigger(
         )
         .await
         .context("Error creating trigger")?;
-        let trigger_url = format!(
-            "{}/api/triggers/{}/{}",
-            client.server,
+
+        let trigger_url = client.server.join(&format!(
+            "/api/triggers/{}/{}",
             trigger.id,
             trigger
                 .secret_key
                 .ok_or_else(|| anyhow!("Trigger creation did not return the secret key"))?
-        );
-        Some(trigger_url)
+        ))?;
+        Some(trigger_url.to_string())
     } else {
         None
     };
