@@ -9,3 +9,7 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 ### Added
 
 - Initial open-source release of `fp`.
+
+### Fixed
+
+- Resolved clippy warnings (#208)
