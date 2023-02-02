@@ -219,7 +219,7 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
             let url = NotebookUrlBuilder::new(workspace_id, notebook_id)
                 .base_url(args.base_url)
                 .url()?;
-            println!("{}", url);
+            println!("{url}");
             Ok(())
         }
         NotebookOutput::Json => output_json(&notebook),
@@ -298,7 +298,7 @@ async fn handle_duplicate_command(args: DuplicateArgs) -> Result<()> {
             let url = NotebookUrlBuilder::new(workspace_id, notebook_id)
                 .base_url(args.base_url)
                 .url()?;
-            println!("{}", url);
+            println!("{url}");
             Ok(())
         }
         NotebookOutput::Json => output_json(&notebook),
@@ -337,7 +337,7 @@ async fn handle_get_command(args: GetArgs) -> Result<()> {
             let notebook = serde_json::to_string(&notebook)?;
             let notebook: notebooks::Notebook = serde_json::from_str(&notebook)?;
             let markdown = notebook_to_markdown(notebook);
-            println!("{}", markdown);
+            println!("{markdown}");
             Ok(())
         }
     }
@@ -496,7 +496,7 @@ async fn handle_delete_command(args: DeleteArgs) -> Result<()> {
 
     notebook_delete(&client, notebook_id)
         .await
-        .with_context(|| format!("Error deleting notebook {}", notebook_id))?;
+        .with_context(|| format!("Error deleting notebook {notebook_id}"))?;
 
     info!(%notebook_id, "Deleted notebook");
     Ok(())

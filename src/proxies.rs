@@ -224,8 +224,7 @@ async fn handle_list_command(args: ListArgs) -> Result<()> {
             }
         }
     }
-    let mut proxies: Vec<ProxySummaryWithConnectedDataSources> =
-        proxies.into_iter().map(|(_, v)| v).collect();
+    let mut proxies: Vec<ProxySummaryWithConnectedDataSources> = proxies.into_values().collect();
 
     match args.output {
         ProxyOutput::Table => {

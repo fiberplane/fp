@@ -215,13 +215,13 @@ fn flatten_nested_value(output: &mut BTreeMap<String, Value>, key: String, value
     match value {
         Value::Object(v) => {
             for (sub_key, val) in v.into_iter() {
-                flatten_nested_value(output, format!("{}.{}", key, sub_key), val);
+                flatten_nested_value(output, format!("{key}.{sub_key}"), val);
             }
         }
         Value::Array(v) => {
             for (index, val) in v.into_iter().enumerate() {
                 // TODO should the separator be dots instead?
-                flatten_nested_value(output, format!("{}[{}]", key, index), val);
+                flatten_nested_value(output, format!("{key}[{index}]"), val);
             }
         }
         v => {

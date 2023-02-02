@@ -158,7 +158,7 @@ async fn handle_message_command(args: MessageArgs) -> Result<()> {
     let timestamp_prefix = format!("💬 {} ", OffsetDateTime::now_utc().format(&Rfc3339)?);
     // Note we don't use .len() because it returns the byte length as opposed to the char length (which is different because of the emoji)
     let mention_start = timestamp_prefix.chars().count();
-    let prefix = format!("{}@{}:  ", timestamp_prefix, name);
+    let prefix = format!("{timestamp_prefix}@{name}:  ");
     let content = format!("{}{}", prefix, args.message.join(" "));
 
     let cell = Cell::Text(TextCell {
@@ -261,7 +261,7 @@ async fn handle_crawl_command(args: CrawlArgs) -> Result<()> {
 
         // Ensure that multiple notebooks with the same title don't overwrite one another
         let number_suffix = if let Some(number) = notebook_titles.get(&notebook.title) {
-            format!("_{}", number)
+            format!("_{number}")
         } else {
             notebook_titles.insert(notebook.title.clone(), 1);
             String::new()

@@ -112,7 +112,7 @@ impl NotebookWriter {
     pub async fn close(&self) -> Result<()> {
         let now = OffsetDateTime::now_utc();
         let timestamp = now.format(&Rfc3339).unwrap();
-        let content = format!("\n🔴 Ended at: \t{}", timestamp);
+        let content = format!("\n🔴 Ended at: \t{timestamp}");
 
         notebook_cell_append_text(
             &self.config,
