@@ -209,10 +209,15 @@ enum SubCommand {
     Version(version::Arguments),
 
     /// Generate fp shell completions for your shell and print to stdout
+    #[clap(hide = true)]
     Completions {
         #[clap(value_enum)]
         shell: clap_complete::Shell,
     },
+
+    /// Generate markdown reference for fp.
+    #[clap(hide = true)]
+    Markdown,
 }
 
 #[tokio::main]
@@ -298,6 +303,10 @@ async fn main() {
         Completions { shell } => {
             let output = generate_completions(shell);
             stdout().lock().write_all(output.as_bytes()).unwrap();
+            Ok(())
+        }
+        Markdown => {
+            clap_markdown::print_help_markdown::<Arguments>();
             Ok(())
         }
     };
