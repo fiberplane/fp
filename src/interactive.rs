@@ -224,7 +224,7 @@ pub async fn notebook_picker_with_prompt(
 
     // No argument was provided, so we need to know the workspace ID.
     let workspace_id = workspace_picker_with_prompt(
-        &format!("Workspace (to pick {})", prompt),
+        &format!("Workspace (to pick {prompt})"),
         client,
         workspace_id,
     )

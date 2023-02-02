@@ -27,7 +27,7 @@ fn get_styled_bytes() -> &'static [u8] {
         let styled = WARNING_TEXT.with(Color::Red);
         //this produces something along the lines of this terminal escape output:
         //\u{001b}[31m[REC]\u{001b}[0m
-        write!(&mut buf, "{}", styled).unwrap();
+        write!(&mut buf, "{styled}").unwrap();
         buf
     })
 }

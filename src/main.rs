@@ -251,7 +251,7 @@ async fn main() {
     };
 
     if let Err(err) = initialize_logger(&args) {
-        eprintln!("unable to initialize logging: {:?}", err);
+        eprintln!("unable to initialize logging: {err:?}");
         process::exit(1);
     };
 
@@ -371,7 +371,7 @@ fn initialize_logger(args: &Arguments) -> Result<()> {
         // field, all other fields are ignored.
         let field_formatter = format::debug_fn(|writer, field, value| {
             if field.name() == "message" {
-                write!(writer, "{:?}", value)
+                write!(writer, "{value:?}")
             } else {
                 Ok(())
             }
@@ -568,7 +568,7 @@ async fn handle_new_command(args: NewArguments) -> Result<()> {
         eprintln!("Unable to open the web browser");
     }
 
-    println!("{}", notebook_url);
+    println!("{notebook_url}");
 
     Ok(())
 }

@@ -15,4 +15,4 @@ you think are non-applicable in the list, but use strike-through (`~~`) to
 indicate they don't apply.
 -->
 
-- [ ] Update [CHANGELOG.md](CHANGELOG.md)
+- [ ] Update CHANGELOG.md

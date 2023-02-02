@@ -722,7 +722,7 @@ async fn handle_set_default_data_source(args: SetDefaultDataSourcesArgs) -> Resu
         "Successfully set {}{} to be the default data source for {} queries",
         data_source.name,
         if let Some(proxy) = data_source.proxy_name {
-            format!(" (proxy: {})", proxy)
+            format!(" (proxy: {proxy})")
         } else {
             String::new()
         },
@@ -834,7 +834,7 @@ impl GenericKeyValue {
                             name,
                             data_source.name,
                             if let Some(proxy_name) = &data_source.proxy_name {
-                                format!(" (Proxy: {})", proxy_name)
+                                format!(" (Proxy: {proxy_name})")
                             } else {
                                 "".to_string()
                             }

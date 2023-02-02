@@ -408,7 +408,7 @@ async fn handle_delete(args: DeleteArguments) -> Result<()> {
 
     snippet_delete(&client, workspace_id, &snippet_name)
         .await
-        .with_context(|| format!("Error deleting snippet {}", snippet_name))?;
+        .with_context(|| format!("Error deleting snippet {snippet_name}"))?;
 
     info!(%snippet_name, "Deleted snippet");
     Ok(())
@@ -464,7 +464,7 @@ async fn handle_update(args: UpdateArguments) -> Result<()> {
         Some(
             fs::read_to_string(&snippet_path)
                 .await
-                .with_context(|| format!("Unable to read snippet from: {:?}", snippet_path))?,
+                .with_context(|| format!("Unable to read snippet from: {snippet_path:?}"))?,
         )
     } else {
         None
@@ -477,7 +477,7 @@ async fn handle_update(args: UpdateArguments) -> Result<()> {
 
     let snippet = snippet_update(&client, workspace_id, &snippet_name, snippet)
         .await
-        .with_context(|| format!("Error updating snippet {}", snippet_name))?;
+        .with_context(|| format!("Error updating snippet {snippet_name}"))?;
     info!("Updated snippet");
 
     match args.output {
@@ -497,7 +497,7 @@ async fn handle_validate(args: ValidateArguments) -> Result<()> {
         args.snippet
     };
 
-    match expand_snippet(&snippet) {
+    match expand_snippet(snippet) {
         Ok(_) => {
             info!("Snippet is valid");
             Ok(())
@@ -566,12 +566,12 @@ async fn load_snippet(snippet_path: &str) -> Result<String> {
         }
         reqwest::get(snippet_path)
             .await
-            .with_context(|| format!("loading snippet from URL: {}", snippet_path))?
+            .with_context(|| format!("loading snippet from URL: {snippet_path}"))?
             .error_for_status()
-            .with_context(|| format!("loading snippet from URL: {}", snippet_path))?
+            .with_context(|| format!("loading snippet from URL: {snippet_path}"))?
             .text()
             .await
-            .with_context(|| format!("reading remote file as text: {}", snippet_path))
+            .with_context(|| format!("reading remote file as text: {snippet_path}"))
     } else {
         let path = PathBuf::from(snippet_path);
         if path.extension() == Some(OsStr::new("jsonnet")) {
