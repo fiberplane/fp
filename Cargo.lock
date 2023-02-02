@@ -149,7 +149,7 @@ checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 [[package]]
 name = "base64uuid"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=sentry_provider#01efa7442fece0dfd47daba98bace489a78d985a"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#d091af1f488b76bf5c3cbce32ea799ccb1ceb7b4"
 dependencies = [
  "base64",
  "serde",
@@ -874,7 +874,7 @@ dependencies = [
 [[package]]
 name = "fiberplane"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=sentry_provider#01efa7442fece0dfd47daba98bace489a78d985a"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#d091af1f488b76bf5c3cbce32ea799ccb1ceb7b4"
 dependencies = [
  "base64uuid",
  "fiberplane-api-client",
@@ -887,7 +887,7 @@ dependencies = [
 [[package]]
 name = "fiberplane-api-client"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=sentry_provider#01efa7442fece0dfd47daba98bace489a78d985a"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#d091af1f488b76bf5c3cbce32ea799ccb1ceb7b4"
 dependencies = [
  "anyhow",
  "base64uuid",
@@ -903,7 +903,7 @@ dependencies = [
 [[package]]
 name = "fiberplane-markdown"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=sentry_provider#01efa7442fece0dfd47daba98bace489a78d985a"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#d091af1f488b76bf5c3cbce32ea799ccb1ceb7b4"
 dependencies = [
  "fiberplane-models",
  "pulldown-cmark",
@@ -915,7 +915,7 @@ dependencies = [
 [[package]]
 name = "fiberplane-models"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=sentry_provider#01efa7442fece0dfd47daba98bace489a78d985a"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#d091af1f488b76bf5c3cbce32ea799ccb1ceb7b4"
 dependencies = [
  "base64",
  "base64uuid",
@@ -937,7 +937,7 @@ dependencies = [
 [[package]]
 name = "fiberplane-provider-runtime"
 version = "2.0.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=sentry_provider#01efa7442fece0dfd47daba98bace489a78d985a"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#d091af1f488b76bf5c3cbce32ea799ccb1ceb7b4"
 dependencies = [
  "bytes",
  "fiberplane-models",
@@ -957,7 +957,7 @@ dependencies = [
 [[package]]
 name = "fiberplane-templates"
 version = "0.1.0"
-source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=sentry_provider#01efa7442fece0dfd47daba98bace489a78d985a"
+source = "git+ssh://git@github.com/fiberplane/fiberplane-rs.git?branch=main#d091af1f488b76bf5c3cbce32ea799ccb1ceb7b4"
 dependencies = [
  "base64uuid",
  "fiberplane-models",

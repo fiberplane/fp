@@ -12,8 +12,8 @@ use fiberplane::api_client::{
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::names::Name;
 use fiberplane::models::notebooks::{
-    self, Cell, HeadingCell, HeadingType, NewTemplate, NewTrigger, Notebook, TemplateExpandPayload,
-    TemplateSummary, TextCell, UpdateTemplate,
+    self, Cell, FrontMatter, HeadingCell, HeadingType, NewTemplate, NewTrigger, Notebook,
+    TemplateExpandPayload, TemplateSummary, TextCell, UpdateTemplate,
 };
 use fiberplane::models::sorting::{SortDirection, TemplateListSortFields};
 use fiberplane::models::templates::{Template, TemplateParameter, TemplateParameterType};
@@ -389,6 +389,7 @@ async fn handle_init_command(args: InitArguments) -> Result<()> {
             }),
         ],
         labels: Vec::new(),
+        front_matter: FrontMatter::new(),
     };
     let template = notebook_to_template(notebook);
 
@@ -929,15 +930,15 @@ async fn create_template_and_trigger(
         )
         .await
         .context("Error creating trigger")?;
-        let trigger_url = format!(
-            "{}/api/triggers/{}/{}",
-            client.server,
+
+        let trigger_url = client.server.join(&format!(
+            "api/triggers/{}/{}",
             trigger.id,
             trigger
                 .secret_key
                 .ok_or_else(|| anyhow!("Trigger creation did not return the secret key"))?
-        );
-        Some(trigger_url)
+        ))?;
+        Some(trigger_url.to_string())
     } else {
         None
     };
