@@ -6,6 +6,8 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## 2.4.0
+
 ### Added
 
 - Initial open-source release of `fp`.
