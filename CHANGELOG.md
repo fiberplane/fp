@@ -6,6 +6,10 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Added
+
+### Fixed
+
 ## 2.5.0
 
 ### Added
