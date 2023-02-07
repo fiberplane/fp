@@ -1,30 +1,40 @@
 use crate::config::api_client_configuration;
 use crate::fp_urls::NotebookUrlBuilder;
 use crate::interactive;
+use crate::interactive::workspace_picker;
 use crate::output::{output_details, output_json, GenericKeyValue};
 use crate::templates::NOTEBOOK_ID_REGEX;
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, ValueEnum};
 use directories::ProjectDirs;
-use fiberplane::api_client::{notebook_cells_append, notebook_get, profile_get};
+use fiberplane::api_client::{
+    notebook_cells_append, notebook_create, notebook_get, profile_get, views_create,
+};
 use fiberplane::base64uuid::Base64Uuid;
-use fiberplane::markdown::notebook_to_markdown;
+use fiberplane::markdown::{markdown_to_notebook, notebook_to_markdown};
 use fiberplane::models::formatting::{Annotation, AnnotationWithOffset, Mention};
-use fiberplane::models::notebooks::{Cell, ProviderCell, TextCell};
+use fiberplane::models::labels::Label;
+use fiberplane::models::names::Name;
+use fiberplane::models::notebooks::{Cell, NewNotebook, Notebook, ProviderCell, TextCell};
+use fiberplane::models::views::{NewView, View};
 use fiberplane::models::{formatting, notebooks};
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Error, Response, Server, StatusCode};
 use lazy_static::lazy_static;
 use qstring::QString;
+use rand::distributions::{Alphanumeric, DistString};
 use regex::{Regex, Replacer};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
+use std::fs::File;
+use std::io::{BufReader, Read};
 use std::{convert::Infallible, sync::Arc};
 use std::{fmt::Write, io::ErrorKind, net::IpAddr, path::PathBuf, str::FromStr};
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use tokio::fs;
 use tracing::{debug, error, info, warn};
 use url::Url;
+use zip::ZipArchive;
 
 lazy_static! {
     pub static ref NOTEBOOK_URL_REGEX: Regex =
@@ -48,6 +58,9 @@ enum SubCommand {
 
     /// Open Prometheus graphs in a given notebook
     PrometheusGraphToNotebook(PrometheusGraphToNotebookArgs),
+
+    /// Converts a Notion teamspace into a Fiberplane workspace
+    NotionConvert(NotionConvertArgs),
 
     /// Panics the CLI in order to test out `human-panic`
     #[clap(hide = true)]
@@ -116,6 +129,23 @@ struct PrometheusGraphToNotebookArgs {
     config: Option<PathBuf>,
 }
 
+#[derive(Parser)]
+pub(crate) struct NotionConvertArgs {
+    /// Path to the Notion export `.zip` file
+    #[clap(required = true)]
+    pub(crate) path: PathBuf,
+
+    /// Target workspace which will receive the pages
+    #[clap(from_global)]
+    pub(crate) workspace_id: Option<Base64Uuid>,
+
+    #[clap(from_global)]
+    pub(crate) base_url: Url,
+
+    #[clap(from_global)]
+    pub(crate) config: Option<PathBuf>,
+}
+
 #[derive(ValueEnum, Clone)]
 enum MessageOutput {
     /// Output the result as a table
@@ -132,7 +162,8 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
         SubCommand::PrometheusGraphToNotebook(args) => {
             handle_prometheus_redirect_command(args).await
         }
-        SubCommand::Panic => panic!("manually created panic called by `fpx experiments panic`"),
+        SubCommand::NotionConvert(args) => handle_notion_convert_command(args).await,
+        SubCommand::Panic => panic!("manually created panic called by `fp experiments panic`"),
     }
 }
 
@@ -485,5 +516,103 @@ async fn handle_prometheus_redirect_command(args: PrometheusGraphToNotebookArgs)
 
     server.await?;
 
+    Ok(())
+}
+
+async fn handle_notion_convert_command(args: NotionConvertArgs) -> Result<()> {
+    let client = api_client_configuration(args.config, args.base_url).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
+
+    let file = File::open(args.path)?;
+    let reader = BufReader::new(file);
+    let mut zip = ZipArchive::new(reader)?;
+
+    let mut notebooks = vec![];
+    let mut dirs = vec![];
+
+    for i in 0..zip.len() {
+        let mut file = zip.by_index(i)?;
+
+        if !file.name().ends_with(".md") {
+            continue;
+        }
+
+        let file_name = file.name().to_string();
+
+        // .unwrap is safe because notion export names are predictable
+        let (title, id) = file_name.rsplit_once(' ').unwrap();
+        let path = title.rsplit('/').collect::<Vec<_>>();
+
+        let title = path[0].to_string();
+        let notion_id = id.to_string();
+
+        let mut labels = vec![
+            Label::new("export", "notion"),
+            Label::new("notion_id", notion_id),
+        ];
+
+        if path.len() > 1 {
+            let dir = path[1];
+
+            // .unwrap is safe because notion export names are predictable
+            let (dir_name, id) = dir.rsplit_once(' ').unwrap();
+
+            dirs.push((dir_name.to_string(), id.to_string()));
+            labels.push(Label::new("notion_parent", id));
+        }
+
+        let mut content = String::with_capacity(file.size() as usize);
+        file.read_to_string(&mut content)?;
+        content.shrink_to_fit();
+
+        let notebook = markdown_to_notebook(&content);
+
+        notebooks.push(NewNotebook {
+            title,
+            labels,
+            ..notebook
+        });
+    }
+
+    let futures: Vec<_> = notebooks
+        .into_iter()
+        .map(|payload| notebook_create(&client, workspace_id, payload))
+        .collect();
+
+    let notebooks = futures::future::join_all(futures).await;
+    let notebooks: Result<Vec<Notebook>> = notebooks.into_iter().collect();
+
+    // remove duplicate views
+    dirs.dedup();
+
+    let views_futures: Vec<_> = dirs
+        .into_iter()
+        .map(|(dir_name, dir_id)| {
+            let name = Alphanumeric.sample_string(&mut rand::thread_rng(), 16);
+
+            // .unwrap is safe because the name is automatically generated
+            let name = Name::from_str(&name.to_lowercase()).unwrap();
+
+            views_create(
+                &client,
+                workspace_id,
+                NewView {
+                    name,
+                    display_name: Some(dir_name.to_string()),
+                    description: String::new(),
+                    labels: vec![Label::new("notion_parent", dir_id)],
+                },
+            )
+        })
+        .collect();
+
+    let views = futures::future::join_all(views_futures).await;
+    let views: Result<Vec<View>> = views.into_iter().collect();
+
+    info!(
+        "Successfully created {} notebooks and {} views",
+        notebooks?.len(),
+        views?.len()
+    );
     Ok(())
 }
