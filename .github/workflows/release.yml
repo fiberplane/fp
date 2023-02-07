@@ -158,7 +158,9 @@ jobs:
           aws-region: eu-central-1
 
       - name: Generate fp reference
-        run: artifacts/x86_64-unknown-linux-gnu/fp markdown > artifacts/reference.md
+        run: |
+          chmod u+x artifacts/x86_64-unknown-linux-gnu/fp
+          artifacts/x86_64-unknown-linux-gnu/fp markdown > artifacts/reference.md
 
       - name: Sync fp to S3
         if: github.event_name == 'release'

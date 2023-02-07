@@ -10,6 +10,8 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 
 ### Fixed
 
+- [CI] Fixed syncing of the `fp` reference (#210)
+
 ## 2.5.0
 
 ### Added
