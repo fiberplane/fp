@@ -144,17 +144,10 @@ jobs:
             popd
           done
 
-      - name: Create version file
+      - name: Prepare artifacts
         if: github.event_name == 'release'
-        run: echo "${{ github.event.release.tag_name }}" | cut -c2- > artifacts/version
-
-      - name: Upload to GitHub artifacts
-        uses: actions/upload-artifact@v2
-        with:
-          name: fp-final
-          path: artifacts
-          if-no-files-found: error
-          retention-days: 1
+        run: |
+          echo "${{ github.event.release.tag_name }}" | cut -c2- > artifacts/version
 
       - name: Configure AWS Credentials
         if: github.event_name == 'release'
@@ -164,7 +157,10 @@ jobs:
           aws-secret-access-key: ${{ secrets.DEPLOY_AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-central-1
 
-      - name: Sync fp ${{ github.event.release.tag_name }} to S3
+      - name: Generate fp reference
+        run: artifacts/x86_64-unknown-linux-gnu/fp markdown > artifacts/reference.md
+
+      - name: Sync fp to S3
         if: github.event_name == 'release'
         run: |
           aws s3 sync \
@@ -185,3 +181,13 @@ jobs:
           aws cloudfront create-invalidation \
             --distribution-id "${{ secrets.CF_BUILDS_ID }}" \
             --paths '/fp/latest*'
+
+      - name: Append front-matter to reference
+        run: cat files/frontmatter.txt artifacts/reference.md > readme_reference.md
+
+      - name: Sync fp reference to ReadMe
+        uses: readmeio/rdme@v8
+        env:
+          RDME_API_KEY: ${{ secrets.README_API_KEY }}
+        with:
+          rdme: rdme docs readme_reference.md

@@ -61,7 +61,7 @@ async fn handle_invoke_command(args: InvokeArguments) -> Result<()> {
         }
         Ok(val) => match serde_json::to_string_pretty(&val) {
             Ok(val) => {
-                println!("{}", val);
+                println!("{val}");
                 Ok(())
             }
             Err(e) => Err(anyhow!("unable to serialize result: {:?}", e)),

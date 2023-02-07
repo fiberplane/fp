@@ -417,12 +417,12 @@ async fn load_template(template_path: &str) -> Result<String> {
         }
         reqwest::get(template_path)
             .await
-            .with_context(|| format!("loading template from URL: {}", template_path))?
+            .with_context(|| format!("loading template from URL: {template_path}"))?
             .error_for_status()
-            .with_context(|| format!("loading template from URL: {}", template_path))?
+            .with_context(|| format!("loading template from URL: {template_path}"))?
             .text()
             .await
-            .with_context(|| format!("reading remote file as text: {}", template_path))
+            .with_context(|| format!("reading remote file as text: {template_path}"))
     } else {
         let path = PathBuf::from(template_path);
         if path.extension() == Some(OsStr::new("jsonnet")) {
@@ -440,7 +440,7 @@ async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
 
     let client = api_client_configuration(args.config.clone(), base_url.clone()).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
-    let template_url_base = base_url.join(&format!("workspaces/{}/templates/", workspace_id))?;
+    let template_url_base = base_url.join(&format!("workspaces/{workspace_id}/templates/"))?;
 
     // First, check if the template is the ID of an uploaded template
     let notebook = if let Ok(template_name) = Name::from_str(&args.template) {
@@ -481,7 +481,7 @@ async fn expand_template_api(
             }),
     )
     .await
-    .with_context(|| format!("Error expanding template: {}", template_name))?;
+    .with_context(|| format!("Error expanding template: {template_name}"))?;
 
     Ok(notebook)
 }
@@ -563,7 +563,7 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
 
             let template = template_update(&client, workspace_id, &template_name, template.clone())
                 .await
-                .with_context(|| format!("Error updating template {}", template_name))?;
+                .with_context(|| format!("Error updating template {template_name}"))?;
 
             info!("Updated template");
             (template, None)
@@ -667,7 +667,7 @@ async fn handle_delete_command(args: DeleteArguments) -> Result<()> {
 
     template_delete(&client, workspace_id, &template_name)
         .await
-        .with_context(|| format!("Error deleting template {}", template_name))?;
+        .with_context(|| format!("Error deleting template {template_name}"))?;
 
     info!(%template_name, "Deleted template");
     Ok(())
@@ -707,7 +707,7 @@ async fn handle_update_command(args: UpdateArguments) -> Result<()> {
         Some(
             fs::read_to_string(&template_path)
                 .await
-                .with_context(|| format!("Unable to read template from: {:?}", template_path))?,
+                .with_context(|| format!("Unable to read template from: {template_path:?}"))?,
         )
     } else {
         None
@@ -720,7 +720,7 @@ async fn handle_update_command(args: UpdateArguments) -> Result<()> {
 
     let template = template_update(&client, workspace_id, &template_name, template)
         .await
-        .with_context(|| format!("Error updating template {}", template_name))?;
+        .with_context(|| format!("Error updating template {template_name}"))?;
     info!("Updated template");
 
     match args.output {
@@ -741,7 +741,7 @@ async fn handle_validate_command(args: ValidateArguments) -> Result<()> {
     };
     let params = args.template_arguments.unwrap_or_default();
 
-    match expand_template(&template, params.0) {
+    match expand_template(template, params.0) {
         Ok(_) => {
             info!("Template is valid");
             Ok(())

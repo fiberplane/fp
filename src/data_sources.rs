@@ -318,7 +318,7 @@ impl GenericKeyValue {
             GenericKeyValue::new("Provider Type", &data_source.provider_type),
             GenericKeyValue::new(
                 "Config",
-                &data_source
+                data_source
                     .config
                     .as_ref()
                     .and_then(|c| serde_json::to_string(&c).ok())

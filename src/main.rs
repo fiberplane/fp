@@ -209,10 +209,15 @@ enum SubCommand {
     Version(version::Arguments),
 
     /// Generate fp shell completions for your shell and print to stdout
+    #[clap(hide = true)]
     Completions {
         #[clap(value_enum)]
         shell: clap_complete::Shell,
     },
+
+    /// Generate markdown reference for fp.
+    #[clap(hide = true)]
+    Markdown,
 }
 
 #[tokio::main]
@@ -246,7 +251,7 @@ async fn main() {
     };
 
     if let Err(err) = initialize_logger(&args) {
-        eprintln!("unable to initialize logging: {:?}", err);
+        eprintln!("unable to initialize logging: {err:?}");
         process::exit(1);
     };
 
@@ -298,6 +303,10 @@ async fn main() {
         Completions { shell } => {
             let output = generate_completions(shell);
             stdout().lock().write_all(output.as_bytes()).unwrap();
+            Ok(())
+        }
+        Markdown => {
+            clap_markdown::print_help_markdown::<Arguments>();
             Ok(())
         }
     };
@@ -362,7 +371,7 @@ fn initialize_logger(args: &Arguments) -> Result<()> {
         // field, all other fields are ignored.
         let field_formatter = format::debug_fn(|writer, field, value| {
             if field.name() == "message" {
-                write!(writer, "{:?}", value)
+                write!(writer, "{value:?}")
             } else {
                 Ok(())
             }
@@ -559,7 +568,7 @@ async fn handle_new_command(args: NewArguments) -> Result<()> {
         eprintln!("Unable to open the web browser");
     }
 
-    println!("{}", notebook_url);
+    println!("{notebook_url}");
 
     Ok(())
 }

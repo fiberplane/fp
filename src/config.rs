@@ -93,7 +93,7 @@ pub(crate) fn api_client_configuration_from_token(token: &str, base_url: Url) ->
     let mut headers = HeaderMap::new();
     headers.insert(
         "Authorization",
-        HeaderValue::from_str(&format!("Bearer {}", token))?,
+        HeaderValue::from_str(&format!("Bearer {token}"))?,
     );
 
     let client = default_config(
