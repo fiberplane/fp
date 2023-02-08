@@ -147,11 +147,11 @@ async fn handle_event_create_command(args: CreateArguments) -> Result<()> {
     let event = event_create(
         &client,
         workspace_id,
-        NewEvent {
-            title,
-            labels,
-            time: args.time.map(|timestamp| timestamp.0),
-        },
+        NewEvent::builder()
+            .title(title)
+            .labels(labels.unwrap_or_default())
+            .time(args.time.map(|timestamp| timestamp.0))
+            .build()
     )
     .await?;
 

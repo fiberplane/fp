@@ -12,7 +12,7 @@ use fiberplane::api_client::{
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::names::Name;
 use fiberplane::models::notebooks::{
-    self, Cell, FrontMatter, HeadingCell, HeadingType, NewTemplate, NewTrigger, Notebook,
+    self, Cell, HeadingCell, HeadingType, NewTemplate, NewTrigger, Notebook,
     TemplateExpandPayload, TemplateSummary, TextCell, UpdateTemplate,
 };
 use fiberplane::models::sorting::{SortDirection, TemplateListSortFields};
@@ -369,28 +369,21 @@ enum TemplateListOutput {
 }
 
 async fn handle_init_command(args: InitArguments) -> Result<()> {
-    let notebook = notebooks::NewNotebook {
-        title: "Replace me!".to_string(),
-        time_range: timestamps::NewTimeRange::Relative(timestamps::RelativeTimeRange {
-            minutes: -60,
-        }),
-        selected_data_sources: Default::default(),
-        cells: vec![
-            Cell::Heading(HeadingCell {
-                id: "1".to_string(),
-                heading_type: HeadingType::H1,
-                content: "This is a section".to_string(),
-                ..Default::default()
-            }),
-            Cell::Text(TextCell {
-                id: "2".to_string(),
-                content: "You can add any types of cells and pre-fill content".to_string(),
-                ..Default::default()
-            }),
-        ],
-        labels: Vec::new(),
-        front_matter: FrontMatter::new(),
-    };
+    let notebook = notebooks::NewNotebook::builder()
+        .title("Replace me!")
+        .time_range(timestamps::NewTimeRange::Relative(timestamps::RelativeTimeRange::from_minutes(-60)))
+        .cells(vec![
+            Cell::Heading(HeadingCell::builder()
+                              .id("1")
+                              .heading_type(HeadingType::H1)
+                              .content("This is a section")
+                .build()),
+            Cell::Text(TextCell::builder()
+                           .id("2")
+                           .content("You can add any types of cells and pre-fill content")
+                .build()),
+        ])
+        .build();
     let template = notebook_to_template(notebook);
 
     let mut template_path = args.template_path;
@@ -556,10 +549,10 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
             .await
             .is_ok()
         {
-            let template = UpdateTemplate {
-                description,
-                body: Some(template),
-            };
+            let template = UpdateTemplate::builder()
+                .description(description)
+                .body(template)
+                .build();
 
             let template = template_update(&client, workspace_id, &template_name, template.clone())
                 .await
@@ -572,11 +565,11 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
                 &client,
                 workspace_id,
                 args.create_trigger,
-                NewTemplate {
-                    name,
-                    description: description.unwrap_or_default(),
-                    body: template,
-                },
+                NewTemplate::builder()
+                    .name(name)
+                .description(description.unwrap_or_default())
+                    .body(template)
+                    .build(),
             )
             .await?
         }
@@ -585,11 +578,11 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
             &client,
             workspace_id,
             args.create_trigger,
-            NewTemplate {
-                name,
-                description: description.unwrap_or_default(),
-                body: template,
-            },
+            NewTemplate::builder()
+                .name(name)
+            .description(description.unwrap_or_default())
+                .body(template)
+                .build(),
         )
         .await?
     };
@@ -621,11 +614,11 @@ async fn handle_create_command(args: CreateArguments) -> Result<()> {
         interactive::text_req("Description", args.description.clone(), Some("".to_owned()))?;
 
     let body = load_template(&args.template).await?;
-    let template = NewTemplate {
-        name,
-        description,
-        body,
-    };
+    let template = NewTemplate::builder()
+        .name(name)
+        .description(description)
+        .body(body)
+        .build();
 
     let (template, trigger_url) =
         create_template_and_trigger(&client, workspace_id, args.create_trigger, template).await?;
@@ -713,10 +706,10 @@ async fn handle_update_command(args: UpdateArguments) -> Result<()> {
         None
     };
 
-    let template = UpdateTemplate {
-        description: args.description,
-        body,
-    };
+    let template = UpdateTemplate::builder()
+        .description(args.description)
+        .body(body)
+        .build();
 
     let template = template_update(&client, workspace_id, &template_name, template)
         .await
@@ -895,6 +888,7 @@ fn format_template_parameters(parameters: Vec<TemplateParameter>) -> String {
             TemplateParameterType::Unknown => {
                 result.push(format!("{}: (type unknown)", parameter.name));
             }
+            _ => panic!("Unknown TemplateParameterType: {:?}", parameter.ty),
         };
     }
 
@@ -922,11 +916,10 @@ async fn create_template_and_trigger(
         let trigger = trigger_create(
             client,
             workspace_id,
-            NewTrigger {
-                title: format!("{} Trigger", &template.name),
-                template_name: template.name.clone(),
-                default_arguments: None,
-            },
+            NewTrigger::builder()
+                .title(format!("{} Trigger", &template.name))
+                .template_name(template.name.clone())
+                .build(),
         )
         .await
         .context("Error creating trigger")?;

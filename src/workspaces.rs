@@ -158,11 +158,10 @@ async fn handle_workspace_create(args: CreateArgs) -> Result<()> {
 
     let workspace = workspace_create(
         &client,
-        NewWorkspace {
-            name,
-            display_name,
-            default_data_sources: None,
-        },
+        NewWorkspace::builder()
+            .name(name)
+            .display_name(display_name.unwrap_or_default())
+            .build(),
     )
     .await?;
 
@@ -301,10 +300,10 @@ async fn handle_invite_create(args: InviteCreateArgs) -> Result<()> {
     let invite = workspace_invite(
         &client,
         workspace_id,
-        NewWorkspaceInvite {
-            email,
-            role: args.role,
-        },
+        NewWorkspaceInvite::builder()
+            .email(email)
+            .role(args.role)
+            .build(),
     )
     .await?;
 
@@ -481,11 +480,15 @@ async fn handle_user_update(args: UserUpdateArgs) -> Result<()> {
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let user = workspace_user_picker(&client, &workspace_id, args.user_id).await?;
 
+    let payload = match args.role {
+        Some(role) => WorkspaceUserUpdate::builder().role(role).build(),
+        None => WorkspaceUserUpdate::builder().build(),
+    };
     workspace_user_update(
         &client,
         workspace_id,
         user,
-        WorkspaceUserUpdate { role: args.role },
+        payload,
     )
     .await?;
 
@@ -640,11 +643,9 @@ async fn handle_move_owner(args: MoveOwnerArgs) -> Result<()> {
     workspace_update(
         &client,
         workspace_id,
-        UpdateWorkspace {
-            owner: Some(new_owner),
-            display_name: None,
-            default_data_sources: None,
-        },
+        UpdateWorkspace::builder()
+            .owner(new_owner)
+            .build(),
     )
     .await?;
 
@@ -659,11 +660,9 @@ async fn handle_change_name(args: ChangeNameArgs) -> Result<()> {
     workspace_update(
         &client,
         workspace_id,
-        UpdateWorkspace {
-            display_name: Some(args.new_name),
-            owner: None,
-            default_data_sources: None,
-        },
+        UpdateWorkspace::builder()
+            .display_name(args.new_name)
+            .build(),
     )
     .await?;
 
@@ -699,22 +698,31 @@ async fn handle_set_default_data_source(args: SetDefaultDataSourcesArgs) -> Resu
     let mut default_data_sources = workspace_get(&client, workspace_id)
         .await?
         .default_data_sources;
+
+    let sds = match &data_source.proxy_name {
+        Some(proxy_name) => {
+            SelectedDataSource::builder()
+                .name(data_source.name.clone())
+                .proxy_name(proxy_name.clone())
+                .build()
+        },
+        None => {
+            SelectedDataSource::builder()
+                .name(data_source.name.clone())
+                .build()
+        }
+    };
     default_data_sources.insert(
         data_source.provider_type.clone(),
-        SelectedDataSource {
-            name: data_source.name.clone(),
-            proxy_name: data_source.proxy_name.clone(),
-        },
+        sds,
     );
 
     workspace_update(
         &client,
         workspace_id,
-        UpdateWorkspace {
-            default_data_sources: Some(default_data_sources),
-            display_name: None,
-            owner: None,
-        },
+        UpdateWorkspace::builder()
+            .default_data_sources(default_data_sources)
+            .build(),
     )
     .await?;
 
@@ -757,11 +765,9 @@ async fn handle_unset_default_data_source(args: UnsetDefaultDataSourcesArgs) -> 
     workspace_update(
         &client,
         workspace_id,
-        UpdateWorkspace {
-            default_data_sources: Some(default_data_sources),
-            display_name: None,
-            owner: None,
-        },
+        UpdateWorkspace::builder()
+            .default_data_sources(default_data_sources)
+            .build(),
     )
     .await?;
 

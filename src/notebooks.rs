@@ -186,14 +186,11 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
             let notebook = serde_json::to_string(&notebook)?;
             serde_json::from_str(&notebook).with_context(|| "Error parsing notebook struct (there is a mismatch between the API client model and the fiberplane notebooks model)")?
         }
-        None => NewNotebook {
-            title: String::new(),
-            time_range: NewTimeRange::Absolute(TimeRange { from, to }),
-            cells: Vec::new(),
-            selected_data_sources: Default::default(),
-            labels: Default::default(),
-            front_matter: args.front_matter.unwrap_or_else(FrontMatter::new),
-        },
+        None => NewNotebook::builder()
+            .title(String::new())
+            .time_range(NewTimeRange::Absolute(TimeRange { from, to }))
+            .front_matter(args.front_matter.unwrap_or_else(FrontMatter::new))
+            .build(),
     };
 
     let default_title = if notebook.title.is_empty() {
@@ -203,12 +200,14 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
     };
     let title = interactive::text_req("Title", args.title, Some(default_title.to_string()))?;
 
-    let notebook = NewNotebook {
-        title,
-        time_range: NewTimeRange::Absolute(TimeRange { from, to }),
-        labels,
-        ..notebook
-    };
+    let notebook = NewNotebook::builder()
+        .title(title)
+        .time_range(NewTimeRange::Absolute(TimeRange { from, to }))
+        .labels(labels)
+        .cells(notebook.cells)
+        .selected_data_sources(notebook.selected_data_sources)
+        .front_matter(notebook.front_matter)
+        .build();
 
     let notebook = notebook_create(&client, workspace_id, notebook).await?;
 
@@ -284,10 +283,10 @@ async fn handle_duplicate_command(args: DuplicateArgs) -> Result<()> {
     let notebook = notebook_duplicate(
         &client,
         notebook_id,
-        NotebookCopyDestination {
-            title,
-            workspace_id,
-        },
+        NotebookCopyDestination::builder()
+            .title(title)
+        .workspace_id(workspace_id)
+            .build(),
     )
     .await?;
 
@@ -429,7 +428,7 @@ async fn handle_search_command(args: SearchArgs) -> Result<()> {
         None
     };
 
-    let notebooks = notebook_search(&client, workspace_id, NotebookSearch { labels, view }).await?;
+    let notebooks = notebook_search(&client, workspace_id, NotebookSearch::builder().labels(labels).view(view).build()).await?;
 
     match args.output {
         NotebookOutput::Table => {
@@ -532,19 +531,15 @@ async fn handle_append_cell_command(args: AppendCellArgs) -> Result<()> {
     let notebook_id = notebook_picker(&client, args.notebook_id, None).await?;
 
     let cell = if let Some(content) = args.text {
-        Cell::Text(TextCell {
-            content,
-            id: String::new(),
-            formatting: vec![],
-            read_only: None,
-        })
+        Cell::Text(TextCell::builder()
+                       .content(content)
+                       .id(String::new())
+            .build())
     } else if let Some(content) = args.code {
-        Cell::Code(CodeCell {
-            content,
-            id: String::new(),
-            syntax: None,
-            read_only: None,
-        })
+        Cell::Code(CodeCell::builder()
+                       .content(content)
+                       .id(String::new())
+            .build())
     } else {
         unreachable!();
     };

@@ -32,27 +32,23 @@ impl NotebookWriter {
             notebook_id,
             None,
             None,
-            vec![Cell::Heading(HeadingCell {
-                id: String::new(),
-                heading_type: HeadingType::H3,
-                content,
-                formatting: vec![
-                    AnnotationWithOffset {
-                        offset: 0,
-                        annotation: Annotation::Mention(Mention {
-                            name: user.name,
-                            user_id: user.id.to_string(),
-                        }),
-                    },
-                    AnnotationWithOffset {
-                        offset: timestamp_offset,
-                        annotation: Annotation::Timestamp {
+            vec![Cell::Heading(HeadingCell::builder()
+                                   .id(String::new())
+                                   .heading_type(HeadingType::H3)
+                                   .content(content)
+                                   .formatting(vec![
+                    AnnotationWithOffset::new(0, Annotation::Mention(Mention::builder()
+                                                                         .name(user.name)
+                                                                         .user_id(user.id.to_string())
+                        .build())
+                    ),
+                    AnnotationWithOffset::new(timestamp_offset, Annotation::Timestamp {
                             timestamp: raw_timestamp,
-                        },
-                    },
-                ],
-                read_only: Some(true),
-            })],
+                        }
+                    ),
+                ])
+                                   .read_only(true)
+                .build())],
         )
         .await?
         .pop()
@@ -63,12 +59,11 @@ impl NotebookWriter {
             notebook_id,
             None,
             None,
-            vec![Cell::Code(CodeCell {
-                id: String::new(),
-                content: String::new(),
-                read_only: Some(true),
-                syntax: None,
-            })],
+            vec![Cell::Code(CodeCell::builder()
+                                .id(String::new())
+                                .content(String::new())
+                                .read_only(true)
+                .build())],
         )
         .await?
         .pop()
@@ -99,10 +94,10 @@ impl NotebookWriter {
             &self.config,
             self.notebook_id,
             &self.code_cell_id,
-            CellAppendText {
-                content,
-                formatting: Formatting::new(),
-            },
+            CellAppendText::builder()
+                .content(content)
+                .formatting(Formatting::new())
+                .build(),
         )
         .await?;
 
@@ -118,13 +113,13 @@ impl NotebookWriter {
             &self.config,
             self.notebook_id,
             &self.heading_cell_id,
-            CellAppendText {
-                content,
-                formatting: vec![AnnotationWithOffset::new(
+            CellAppendText::builder()
+                .content(content)
+                .formatting(vec![AnnotationWithOffset::new(
                     0,
                     Annotation::Timestamp { timestamp: now },
-                )],
-            },
+                )])
+                .build(),
         )
         .await?;
 

@@ -87,12 +87,12 @@ async fn handle_create(args: CreateArguments) -> Result<()> {
     let name = name_opt("Name", args.name, None).unwrap();
     let description = text_opt("Description", args.description.clone(), None).unwrap_or_default();
 
-    let view = NewView {
-        name,
-        display_name: args.display_name,
-        description,
-        labels: args.labels.into_iter().map(Into::into).collect(),
-    };
+    let view = NewView::builder()
+        .name(name)
+        .display_name(args.display_name)
+        .description(description)
+        .labels(args.labels.into_iter().map(Into::into).collect())
+        .build();
 
     let view = views_create(&client, workspace_id, view).await?;
 
@@ -228,13 +228,13 @@ async fn handle_update(args: UpdateArguments) -> Result<()> {
         &client,
         workspace_id,
         &view_name,
-        UpdateView {
-            display_name: args.display_name,
-            description: args.description,
-            labels: args
+        UpdateView::builder()
+            .display_name(args.display_name)
+            .description(args.description)
+            .labels(args
                 .labels
-                .map(|labels| labels.into_iter().map(Into::into).collect()),
-        },
+                .map(|labels| labels.into_iter().map(Into::into).collect()).into())
+            .build(),
     )
     .await?;
 

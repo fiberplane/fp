@@ -61,12 +61,10 @@ impl CellWriter {
         match self.cell_type {
             CellType::Log => {
                 // Prepend a text cell with the "title":
-                let cell = Cell::Text(TextCell {
-                    id: String::new(),
-                    content: self.prompt_line(),
-                    formatting: vec![],
-                    read_only: None,
-                });
+                let cell = Cell::Text(TextCell::builder()
+                                          .id(String::new())
+                                          .content(self.prompt_line())
+                    .build());
                 self.append_cell(cell).await?;
 
                 // Followed by the log cell itself:
@@ -76,29 +74,21 @@ impl CellWriter {
                     serde_json::to_string(&data).expect("Could not serialize log records")
                 );
 
-                let cell = Cell::Log(LogCell {
-                    id: String::new(),
-                    data_links: vec![data_link],
-                    read_only: Some(true),
-                    display_fields: None,
-                    expanded_indices: None,
-                    hide_similar_values: None,
-                    highlighted_indices: None,
-                    selected_indices: None,
-                    visibility_filter: None,
-                });
+                let cell = Cell::Log(LogCell::builder()
+                                         .id(String::new())
+                                         .data_links(vec![data_link])
+                                         .read_only(true)
+                    .build());
                 let cell = self.append_cell(cell).await?;
                 self.cell = Some(cell);
             }
             // Create a new code cell
             CellType::Code | CellType::Unknown => {
                 let content = format!("{}\n{}", self.prompt_line(), output);
-                let cell = Cell::Code(CodeCell {
-                    id: String::new(),
-                    content,
-                    syntax: None,
-                    read_only: None,
-                });
+                let cell = Cell::Code(CodeCell::builder()
+                                          .id(String::new())
+                                          .content(content)
+                    .build());
                 let cell = self.append_cell(cell).await?;
                 self.cell = Some(cell);
             }

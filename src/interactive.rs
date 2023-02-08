@@ -237,10 +237,7 @@ pub async fn notebook_picker_with_prompt(
     let results = notebook_search(
         client,
         workspace_id,
-        NotebookSearch {
-            labels: None,
-            view: None,
-        },
+        NotebookSearch::default()
     )
     .await?;
 
