@@ -17,14 +17,13 @@ jobs:
   build:
     runs-on: ubuntu-latest-8-cores
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
-      - name: setup-git-credentials
-        uses: fusion-engineering/setup-git-credentials@v2.0.6
+      - uses: de-vri-es/setup-git-credentials@v2
         with:
           credentials: "https://fiberplanebot:${{ secrets.PRIVATE_GITHUB_TOKEN }}@github.com/"
 
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         with:
           path: |
             ~/.cargo/bin/
@@ -58,7 +57,7 @@ jobs:
         run: target/release/fp version -o json > manifest.json
 
       - name: Upload fp
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: fp
           path: target/release/fp
@@ -66,7 +65,7 @@ jobs:
           retention-days: 1
 
       - name: Upload manifest
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: manifest.json
           path: manifest.json
