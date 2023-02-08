@@ -238,7 +238,10 @@ async fn handle_list_command(args: ListArgs) -> Result<()> {
                         b.connected_data_sources.cmp(&a.connected_data_sources)
                     }
                     (Disconnected, Disconnected) => b.total_data_sources.cmp(&a.total_data_sources),
-                    (_, _) => panic!("Unknown proxy status: {:?}, {:?}", a.proxy.status, b.proxy.status),
+                    (_, _) => panic!(
+                        "Unknown proxy status: {:?}, {:?}",
+                        a.proxy.status, b.proxy.status
+                    ),
                 }
             });
 

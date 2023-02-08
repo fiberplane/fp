@@ -285,7 +285,7 @@ async fn handle_duplicate_command(args: DuplicateArgs) -> Result<()> {
         notebook_id,
         NotebookCopyDestination::builder()
             .title(title)
-        .workspace_id(workspace_id)
+            .workspace_id(workspace_id)
             .build(),
     )
     .await?;
@@ -428,7 +428,12 @@ async fn handle_search_command(args: SearchArgs) -> Result<()> {
         None
     };
 
-    let notebooks = notebook_search(&client, workspace_id, NotebookSearch::builder().labels(labels).view(view).build()).await?;
+    let notebooks = notebook_search(
+        &client,
+        workspace_id,
+        NotebookSearch::builder().labels(labels).view(view).build(),
+    )
+    .await?;
 
     match args.output {
         NotebookOutput::Table => {
@@ -531,15 +536,19 @@ async fn handle_append_cell_command(args: AppendCellArgs) -> Result<()> {
     let notebook_id = notebook_picker(&client, args.notebook_id, None).await?;
 
     let cell = if let Some(content) = args.text {
-        Cell::Text(TextCell::builder()
-                       .content(content)
-                       .id(String::new())
-            .build())
+        Cell::Text(
+            TextCell::builder()
+                .content(content)
+                .id(String::new())
+                .build(),
+        )
     } else if let Some(content) = args.code {
-        Cell::Code(CodeCell::builder()
-                       .content(content)
-                       .id(String::new())
-            .build())
+        Cell::Code(
+            CodeCell::builder()
+                .content(content)
+                .id(String::new())
+                .build(),
+        )
     } else {
         unreachable!();
     };

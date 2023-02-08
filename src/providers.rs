@@ -101,10 +101,12 @@ async fn handle_invoke2_command(args: Invoke2Arguments) -> Result<()> {
     let config = parse_config(&args.config).context("unable to deserialize config")?;
     let request = ProviderRequest::builder()
         .query_type(args.query_type)
-        .query_data(Blob::builder()
-                        .data(args.query_data)
-                        .mime_type(args.query_mime_type)
-            .build())
+        .query_data(
+            Blob::builder()
+                .data(args.query_data)
+                .mime_type(args.query_mime_type)
+                .build(),
+        )
         .config(config)
         .build();
 

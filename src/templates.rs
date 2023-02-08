@@ -12,8 +12,8 @@ use fiberplane::api_client::{
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::names::Name;
 use fiberplane::models::notebooks::{
-    self, Cell, HeadingCell, HeadingType, NewTemplate, NewTrigger, Notebook,
-    TemplateExpandPayload, TemplateSummary, TextCell, UpdateTemplate,
+    self, Cell, HeadingCell, HeadingType, NewTemplate, NewTrigger, Notebook, TemplateExpandPayload,
+    TemplateSummary, TextCell, UpdateTemplate,
 };
 use fiberplane::models::sorting::{SortDirection, TemplateListSortFields};
 use fiberplane::models::templates::{Template, TemplateParameter, TemplateParameterType};
@@ -371,17 +371,23 @@ enum TemplateListOutput {
 async fn handle_init_command(args: InitArguments) -> Result<()> {
     let notebook = notebooks::NewNotebook::builder()
         .title("Replace me!")
-        .time_range(timestamps::NewTimeRange::Relative(timestamps::RelativeTimeRange::from_minutes(-60)))
+        .time_range(timestamps::NewTimeRange::Relative(
+            timestamps::RelativeTimeRange::from_minutes(-60),
+        ))
         .cells(vec![
-            Cell::Heading(HeadingCell::builder()
-                              .id("1")
-                              .heading_type(HeadingType::H1)
-                              .content("This is a section")
-                .build()),
-            Cell::Text(TextCell::builder()
-                           .id("2")
-                           .content("You can add any types of cells and pre-fill content")
-                .build()),
+            Cell::Heading(
+                HeadingCell::builder()
+                    .id("1")
+                    .heading_type(HeadingType::H1)
+                    .content("This is a section")
+                    .build(),
+            ),
+            Cell::Text(
+                TextCell::builder()
+                    .id("2")
+                    .content("You can add any types of cells and pre-fill content")
+                    .build(),
+            ),
         ])
         .build();
     let template = notebook_to_template(notebook);
@@ -567,7 +573,7 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
                 args.create_trigger,
                 NewTemplate::builder()
                     .name(name)
-                .description(description.unwrap_or_default())
+                    .description(description.unwrap_or_default())
                     .body(template)
                     .build(),
             )
@@ -580,7 +586,7 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
             args.create_trigger,
             NewTemplate::builder()
                 .name(name)
-            .description(description.unwrap_or_default())
+                .description(description.unwrap_or_default())
                 .body(template)
                 .build(),
         )

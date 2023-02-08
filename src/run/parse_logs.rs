@@ -53,10 +53,11 @@ pub fn parse_logs(output: &str) -> Vec<Event> {
                 // If we had lines before that didn't have timestamps, add them
                 // under this timestamp:
                 if !lines_without_timestamps.is_empty() {
-                    logs.extend(lines_without_timestamps.drain(..).map(|line| Event::builder()
-                        .time(record.time)
-                        .title(line)
-                        .build()));
+                    logs.extend(
+                        lines_without_timestamps
+                            .drain(..)
+                            .map(|line| Event::builder().time(record.time).title(line).build()),
+                    );
                 }
 
                 most_recent_timestamp = Some(record.time);
@@ -64,10 +65,12 @@ pub fn parse_logs(output: &str) -> Vec<Event> {
             }
             None => {
                 if let Some(timestamp) = &most_recent_timestamp {
-                    logs.push(Event::builder()
-                                  .time(*timestamp)
-                                  .title(line.to_string())
-                        .build())
+                    logs.push(
+                        Event::builder()
+                            .time(*timestamp)
+                            .title(line.to_string())
+                            .build(),
+                    )
                 } else {
                     lines_without_timestamps.push(line.to_string());
                 }
@@ -78,10 +81,11 @@ pub fn parse_logs(output: &str) -> Vec<Event> {
     // If none of the lines had timestamps, use the current moment as the timestamp
     if !lines_without_timestamps.is_empty() {
         let now = OffsetDateTime::now_utc();
-        logs.extend(lines_without_timestamps.drain(..).map(|line| Event::builder()
-            .time(now.into())
-            .title(line)
-            .build()));
+        logs.extend(
+            lines_without_timestamps
+                .drain(..)
+                .map(|line| Event::builder().time(now.into()).title(line).build()),
+        );
     }
 
     logs
@@ -173,23 +177,27 @@ fn parse_flattened_json(mut json: BTreeMap<String, Value>) -> Option<Event> {
                 && !RESOURCE_FIELD_EXCEPTIONS.contains(&key.as_str())
         });
 
-    timestamp.map(|timestamp| Event::builder()
-        .time(timestamp.into())
-        .title(body)
-        .otel(OtelMetadata::builder()
-                  .attributes(attributes)
-                  .resource(resource)
-                  .span_id(span_id.and_then(|span| {
-                span.as_str()
-                    .and_then(|span| span.as_bytes().try_into().ok().map(OtelSpanId::new))
-            }))
-                  .trace_id(trace_id.and_then(|trace| {
-                trace
-                    .as_str()
-                    .and_then(|trace| trace.as_bytes().try_into().ok().map(OtelTraceId::new))
-            }))
-            .build())
-        .build())
+    timestamp.map(|timestamp| {
+        Event::builder()
+            .time(timestamp.into())
+            .title(body)
+            .otel(
+                OtelMetadata::builder()
+                    .attributes(attributes)
+                    .resource(resource)
+                    .span_id(span_id.and_then(|span| {
+                        span.as_str()
+                            .and_then(|span| span.as_bytes().try_into().ok().map(OtelSpanId::new))
+                    }))
+                    .trace_id(trace_id.and_then(|trace| {
+                        trace.as_str().and_then(|trace| {
+                            trace.as_bytes().try_into().ok().map(OtelTraceId::new)
+                        })
+                    }))
+                    .build(),
+            )
+            .build()
+    })
 }
 
 fn flatten_nested_value(output: &mut BTreeMap<String, Value>, key: String, value: Value) {

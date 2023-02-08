@@ -161,13 +161,15 @@ async fn handle_message_command(args: MessageArgs) -> Result<()> {
     let prefix = format!("{timestamp_prefix}@{name}:  ");
     let content = format!("{}{}", prefix, args.message.join(" "));
 
-    let cell = Cell::Text(TextCell::builder()
-                              .content(content)
-                              .formatting(vec![AnnotationWithOffset::new(mention_start as u32, Annotation::Mention(Mention::builder()
-                                                                                                                       .name(name)
-                                                                                                                       .user_id(user_id)
-                                  .build()))])
-        .build());
+    let cell = Cell::Text(
+        TextCell::builder()
+            .content(content)
+            .formatting(vec![AnnotationWithOffset::new(
+                mention_start as u32,
+                Annotation::Mention(Mention::builder().name(name).user_id(user_id).build()),
+            )])
+            .build(),
+    );
     let cell = notebook_cells_append(&client, notebook_id, None, None, vec![cell])
         .await
         .with_context(|| "Error appending cell to notebook")?
@@ -421,14 +423,16 @@ async fn handle_prometheus_redirect_command(args: PrometheusGraphToNotebookArgs)
                                 notebook_id,
                                 None,
                                 None,
-                                vec![Cell::Provider(ProviderCell::builder()
-                                                        .id(id.clone())
-                                                        .intent("prometheus,timeseries")
-                                                        .query_data(format!(
-                                        "application/x-www-form-urlencoded,query={query}"
-                                    ))
-                                                        .title("")
-                                    .build())],
+                                vec![Cell::Provider(
+                                    ProviderCell::builder()
+                                        .id(id.clone())
+                                        .intent("prometheus,timeseries")
+                                        .query_data(format!(
+                                            "application/x-www-form-urlencoded,query={query}"
+                                        ))
+                                        .title("")
+                                        .build(),
+                                )],
                             )
                             .await
                             {

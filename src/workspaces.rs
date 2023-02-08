@@ -484,13 +484,7 @@ async fn handle_user_update(args: UserUpdateArgs) -> Result<()> {
         Some(role) => WorkspaceUserUpdate::builder().role(role).build(),
         None => WorkspaceUserUpdate::builder().build(),
     };
-    workspace_user_update(
-        &client,
-        workspace_id,
-        user,
-        payload,
-    )
-    .await?;
+    workspace_user_update(&client, workspace_id, user, payload).await?;
 
     info!("Successfully updated user within workspace");
     Ok(())
@@ -643,9 +637,7 @@ async fn handle_move_owner(args: MoveOwnerArgs) -> Result<()> {
     workspace_update(
         &client,
         workspace_id,
-        UpdateWorkspace::builder()
-            .owner(new_owner)
-            .build(),
+        UpdateWorkspace::builder().owner(new_owner).build(),
     )
     .await?;
 
@@ -700,22 +692,15 @@ async fn handle_set_default_data_source(args: SetDefaultDataSourcesArgs) -> Resu
         .default_data_sources;
 
     let sds = match &data_source.proxy_name {
-        Some(proxy_name) => {
-            SelectedDataSource::builder()
-                .name(data_source.name.clone())
-                .proxy_name(proxy_name.clone())
-                .build()
-        },
-        None => {
-            SelectedDataSource::builder()
-                .name(data_source.name.clone())
-                .build()
-        }
+        Some(proxy_name) => SelectedDataSource::builder()
+            .name(data_source.name.clone())
+            .proxy_name(proxy_name.clone())
+            .build(),
+        None => SelectedDataSource::builder()
+            .name(data_source.name.clone())
+            .build(),
     };
-    default_data_sources.insert(
-        data_source.provider_type.clone(),
-        sds,
-    );
+    default_data_sources.insert(data_source.provider_type.clone(), sds);
 
     workspace_update(
         &client,

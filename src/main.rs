@@ -546,7 +546,7 @@ async fn handle_new_command(args: NewArguments) -> Result<()> {
     let new_notebook = NewNotebook::builder()
         .title(title)
         .time_range(NewTimeRange::Relative(RelativeTimeRange::from_minutes(60)))
-                        .build();
+        .build();
     let notebook = notebook_create(&client, workspace_id, new_notebook).await?;
 
     let notebook_id = Base64Uuid::parse_str(&notebook.id)?;

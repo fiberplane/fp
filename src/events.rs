@@ -151,7 +151,7 @@ async fn handle_event_create_command(args: CreateArguments) -> Result<()> {
             .title(title)
             .labels(labels.unwrap_or_default())
             .time(args.time.map(|timestamp| timestamp.0))
-            .build()
+            .build(),
     )
     .await?;
 

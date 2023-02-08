@@ -231,9 +231,11 @@ async fn handle_update(args: UpdateArguments) -> Result<()> {
         UpdateView::builder()
             .display_name(args.display_name)
             .description(args.description)
-            .labels(args
-                .labels
-                .map(|labels| labels.into_iter().map(Into::into).collect()).into())
+            .labels(
+                args.labels
+                    .map(|labels| labels.into_iter().map(Into::into).collect())
+                    .into(),
+            )
             .build(),
     )
     .await?;
