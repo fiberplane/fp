@@ -16,7 +16,7 @@ clap = { version = "4.0.17", features = ["derive", "env", "wrap_help"] }
 clap_complete = "4.0.3"
 clap-markdown = "0.1.3"
 cli-table = "0.4"
-crossterm = { version = "0.23.0", features = ["event-stream"] }
+crossterm = { version = "0.26.0", features = ["event-stream"] }
 directories = "4.0.1"
 dialoguer = { version = "0.10.1", features = ["fuzzy-select"] }
 fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane-rs.git", branch = "main", features = [
