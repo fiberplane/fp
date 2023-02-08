@@ -6,7 +6,7 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
-### Added
+## [2.5.1]
 
 ### Fixed
 
