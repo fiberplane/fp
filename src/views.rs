@@ -233,8 +233,7 @@ async fn handle_update(args: UpdateArguments) -> Result<()> {
             .description(args.description)
             .labels(
                 args.labels
-                    .map(|labels| labels.into_iter().map(Into::into).collect())
-                    .into(),
+                    .map(|labels| labels.into_iter().map(Into::into).collect()),
             )
             .build(),
     )
