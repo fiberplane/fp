@@ -10,6 +10,7 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 
 - [CI] Fixed syncing of the `fp` reference to ReadMe (#213)
 - Update some crates to resolve some security vulnerabilities (#212)
+- Update dependencies to resolve dependabot issues (#215)
 
 ## [2.5.1]
 
