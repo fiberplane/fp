@@ -352,11 +352,11 @@ async fn handle_convert(args: ConvertArguments) -> Result<()> {
     let name = name_req("Snippet name", args.snippet_name, default_name)?;
     let description = text_opt("Description", args.description, None).unwrap_or_default();
 
-    let snippet = NewSnippet {
-        name,
-        description,
-        body,
-    };
+    let snippet = NewSnippet::builder()
+        .name(name)
+        .description(description)
+        .body(body)
+        .build();
     let snippet = snippet_create(&client, workspace_id, snippet).await?;
 
     match args.output {
@@ -383,11 +383,11 @@ async fn handle_create(args: CreateArguments) -> Result<()> {
         text_opt("Description", args.description.clone(), Some("".to_owned())).unwrap_or_default();
 
     let body = load_snippet(&args.snippet).await?;
-    let snippet = NewSnippet {
-        name,
-        description,
-        body,
-    };
+    let snippet = NewSnippet::builder()
+        .name(name)
+        .description(description)
+        .body(body)
+        .build();
 
     let snippet = snippet_create(&client, workspace_id, snippet).await?;
 
@@ -470,10 +470,10 @@ async fn handle_update(args: UpdateArguments) -> Result<()> {
         None
     };
 
-    let snippet = UpdateSnippet {
-        description: args.description,
-        body,
-    };
+    let snippet = UpdateSnippet::builder()
+        .description(args.description)
+        .body(body)
+        .build();
 
     let snippet = snippet_update(&client, workspace_id, &snippet_name, snippet)
         .await

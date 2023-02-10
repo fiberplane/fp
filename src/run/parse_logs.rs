@@ -53,15 +53,11 @@ pub fn parse_logs(output: &str) -> Vec<Event> {
                 // If we had lines before that didn't have timestamps, add them
                 // under this timestamp:
                 if !lines_without_timestamps.is_empty() {
-                    logs.extend(lines_without_timestamps.drain(..).map(|line| Event {
-                        time: record.time,
-                        title: line,
-                        description: None,
-                        end_time: None,
-                        labels: BTreeMap::new(),
-                        otel: OtelMetadata::default(),
-                        severity: None,
-                    }));
+                    logs.extend(
+                        lines_without_timestamps
+                            .drain(..)
+                            .map(|line| Event::builder().time(record.time).title(line).build()),
+                    );
                 }
 
                 most_recent_timestamp = Some(record.time);
@@ -69,15 +65,12 @@ pub fn parse_logs(output: &str) -> Vec<Event> {
             }
             None => {
                 if let Some(timestamp) = &most_recent_timestamp {
-                    logs.push(Event {
-                        time: *timestamp,
-                        title: line.to_string(),
-                        description: None,
-                        end_time: None,
-                        labels: BTreeMap::new(),
-                        otel: OtelMetadata::default(),
-                        severity: None,
-                    })
+                    logs.push(
+                        Event::builder()
+                            .time(*timestamp)
+                            .title(line.to_string())
+                            .build(),
+                    )
                 } else {
                     lines_without_timestamps.push(line.to_string());
                 }
@@ -88,15 +81,11 @@ pub fn parse_logs(output: &str) -> Vec<Event> {
     // If none of the lines had timestamps, use the current moment as the timestamp
     if !lines_without_timestamps.is_empty() {
         let now = OffsetDateTime::now_utc();
-        logs.extend(lines_without_timestamps.drain(..).map(|line| Event {
-            time: now.into(),
-            title: line,
-            description: None,
-            end_time: None,
-            labels: BTreeMap::new(),
-            otel: OtelMetadata::default(),
-            severity: None,
-        }));
+        logs.extend(
+            lines_without_timestamps
+                .drain(..)
+                .map(|line| Event::builder().time(now.into()).title(line).build()),
+        );
     }
 
     logs
@@ -188,26 +177,26 @@ fn parse_flattened_json(mut json: BTreeMap<String, Value>) -> Option<Event> {
                 && !RESOURCE_FIELD_EXCEPTIONS.contains(&key.as_str())
         });
 
-    timestamp.map(|timestamp| Event {
-        time: timestamp.into(),
-        title: body,
-        description: None,
-        end_time: None,
-        labels: BTreeMap::new(),
-        otel: OtelMetadata {
-            attributes,
-            resource,
-            span_id: span_id.and_then(|span| {
-                span.as_str()
-                    .and_then(|span| span.as_bytes().try_into().ok().map(OtelSpanId))
-            }),
-            trace_id: trace_id.and_then(|trace| {
-                trace
-                    .as_str()
-                    .and_then(|trace| trace.as_bytes().try_into().ok().map(OtelTraceId))
-            }),
-        },
-        severity: None,
+    timestamp.map(|timestamp| {
+        Event::builder()
+            .time(timestamp.into())
+            .title(body)
+            .otel(
+                OtelMetadata::builder()
+                    .attributes(attributes)
+                    .resource(resource)
+                    .span_id(span_id.and_then(|span| {
+                        span.as_str()
+                            .and_then(|span| span.as_bytes().try_into().ok().map(OtelSpanId::new))
+                    }))
+                    .trace_id(trace_id.and_then(|trace| {
+                        trace.as_str().and_then(|trace| {
+                            trace.as_bytes().try_into().ok().map(OtelTraceId::new)
+                        })
+                    }))
+                    .build(),
+            )
+            .build()
     })
 }
 
@@ -259,7 +248,7 @@ mod tests {
 
         assert_eq!(
             logs[1].otel.trace_id,
-            Some(OtelTraceId(
+            Some(OtelTraceId::new(
                 "1234567890123456".as_bytes().try_into().unwrap()
             ))
         );

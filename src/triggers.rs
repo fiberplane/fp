@@ -176,11 +176,15 @@ async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {
         interactive::template_picker(&client, args.template_name, Some(workspace_id)).await?;
     let title = interactive::text_req("Title", args.title, None)?;
 
-    let trigger = NewTrigger {
-        title,
-        template_name,
-        default_arguments: args.default_arguments.map(|args| Map::from_iter(args.0)),
-    };
+    let default_arguments = args
+        .default_arguments
+        .map(|args| Map::from_iter(args.0))
+        .unwrap_or_default();
+    let trigger = NewTrigger::builder()
+        .title(title)
+        .template_name(template_name)
+        .default_arguments(default_arguments)
+        .build();
     let trigger = trigger_create(&client, workspace_id, trigger)
         .await
         .context("Error creating trigger")?;

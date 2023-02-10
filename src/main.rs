@@ -6,9 +6,8 @@ use config::api_client_configuration;
 use directories::ProjectDirs;
 use fiberplane::api_client::notebook_create;
 use fiberplane::base64uuid::Base64Uuid;
-use fiberplane::models::data_sources::SelectedDataSources;
 use fiberplane::models::labels::Label;
-use fiberplane::models::notebooks::{FrontMatter, NewNotebook};
+use fiberplane::models::notebooks::NewNotebook;
 use fiberplane::models::timestamps::{NewTimeRange, RelativeTimeRange};
 use human_panic::setup_panic;
 use interactive::workspace_picker;
@@ -478,10 +477,7 @@ impl FromStr for KeyValueArgument {
 
 impl From<KeyValueArgument> for Label {
     fn from(kv: KeyValueArgument) -> Self {
-        Self {
-            key: kv.key,
-            value: kv.value,
-        }
+        Self::builder().key(kv.key).value(kv.value).build()
     }
 }
 
@@ -547,14 +543,10 @@ async fn handle_new_command(args: NewArguments) -> Result<()> {
         args.title.join(" ")
     };
 
-    let new_notebook = NewNotebook {
-        title,
-        time_range: NewTimeRange::Relative(RelativeTimeRange { minutes: 60 }),
-        cells: vec![],
-        labels: vec![],
-        selected_data_sources: SelectedDataSources::new(),
-        front_matter: FrontMatter::new(),
-    };
+    let new_notebook = NewNotebook::builder()
+        .title(title)
+        .time_range(NewTimeRange::Relative(RelativeTimeRange::from_minutes(60)))
+        .build();
     let notebook = notebook_create(&client, workspace_id, new_notebook).await?;
 
     let notebook_id = Base64Uuid::parse_str(&notebook.id)?;

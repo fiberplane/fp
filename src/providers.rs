@@ -99,15 +99,16 @@ pub struct Invoke2Arguments {
 
 async fn handle_invoke2_command(args: Invoke2Arguments) -> Result<()> {
     let config = parse_config(&args.config).context("unable to deserialize config")?;
-    let request = ProviderRequest {
-        query_type: args.query_type,
-        query_data: Blob {
-            data: args.query_data.into(),
-            mime_type: args.query_mime_type,
-        },
-        config,
-        previous_response: None,
-    };
+    let request = ProviderRequest::builder()
+        .query_type(args.query_type)
+        .query_data(
+            Blob::builder()
+                .data(args.query_data)
+                .mime_type(args.query_mime_type)
+                .build(),
+        )
+        .config(config)
+        .build();
 
     let wasm_module = std::fs::read(args.provider_path)
         .map_err(|e| anyhow!("unable to read wasm module: {:?}", e))?;

@@ -223,13 +223,13 @@ async fn handle_create(args: CreateArgs) -> Result<()> {
     // at the time of writing, but will emulate the new protocol version anyway.
     let protocol_version = 2;
 
-    let data_source = NewDataSource {
-        name,
-        description,
-        protocol_version,
-        provider_type,
-        config: provider_config.0,
-    };
+    let data_source = NewDataSource::builder()
+        .name(name)
+        .description(description)
+        .protocol_version(protocol_version)
+        .provider_type(provider_type)
+        .config(provider_config.0)
+        .build();
     let data_source = data_source_create(&client, workspace_id, data_source).await?;
 
     match args.output {
@@ -273,10 +273,10 @@ async fn handle_update(args: UpdateArgs) -> Result<()> {
 
     let data_source = data_source_picker(&client, Some(workspace_id), args.name).await?;
 
-    let update = UpdateDataSource {
-        description: args.description,
-        config: args.provider_config.map(|c| c.0),
-    };
+    let update = UpdateDataSource::builder()
+        .description(args.description)
+        .config(args.provider_config.map(|c| c.0))
+        .build();
 
     let data_source = data_source_update(&client, workspace_id, &data_source.name, update).await?;
 

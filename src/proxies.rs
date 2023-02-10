@@ -164,10 +164,10 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
     let proxy = proxy_create(
         &client,
         workspace_id,
-        NewProxy {
-            name,
-            description: args.description,
-        },
+        NewProxy::builder()
+            .name(name)
+            .description(args.description)
+            .build(),
     )
     .await
     .map_err(|e| anyhow!("Error adding proxy: {:?}", e))?;
@@ -238,6 +238,10 @@ async fn handle_list_command(args: ListArgs) -> Result<()> {
                         b.connected_data_sources.cmp(&a.connected_data_sources)
                     }
                     (Disconnected, Disconnected) => b.total_data_sources.cmp(&a.total_data_sources),
+                    (_, _) => panic!(
+                        "Unknown proxy status: {:?}, {:?}",
+                        a.proxy.status, b.proxy.status
+                    ),
                 }
             });
 
@@ -346,6 +350,7 @@ impl From<DataSource> for DataSourceAndProxySummaryRow {
             Some(DataSourceStatus::Connected) => "Connected".to_string(),
             Some(DataSourceStatus::Error { .. }) => "Error".to_string(),
             None => String::new(),
+            Some(_) => panic!("Unknown DataSourceStatus: {:?}", data_source.status),
         };
 
         Self {

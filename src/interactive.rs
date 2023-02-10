@@ -234,15 +234,7 @@ pub async fn notebook_picker_with_prompt(
     pb.set_message("Fetching recent notebooks");
     pb.enable_steady_tick(100);
 
-    let results = notebook_search(
-        client,
-        workspace_id,
-        NotebookSearch {
-            labels: None,
-            view: None,
-        },
-    )
-    .await?;
+    let results = notebook_search(client, workspace_id, NotebookSearch::default()).await?;
 
     pb.finish_and_clear();
 
