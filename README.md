@@ -6,41 +6,55 @@ A command line tool for interacting with Fiberplane.
 
 ### Login
 
-Before running most commands, you'll need to authorize the CLI to act on your behalf.
+Before running most commands, you'll need to authorize the CLI to act on your
+behalf.
+
 ```shell
 fp login
 ```
+
 This will open a web browser and take you through the Google OAuth flow.
 
-### Proxies
+### FPD
 
-The [Proxy](https://github.com/fiberplane/proxy) enables Fiberplane to connect to your organization's data sources (e.g. Prometheus) without exposing them to the public internet.
+The [Fiberplane Daemon](https://github.com/fiberplane/fpd) enables Fiberplane to
+connect to your organization's data sources (e.g. Prometheus) without exposing
+them to the public internet.
 
-#### Add a Proxy
+#### Add a daemon
 
 ```shell
-fp proxy add my-first-proxy
+fp daemon add my-first-proxy
 ```
-This will register a Proxy with the name `my-first-proxy` and return the Proxy Auth Token you will run the Proxy instance with.
 
-You can use any name for your proxy or proxies. Organizations may have multiple proxies for different Kubernetes clusters or environments (production, staging, etc). We would recommend giving each one a name that corresponds to the environment it will be running in on your infrastructure.
+This will register a daemon with the name `my-first-daemon` and return the FPD
+Auth Token you will run the daemon with.
 
-#### Managing Proxies
+You can use any name for your daemon. Organizations may have multiple daemons
+for different Kubernetes clusters or environments (production, staging, etc). We
+would recommend giving each one a name that corresponds to the environment it
+will be running in on your infrastructure.
 
-The CLI offers other commands to help view and manage your organization's proxies:
+#### Managing FPD instances
 
-(Note that `fp proxy` and `fp proxies` can be used interchangeably).
+The CLI offers other commands to help view and manage your organization's
+daemons:
 
-- `fp proxies list` - shows your proxies' names, IDs, and connection statuses
-- `fp proxies data-sources` - shows the data sources exposed by all of your proxies
-- `fp proxies inspect <proxy_id>` - shows detailed information about a specific proxy
-- `fp proxies delete <proxy_id>` - delete the given proxy
+- `fp daemon list` - shows your daemons' names, IDs, and connection statuses
+- `fp daemon data-sources` - shows the data sources exposed by all of your daemons
+- `fp daemon get <daemon_id>` - shows detailed information about a specific daemon
+- `fp daemon delete <daemon_id>` - delete the given daemon
 
 ### Templates
 
-[Templates](https://github.com/fiberplane/templates) enable you to programmatically generate Fiberplane notebooks to run repeatable workflows.
+[Templates](https://github.com/fiberplane/fiberplane/tree/main/fiberplane-templates)
+enable you to programmatically generate Fiberplane notebooks to run repeatable
+workflows.
 
-You can browse our [example templates](https://github.com/fiberplane/templates/tree/main/examples) to see templates for use cases such as incident response and root cause analyses.
+You can browse our
+[example templates](https://github.com/fiberplane/fiberplane/tree/main/fiberplane-templates/examples)
+to see templates for use cases such as incident response and root cause
+analyses.
 
 #### Creating Templates
 
@@ -126,3 +140,25 @@ It is also possible to retrieve the notebook and display it as JSON.
 ```shell
 fp notebooks get <notebook_id>
 ```
+
+## Getting Help
+
+Please see
+[COMMUNITY.md](https://github.com/fiberplane/fiberplane/blob/main/COMMUNITY.md)
+for ways to reach out to us.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Code of Conduct
+
+See
+[CODE_OF_CONDUCT.md](https://github.com/fiberplane/fiberplane/blob/main/CODE_OF_CONDUCT.md).
+
+## License
+
+Our providers and the PDK are distributed under the terms of both the MIT
+license and the Apache License (Version 2.0).
+
+See [LICENSE-APACHE](LICENSE-APACHE) and [LICENSE-MIT](LICENSE-MIT).
