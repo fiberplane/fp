@@ -23,21 +23,21 @@ pub struct Arguments {
 
 #[derive(Parser)]
 pub enum SubCommand {
-    /// Create a new Proxy
+    /// Create a new daemon
     #[clap(alias = "add")]
     Create(CreateArgs),
 
-    /// List all proxies
+    /// List all daemons
     List(ListArgs),
 
     /// List all data sources
     #[clap(alias = "datasources")]
     DataSources(DataSourcesArgs),
 
-    /// Retrieve a single proxy
+    /// Retrieve a single daemon
     Get(GetArgs),
 
-    /// Delete a proxy
+    /// Delete a daemon
     #[clap(aliases = &["remove", "rm"])]
     Delete(DeleteArgs),
 }
@@ -48,12 +48,12 @@ pub struct CreateArgs {
     #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
-    /// Proxy name, leave empty to auto-generate a name
+    /// Daemon name, leave empty to auto-generate a name
     name: Option<Name>,
 
     description: Option<String>,
 
-    /// Output of the proxy
+    /// Output of the daemon
     #[clap(long, short, default_value = "table", value_enum)]
     output: ProxyOutput,
 
@@ -70,7 +70,7 @@ pub struct ListArgs {
     #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
-    /// Output of the proxy
+    /// Output of the daemon
     #[clap(long, short, default_value = "table", value_enum)]
     output: ProxyOutput,
 
@@ -87,7 +87,7 @@ pub struct DataSourcesArgs {
     #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
-    /// Output of the proxy
+    /// Output of the daemon
     #[clap(long, short, default_value = "table", value_enum)]
     output: ProxyOutput,
 
@@ -104,10 +104,10 @@ pub struct GetArgs {
     #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
-    /// ID of the proxy
+    /// ID of the daemon
     proxy_name: Option<Name>,
 
-    /// Output of the proxy
+    /// Output of the daemon
     #[clap(long, short, default_value = "table", value_enum)]
     output: ProxyOutput,
 
@@ -124,7 +124,7 @@ pub struct DeleteArgs {
     #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
 
-    /// Name of the proxy
+    /// Name of the daemon
     proxy_name: Option<Name>,
 
     #[clap(from_global)]
@@ -134,7 +134,7 @@ pub struct DeleteArgs {
     config: Option<PathBuf>,
 }
 
-/// A generic output for proxy related commands.
+/// A generic output for daemon related commands.
 #[derive(ValueEnum, Clone)]
 enum ProxyOutput {
     /// Output the result as a table

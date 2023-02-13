@@ -29,6 +29,7 @@ use url::Url;
 
 mod auth;
 mod config;
+mod daemons;
 mod data_sources;
 mod events;
 mod experiments;
@@ -39,7 +40,6 @@ mod manifest;
 mod notebooks;
 mod output;
 mod providers;
-mod proxies;
 mod run;
 mod shell;
 mod snippets;
@@ -143,12 +143,12 @@ enum SubCommand {
     #[clap(alias = "provider")]
     Providers(providers::Arguments),
 
-    /// Interact with Fiberplane proxies
+    /// Interact with Fiberplane Daemon instances
     ///
-    /// The Fiberplane proxy allows you to expose services that are hosted
+    /// The Fiberplane Daemon allows you to expose services that are hosted
     /// within your network without exposing them or sharing credentials.
-    #[clap(alias = "proxy")]
-    Proxies(proxies::Arguments),
+    #[clap(aliases = &["daemon", "proxy", "proxies"])]
+    Daemons(daemons::Arguments),
 
     /// Run a command and send the output to a notebook
     ///
@@ -286,7 +286,7 @@ async fn main() {
         New(args) => handle_new_command(args).await,
         Notebooks(args) => notebooks::handle_command(args).await,
         Providers(args) => providers::handle_command(args).await,
-        Proxies(args) => proxies::handle_command(args).await,
+        Daemons(args) => daemons::handle_command(args).await,
         Run(args) => run::handle_command(args).await,
         Shell(args) => shell::handle_command(args).await,
         Snippets(args) => snippets::handle_command(args).await,
