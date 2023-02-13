@@ -6,6 +6,10 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Added
+
+- Initial open-source release of `fp`.
+
 ### Fixed
 
 - [CI] Fixed syncing of the `fp` reference to ReadMe (#213)
@@ -23,10 +27,6 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 - [CI] Fixed syncing of the `fp` reference (#210)
 
 ## 2.5.0
-
-### Added
-
-- Initial open-source release of `fp`.
 
 ### Fixed
 
