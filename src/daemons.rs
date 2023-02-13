@@ -157,7 +157,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 
 async fn handle_create_command(args: CreateArgs) -> Result<()> {
     let default_name = Name::new(petname(2, "-")).expect("petname should be valid name");
-    let name = name_req("Proxy name", args.name, Some(default_name))?;
+    let name = name_req("Daemon name", args.name, Some(default_name))?;
     let client = api_client_configuration(args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
@@ -170,7 +170,7 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
             .build(),
     )
     .await
-    .map_err(|e| anyhow!("Error adding proxy: {:?}", e))?;
+    .map_err(|e| anyhow!("Error adding daemon: {:?}", e))?;
 
     match args.output {
         ProxyOutput::Table => {
@@ -239,7 +239,7 @@ async fn handle_list_command(args: ListArgs) -> Result<()> {
                     }
                     (Disconnected, Disconnected) => b.total_data_sources.cmp(&a.total_data_sources),
                     (_, _) => panic!(
-                        "Unknown proxy status: {:?}, {:?}",
+                        "Unknown daemon status: {:?}, {:?}",
                         a.proxy.status, b.proxy.status
                     ),
                 }
@@ -296,7 +296,7 @@ async fn handle_delete_command(args: DeleteArgs) -> Result<()> {
 
     proxy_delete(&client, workspace_id, &proxy_name).await?;
 
-    info!("Deleted proxy");
+    info!("Deleted daemon");
     Ok(())
 }
 
@@ -334,7 +334,7 @@ pub struct DataSourceAndProxySummaryRow {
     #[table(title = "Name")]
     pub name: String,
 
-    #[table(title = "Proxy Name")]
+    #[table(title = "FPD Name")]
     pub proxy_name: String,
 
     #[table(title = "Provider Type")]

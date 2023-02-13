@@ -341,7 +341,7 @@ pub struct DataSourceRow {
     #[table(title = "Name")]
     pub name: String,
 
-    #[table(title = "Proxy Name")]
+    #[table(title = "FPD Name")]
     pub proxy_name: String,
 
     #[table(title = "Provider Type")]

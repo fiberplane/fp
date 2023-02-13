@@ -462,7 +462,7 @@ pub async fn proxy_picker(
     let workspace_id = workspace_picker(client, workspace_id).await?;
 
     let pb = ProgressBar::new_spinner();
-    pb.set_message("Fetching proxies");
+    pb.set_message("Fetching daemons");
     pb.enable_steady_tick(100);
 
     let results = proxy_list(client, workspace_id).await?;
@@ -470,20 +470,20 @@ pub async fn proxy_picker(
     pb.finish_and_clear();
 
     if results.is_empty() {
-        bail!("No proxies found");
+        bail!("No daemons found");
     }
 
     let display_items: Vec<_> = results.iter().map(|proxy| &proxy.name).collect();
 
     let selection = FuzzySelect::with_theme(&default_theme())
-        .with_prompt("Proxy")
+        .with_prompt("Daemon")
         .items(&display_items)
         .default(0)
         .interact_opt()?;
 
     match selection {
         Some(selection) => Ok(results[selection].name.clone()),
-        None => bail!("No proxy selected"),
+        None => bail!("No daemon selected"),
     }
 }
 
