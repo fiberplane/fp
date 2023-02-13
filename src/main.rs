@@ -100,7 +100,7 @@ pub struct Arguments {
 enum SubCommand {
     /// Interact with data sources
     ///
-    /// Create and manage data sources, and list both direct and proxy data sources.
+    /// Create and manage data sources, and list both direct and FPD data sources.
     #[clap(alias = "data-source")]
     DataSources(data_sources::Arguments),
 
@@ -139,7 +139,7 @@ enum SubCommand {
     /// Interact with providers
     ///
     /// Providers are wasm files that contain the logic to retrieve data based
-    /// on a query. This is being used by Studio and Proxy.
+    /// on a query. This is being used by Studio and FPD.
     #[clap(alias = "provider")]
     Providers(providers::Arguments),
 

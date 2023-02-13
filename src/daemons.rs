@@ -105,7 +105,7 @@ pub struct GetArgs {
     workspace_id: Option<Base64Uuid>,
 
     /// ID of the daemon
-    proxy_name: Option<Name>,
+    daemon_name: Option<Name>,
 
     /// Output of the daemon
     #[clap(long, short, default_value = "table", value_enum)]
@@ -125,7 +125,7 @@ pub struct DeleteArgs {
     workspace_id: Option<Base64Uuid>,
 
     /// Name of the daemon
-    proxy_name: Option<Name>,
+    daemon_name: Option<Name>,
 
     #[clap(from_global)]
     base_url: Url,
@@ -256,9 +256,12 @@ async fn handle_list_command(args: ListArgs) -> Result<()> {
 async fn handle_get_command(args: GetArgs) -> Result<()> {
     let client = api_client_configuration(args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
-    let proxy_name =
-        interactive::proxy_picker(&client, Some(workspace_id), args.proxy_name.map(Into::into))
-            .await?;
+    let proxy_name = interactive::proxy_picker(
+        &client,
+        Some(workspace_id),
+        args.daemon_name.map(Into::into),
+    )
+    .await?;
 
     let proxy = proxy_get(&client, workspace_id, &proxy_name).await?;
 
@@ -290,9 +293,12 @@ async fn handle_data_sources_command(args: DataSourcesArgs) -> Result<()> {
 async fn handle_delete_command(args: DeleteArgs) -> Result<()> {
     let client = api_client_configuration(args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
-    let proxy_name =
-        interactive::proxy_picker(&client, Some(workspace_id), args.proxy_name.map(Into::into))
-            .await?;
+    let proxy_name = interactive::proxy_picker(
+        &client,
+        Some(workspace_id),
+        args.daemon_name.map(Into::into),
+    )
+    .await?;
 
     proxy_delete(&client, workspace_id, &proxy_name).await?;
 
@@ -334,8 +340,8 @@ pub struct DataSourceAndProxySummaryRow {
     #[table(title = "Name")]
     pub name: String,
 
-    #[table(title = "FPD Name")]
-    pub proxy_name: String,
+    #[table(title = "Daemon Name")]
+    pub daemon_name: String,
 
     #[table(title = "Provider Type")]
     pub provider_type: String,
@@ -357,7 +363,7 @@ impl From<DataSource> for DataSourceAndProxySummaryRow {
             name: data_source.name.to_string(),
             provider_type: data_source.provider_type,
             status,
-            proxy_name: data_source
+            daemon_name: data_source
                 .proxy_name
                 .map_or_else(String::new, |name| name.to_string()),
         }

@@ -598,9 +598,9 @@ pub(crate) struct SetDefaultDataSourcesArgs {
     #[clap(long, short, env)]
     data_source_name: Option<Name>,
 
-    /// If the data source is a proxy data source, the name of the proxy
-    #[clap(long, short, env)]
-    proxy_name: Option<Name>,
+    /// If the data source is an FPD data source, the name of the daemon
+    #[clap(long, short = 'p', env)]
+    daemon_name: Option<Name>,
 
     #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
@@ -914,8 +914,8 @@ struct SelectedDataSourceRow {
     #[table(title = "Data Source Name")]
     pub name: String,
 
-    #[table(title = "Proxy Name")]
-    pub proxy_name: String,
+    #[table(title = "Daemon Name")]
+    pub daemon_name: String,
 }
 
 impl From<(String, SelectedDataSource)> for SelectedDataSourceRow {
@@ -923,7 +923,7 @@ impl From<(String, SelectedDataSource)> for SelectedDataSourceRow {
         Self {
             provider_type: selected.0,
             name: selected.1.name.to_string(),
-            proxy_name: selected
+            daemon_name: selected
                 .1
                 .proxy_name
                 .map_or_else(String::new, |name| name.to_string()),

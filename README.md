@@ -40,10 +40,10 @@ will be running in on your infrastructure.
 The CLI offers other commands to help view and manage your organization's
 daemons:
 
-- `fp daemon list` - shows your proxies' names, IDs, and connection statuses
+- `fp daemon list` - shows your daemons' names, IDs, and connection statuses
 - `fp daemon data-sources` - shows the data sources exposed by all of your daemons
-- `fp daemon inspect <proxy_id>` - shows detailed information about a specific proxy
-- `fp daemon delete <proxy_id>` - delete the given proxy
+- `fp daemon get <daemon_id>` - shows detailed information about a specific daemon
+- `fp daemon delete <daemon_id>` - delete the given daemon
 
 ### Templates
 

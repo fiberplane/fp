@@ -341,8 +341,8 @@ pub struct DataSourceRow {
     #[table(title = "Name")]
     pub name: String,
 
-    #[table(title = "FPD Name")]
-    pub proxy_name: String,
+    #[table(title = "Daemon Name")]
+    pub daemon_name: String,
 
     #[table(title = "Provider Type")]
     pub provider_type: String,
@@ -358,7 +358,7 @@ impl From<DataSource> for DataSourceRow {
     fn from(data_source: DataSource) -> Self {
         Self {
             name: data_source.name.to_string(),
-            proxy_name: data_source
+            daemon_name: data_source
                 .proxy_name
                 .map_or_else(String::new, |name| name.to_string()),
             provider_type: data_source.provider_type,
