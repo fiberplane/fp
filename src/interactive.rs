@@ -244,6 +244,7 @@ pub async fn notebook_picker_with_prompt(
 
     let display_items: Vec<_> = results
         .iter()
+        .rev() // reverse the list to show notebooks which have been created most recently first
         .map(|notebook| format!("{} ({})", notebook.title, notebook.id))
         .collect();
 
