@@ -234,7 +234,8 @@ pub async fn notebook_picker_with_prompt(
     pb.set_message("Fetching recent notebooks");
     pb.enable_steady_tick(100);
 
-    let results = notebook_search(client, workspace_id, NotebookSearch::default()).await?;
+    let mut results = notebook_search(client, workspace_id, NotebookSearch::default()).await?;
+    results.reverse(); // reverse the list to show notebooks which have been created most recently first
 
     pb.finish_and_clear();
 
@@ -244,7 +245,6 @@ pub async fn notebook_picker_with_prompt(
 
     let display_items: Vec<_> = results
         .iter()
-        .rev() // reverse the list to show notebooks which have been created most recently first
         .map(|notebook| format!("{} ({})", notebook.title, notebook.id))
         .collect();
 
