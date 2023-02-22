@@ -6,6 +6,11 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Removed
+
+- Removed support for the legacy provider protocol. The `provider invoke`
+  command now uses the new protocol (`invoke2` still exists as an alias).
+
 ## [2.6.0]
 
 ### Added
