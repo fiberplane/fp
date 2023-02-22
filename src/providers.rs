@@ -11,19 +11,19 @@ pub struct Arguments {
 pub async fn handle_command(args: Arguments) -> Result<()> {
     use SubCommand::*;
     match args.sub_command {
-        Invoke2(args) => handle_invoke2_command(args).await,
+        Invoke(args) => handle_invoke2_command(args).await,
     }
 }
 
 #[derive(Parser)]
 pub enum SubCommand {
     /// Invoke a provider with the new provider protocol
-    #[clap(alias = "invoke")]
-    Invoke2(Invoke2Arguments),
+    #[clap(alias = "invoke2")]
+    Invoke(InvokeArguments),
 }
 
 #[derive(Parser, Debug)]
-pub struct Invoke2Arguments {
+pub struct InvokeArguments {
     /// Path to the provider WASM file
     #[clap(long, short)]
     pub provider_path: String,
@@ -49,7 +49,7 @@ pub struct Invoke2Arguments {
     pub config: String,
 }
 
-async fn handle_invoke2_command(args: Invoke2Arguments) -> Result<()> {
+async fn handle_invoke2_command(args: InvokeArguments) -> Result<()> {
     let config = parse_config(&args.config).context("unable to deserialize config")?;
     let request = ProviderRequest::builder()
         .query_type(args.query_type)
