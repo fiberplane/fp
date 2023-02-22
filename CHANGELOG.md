@@ -6,6 +6,15 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Fixed
+
+- Fix interactive notebook picker displaying the oldest notebooks first (#220)
+
+### Added
+
+- Display description in data source table view (#220)
+- Add message informing user how to exit `fp shell` (#220)
+
 ### Removed
 
 - Removed support for the legacy provider protocol. The `provider invoke`

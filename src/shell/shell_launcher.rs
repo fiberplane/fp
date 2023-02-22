@@ -121,6 +121,8 @@ impl ShellLauncher {
                     .await?;
             }
         }
+
+        tokio::io::stdout().write_all(b"Recording started! In order to finish recording and exit, press CTRL + D or type `exit`.\n").await?;
         Ok(())
     }
 }
