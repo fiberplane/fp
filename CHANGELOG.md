@@ -15,6 +15,11 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 - Display description in data source table view (#220)
 - Add message informing user how to exit `fp shell` (#220)
 
+### Removed
+
+- Removed support for the legacy provider protocol. The `provider invoke`
+  command now uses the new protocol (`invoke2` still exists as an alias).
+
 ## [2.6.0]
 
 ### Added
@@ -26,6 +31,10 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 - [CI] Fixed syncing of the `fp` reference to ReadMe (#213)
 - Update some crates to resolve some security vulnerabilities (#212)
 - Update dependencies to resolve dependabot issues (#215)
+
+### Added
+
+- Added support for views v2 properties `color`, `time range` and `sorting` (#218)
 
 ## [2.5.1]
 
