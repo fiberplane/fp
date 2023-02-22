@@ -18,6 +18,10 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 - Update some crates to resolve some security vulnerabilities (#212)
 - Update dependencies to resolve dependabot issues (#215)
 
+### Added
+
+- Added support for views v2 properties `color`, `time range` and `sorting` (#218)
+
 ## [2.5.1]
 
 ### Fixed
