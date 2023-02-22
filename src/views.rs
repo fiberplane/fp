@@ -9,8 +9,8 @@ use fiberplane::api_client::{view_delete, view_update, views_create, views_get};
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::labels::Label;
 use fiberplane::models::names::Name;
-use fiberplane::models::sorting::{SortDirection, ViewSortFields};
-use fiberplane::models::views::{NewView, UpdateView, View};
+use fiberplane::models::sorting::{NotebookSortFields, SortDirection, ViewSortFields};
+use fiberplane::models::views::{NewView, RelativeTime, TimeUnit, UpdateView, View};
 use std::fmt::Display;
 use std::path::PathBuf;
 use time::format_description::well_known::Rfc3339;
@@ -62,8 +62,27 @@ struct CreateArguments {
     /// Description of the view that should be created
     description: Option<String>,
 
+    /// The color the resulting view should be displayed as in Fiberplane Studio
+    #[clap(value_parser = clap::value_parser!(i16).range(0..10))]
+    color: i16,
+
     /// Labels which are associated with this newly created view
     labels: Vec<KeyValueArgument>,
+
+    /// Time range value in either seconds, minutes, hours or days (without suffix).
+    /// Used in conjunction with `time_range_unit`
+    #[clap(requires = "time_range_unit")]
+    time_range_value: Option<i64>,
+
+    /// Time range unit. Used in conjunction with `time_range_value`
+    #[clap(requires = "time_range_value")]
+    time_range_unit: Option<TimeUnit>,
+
+    /// What the notebooks displayed in the view should be sorted by, by default
+    sort_by: Option<NotebookSortFields>,
+
+    /// Sort direction displayed by default when opening the view
+    sort_direction: Option<SortDirection>,
 
     /// Workspace in which this view lives
     #[clap(from_global)]
@@ -87,11 +106,27 @@ async fn handle_create(args: CreateArguments) -> Result<()> {
     let name = name_opt("Name", args.name, None).unwrap();
     let description = text_opt("Description", args.description.clone(), None).unwrap_or_default();
 
+    let time_range = if let Some(unit) = args.time_range_unit {
+        Some(
+            RelativeTime::builder()
+                .unit(unit)
+                // .unwrap is safe because value can only exist in conjunction with unit (and vice-versa)
+                .value(args.time_range_value.unwrap())
+                .build(),
+        )
+    } else {
+        None
+    };
+
     let view = NewView::builder()
         .name(name)
         .display_name(args.display_name)
         .description(description)
+        .color(args.color)
         .labels(args.labels.into_iter().map(Into::into).collect())
+        .relative_time(time_range)
+        .sort_by(args.sort_by)
+        .sort_direction(args.sort_direction)
         .build();
 
     let view = views_create(&client, workspace_id, view).await?;
@@ -204,9 +239,28 @@ struct UpdateArguments {
     #[clap(long, env, required_unless_present_any = ["display_name", "labels"])]
     description: Option<String>,
 
+    /// New color for the view
+    #[clap(value_parser = clap::value_parser!(i16).range(0..10))]
+    color: i16,
+
     /// New labels for the view
     #[clap(long, env, required_unless_present_any = ["display_name", "description"])]
     labels: Option<Vec<KeyValueArgument>>,
+
+    /// New time range value in either seconds, minutes, hours or days (without suffix) for the view.
+    /// Used in conjunction with `time_range_unit`
+    #[clap(requires = "time_range_unit")]
+    time_range_value: Option<i64>,
+
+    /// New time range unit for the view. Used in conjunction with `time_range_value`
+    #[clap(requires = "time_range_value")]
+    time_range_unit: Option<TimeUnit>,
+
+    /// What the notebooks displayed in the view should be newly sorted by, by default
+    sort_by: Option<NotebookSortFields>,
+
+    /// New sort direction displayed by default when opening the view
+    sort_direction: Option<SortDirection>,
 
     #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
@@ -224,6 +278,18 @@ async fn handle_update(args: UpdateArguments) -> Result<()> {
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let view_name = view_picker(&client, args.workspace_id, args.view_name).await?;
 
+    let time_range = if let Some(unit) = args.time_range_unit {
+        Some(
+            RelativeTime::builder()
+                .unit(unit)
+                // .unwrap is safe because value can only exist in conjunction with unit (and vice-versa)
+                .value(args.time_range_value.unwrap())
+                .build(),
+        )
+    } else {
+        None
+    };
+
     view_update(
         &client,
         workspace_id,
@@ -231,10 +297,14 @@ async fn handle_update(args: UpdateArguments) -> Result<()> {
         UpdateView::builder()
             .display_name(args.display_name)
             .description(args.description)
+            .color(args.color)
             .labels(
                 args.labels
                     .map(|labels| labels.into_iter().map(Into::into).collect()),
             )
+            .relative_time(time_range)
+            .sort_by(args.sort_by)
+            .sort_direction(args.sort_direction)
             .build(),
     )
     .await?;
