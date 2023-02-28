@@ -19,7 +19,7 @@ scenario's are required.
 
 ## Interactive usage
 
-It is required that every command is be able to be executed by only using
+It is required that every command is being able to be executed by only using
 the CLI's flag. This is to support scripting. It is also _highly_ recommended to
 support interactive methods of getting the parameters. This can be a simple
 text input or a select.
@@ -37,7 +37,7 @@ graph TD
     E -- yes --> G[show picker with default] --> H(use value) --> Z[done]
     E -- no --> I[show picker] --> H
     F -- yes --> J(use default) --> Z[done]
-    F -- no --> K[is required]
+    F -- no --> K{is required}
     K -- yes ----> X[error]
     K -- no --> L(none value) --> Z[done]
 ```
