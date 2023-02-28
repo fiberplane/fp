@@ -19,7 +19,7 @@ scenario's are required.
 
 ## Interactive usage
 
-It is required that every command is being able to be executed by only using
+It is required that every command should be executed only by using
 the CLI's flag. This is to support scripting. It is also _highly_ recommended to
 support interactive methods of getting the parameters. This can be a simple
 text input or a select.
