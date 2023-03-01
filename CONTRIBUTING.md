@@ -47,7 +47,7 @@ We use GitHub issues to track public bugs. Report a bug by
 
 Do you want to request a new feature, or suggest another kind of change? Maybe
 you have a question about how to approach something? Please
-[start a new discussion](https://github.com/fiberplane/fp/discussions/new)!
+[start a new discussion](https://github.com/fiberplane/fp/discussions/new/choose)!
 
 ## Write bug reports with detail, background, and sample code
 
