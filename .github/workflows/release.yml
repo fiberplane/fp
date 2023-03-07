@@ -187,4 +187,4 @@ jobs:
         env:
           RDME_API_KEY: ${{ secrets.README_API_KEY }}
         with:
-          rdme: rdme docs readme_reference.md
+          rdme: docs readme_reference.md
