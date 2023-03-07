@@ -6,6 +6,10 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Added
+
+- Add more aliases to DataSources command (#222)
+
 ### Fixed
 
 - Fix publishing docs to ReadMe (#229)
