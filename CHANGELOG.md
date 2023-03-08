@@ -6,6 +6,8 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Suggest using homebrew to update fp if we think that fp is installed through homebrew (#230)
+
 ### Added
 
 - Add more aliases to DataSources command (#222)
