@@ -21,7 +21,7 @@ use fiberplane::models::notebooks::{
     Cell, CodeCell, FrontMatter, NewNotebook, Notebook, NotebookCopyDestination, NotebookSearch,
     NotebookSummary, TextCell,
 };
-use fiberplane::models::sorting::{EventSortFields, SortDirection};
+use fiberplane::models::sorting::{NotebookSortFields, SortDirection};
 use fiberplane::models::timestamps::{NewTimeRange, TimeRange, Timestamp};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -395,7 +395,7 @@ pub struct SearchArgs {
 
     /// Sort the result according to the following field
     #[clap(long, value_enum)]
-    sort_by: Option<EventSortFields>,
+    sort_by: Option<NotebookSortFields>,
 
     /// Sort the result in the following direction
     #[clap(long, value_enum)]
