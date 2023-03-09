@@ -241,7 +241,7 @@ struct UpdateArguments {
 
     /// New color for the view
     #[clap(value_parser = clap::value_parser!(i16).range(0..10))]
-    color: i16,
+    color: Option<i16>,
 
     /// New labels for the view
     #[clap(long, env, required_unless_present_any = ["display_name", "description"])]
