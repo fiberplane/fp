@@ -9,6 +9,7 @@ use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::data_sources::DataSource;
 use fiberplane::models::names::Name;
 use fiberplane::models::notebooks::NotebookSearch;
+use fiberplane::models::sorting::{NotebookSortFields, SortDirection};
 use indicatif::ProgressBar;
 
 pub fn default_theme() -> impl theme::Theme {
@@ -234,9 +235,14 @@ pub async fn notebook_picker_with_prompt(
     pb.set_message("Fetching recent notebooks");
     pb.enable_steady_tick(100);
 
-    let mut results =
-        notebook_search(client, workspace_id, None, None, NotebookSearch::default()).await?;
-    results.reverse(); // reverse the list to show notebooks which have been created most recently first
+    let results = notebook_search(
+        client,
+        workspace_id,
+        Some(NotebookSortFields::CreatedAt.into()),
+        Some(SortDirection::Descending.into()), // show notebooks which have been created most recently first
+        NotebookSearch::default(),
+    )
+    .await?;
 
     pb.finish_and_clear();
 
