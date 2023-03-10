@@ -9,6 +9,7 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 ### Added
 
 - Add more aliases to DataSources command (#222)
+- Added ability to sort the output of the notebook search command (#232)
 
 ### Fixed
 
