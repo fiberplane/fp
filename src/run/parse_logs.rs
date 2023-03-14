@@ -1,5 +1,5 @@
 use super::timestamp::AnyTimestamp;
-use fiberplane::models::providers::{Event, OtelMetadata, OtelSpanId, OtelTraceId};
+use fiberplane::models::providers::{OtelMetadata, OtelSpanId, OtelTraceId, ProviderEvent};
 use grok::{Grok, Pattern};
 use once_cell::sync::Lazy;
 use serde_json::{Map, Value};
@@ -35,7 +35,7 @@ static GITHUB_ACTION_PATTERN: Lazy<Pattern> = Lazy::new(|| {
 
 /// Parse logs from each line of the string.
 /// This handles JSON-encoded log lines as well as a variety of other log formats.
-pub fn parse_logs(output: &str) -> Vec<Event> {
+pub fn parse_logs(output: &str) -> Vec<ProviderEvent> {
     let mut logs = Vec::new();
     // Keep track of the most recent timestamp in case later log lines do not have a timestamp
     let mut most_recent_timestamp = None;
@@ -53,11 +53,12 @@ pub fn parse_logs(output: &str) -> Vec<Event> {
                 // If we had lines before that didn't have timestamps, add them
                 // under this timestamp:
                 if !lines_without_timestamps.is_empty() {
-                    logs.extend(
-                        lines_without_timestamps
-                            .drain(..)
-                            .map(|line| Event::builder().time(record.time).title(line).build()),
-                    );
+                    logs.extend(lines_without_timestamps.drain(..).map(|line| {
+                        ProviderEvent::builder()
+                            .time(record.time)
+                            .title(line)
+                            .build()
+                    }));
                 }
 
                 most_recent_timestamp = Some(record.time);
@@ -66,7 +67,7 @@ pub fn parse_logs(output: &str) -> Vec<Event> {
             None => {
                 if let Some(timestamp) = &most_recent_timestamp {
                     logs.push(
-                        Event::builder()
+                        ProviderEvent::builder()
                             .time(*timestamp)
                             .title(line.to_string())
                             .build(),
@@ -81,11 +82,12 @@ pub fn parse_logs(output: &str) -> Vec<Event> {
     // If none of the lines had timestamps, use the current moment as the timestamp
     if !lines_without_timestamps.is_empty() {
         let now = OffsetDateTime::now_utc();
-        logs.extend(
-            lines_without_timestamps
-                .drain(..)
-                .map(|line| Event::builder().time(now.into()).title(line).build()),
-        );
+        logs.extend(lines_without_timestamps.drain(..).map(|line| {
+            ProviderEvent::builder()
+                .time(now.into())
+                .title(line)
+                .build()
+        }));
     }
 
     logs
@@ -98,7 +100,7 @@ pub fn contains_logs(output: &str) -> bool {
         .any(|line| parse_log(line).is_some())
 }
 
-fn parse_log(line: &str) -> Option<Event> {
+fn parse_log(line: &str) -> Option<ProviderEvent> {
     if let Ok(Value::Object(json)) = serde_json::from_str(line) {
         parse_json(json)
     } else if let Some(matches) = NGINX_PATTERN
@@ -123,7 +125,7 @@ fn parse_log(line: &str) -> Option<Event> {
     }
 }
 
-fn parse_json(json: Map<String, Value>) -> Option<Event> {
+fn parse_json(json: Map<String, Value>) -> Option<ProviderEvent> {
     let mut flattened_fields = BTreeMap::new();
     for (key, val) in json.into_iter() {
         flatten_nested_value(&mut flattened_fields, key, val);
@@ -131,7 +133,7 @@ fn parse_json(json: Map<String, Value>) -> Option<Event> {
     parse_flattened_json(flattened_fields)
 }
 
-fn parse_flattened_json(mut json: BTreeMap<String, Value>) -> Option<Event> {
+fn parse_flattened_json(mut json: BTreeMap<String, Value>) -> Option<ProviderEvent> {
     let trace_id = json.remove("trace_id").or_else(|| json.remove("trace.id"));
     let span_id = json.remove("span_id").or_else(|| json.remove("span.id"));
 
@@ -178,7 +180,7 @@ fn parse_flattened_json(mut json: BTreeMap<String, Value>) -> Option<Event> {
         });
 
     timestamp.map(|timestamp| {
-        Event::builder()
+        ProviderEvent::builder()
             .time(timestamp.into())
             .title(body)
             .otel(

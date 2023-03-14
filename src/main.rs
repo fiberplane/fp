@@ -101,7 +101,7 @@ enum SubCommand {
     /// Interact with data sources
     ///
     /// Create and manage data sources, and list both direct and FPD data sources.
-    #[clap(alias = "data-source")]
+    #[clap(aliases = &["data-source", "datasources", "datasource"])]
     DataSources(data_sources::Arguments),
 
     /// Experimental commands
