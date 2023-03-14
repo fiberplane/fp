@@ -21,6 +21,7 @@ use fiberplane::models::notebooks::{
     Cell, CodeCell, FrontMatter, NewNotebook, Notebook, NotebookCopyDestination, NotebookSearch,
     NotebookSummary, TextCell,
 };
+use fiberplane::models::sorting::{NotebookSortFields, SortDirection};
 use fiberplane::models::timestamps::{NewTimeRange, TimeRange, Timestamp};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -392,6 +393,14 @@ pub struct SearchArgs {
     /// View used to search for notebooks
     view: Option<Name>,
 
+    /// Sort the result according to the following field
+    #[clap(long, value_enum)]
+    sort_by: Option<NotebookSortFields>,
+
+    /// Sort the result in the following direction
+    #[clap(long, value_enum)]
+    sort_direction: Option<SortDirection>,
+
     /// Output of the notebooks
     #[clap(long, short, default_value = "table", value_enum)]
     output: NotebookOutput,
@@ -431,6 +440,8 @@ async fn handle_search_command(args: SearchArgs) -> Result<()> {
     let notebooks = notebook_search(
         &client,
         workspace_id,
+        args.sort_by.map(Into::<&str>::into),
+        args.sort_direction.map(Into::<&str>::into),
         NotebookSearch::builder().labels(labels).view(view).build(),
     )
     .await?;

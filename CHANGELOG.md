@@ -6,6 +6,21 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Added
+
+- Add more aliases to DataSources command (#222)
+- Added ability to sort the output of the notebook search command (#232)
+
+### Changed
+
+- Rename Event in the providers module to ProviderEvent (#231)
+
+### Fixed
+
+- Fix publishing docs to ReadMe (#229)
+
+## [2.7.0]
+
 ### Fixed
 
 - Fix interactive notebook picker displaying the oldest notebooks first (#220)
