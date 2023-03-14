@@ -1,6 +1,7 @@
 use crate::config::api_client_configuration;
 use crate::interactive::{name_opt, text_opt, view_picker, workspace_picker};
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
+use crate::utils::clear_or_update;
 use crate::KeyValueArgument;
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
@@ -236,11 +237,15 @@ struct UpdateArguments {
     display_name: Option<String>,
 
     /// New description for the view
-    #[clap(long, env, required_unless_present_any = ["display_name", "labels"])]
+    #[clap(long, env, required_unless_present_any = ["display_name", "labels"], conflicts_with = "clear_description")]
     description: Option<String>,
 
+    /// Whenever the existing description should be removed
+    #[clap(long, env, conflicts_with = "description")]
+    clear_description: bool,
+
     /// New color for the view
-    #[clap(value_parser = clap::value_parser!(i16).range(0..10))]
+    #[clap(long, env, value_parser = clap::value_parser!(i16).range(0..10))]
     color: Option<i16>,
 
     /// New labels for the view
@@ -249,18 +254,42 @@ struct UpdateArguments {
 
     /// New time range value in either seconds, minutes, hours or days (without suffix) for the view.
     /// Used in conjunction with `time_range_unit`
-    #[clap(requires = "time_range_unit")]
+    #[clap(
+        long,
+        env,
+        requires = "time_range_unit",
+        conflicts_with = "clear_time_range"
+    )]
     time_range_value: Option<i64>,
 
     /// New time range unit for the view. Used in conjunction with `time_range_value`
-    #[clap(requires = "time_range_value")]
+    #[clap(
+        long,
+        env,
+        requires = "time_range_value",
+        conflicts_with = "clear_time_range"
+    )]
     time_range_unit: Option<TimeUnit>,
 
+    /// Whenever the existing time range should be removed
+    #[clap(long, env, conflicts_with_all = ["time_range_value", "time_range_unit"])]
+    clear_time_range: bool,
+
     /// What the notebooks displayed in the view should be newly sorted by, by default
+    #[clap(long, env, value_enum, conflicts_with = "clear_sort_by")]
     sort_by: Option<NotebookSortFields>,
 
+    /// Whenever the existing sort by should be removed
+    #[clap(long, env, conflicts_with = "sort_by")]
+    clear_sort_by: bool,
+
     /// New sort direction displayed by default when opening the view
+    #[clap(long, env, value_enum, conflicts_with = "clear_sort_direction")]
     sort_direction: Option<SortDirection>,
+
+    /// Whenever the existing sort direction should be removed
+    #[clap(long, env, conflicts_with = "sort_direction")]
+    clear_sort_direction: bool,
 
     #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
@@ -278,14 +307,17 @@ async fn handle_update(args: UpdateArguments) -> Result<()> {
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let view_name = view_picker(&client, args.workspace_id, args.view_name).await?;
 
-    let time_range = if let Some(unit) = args.time_range_unit {
-        Some(
+    // cant use `.clear_or_update().map(|val| val.map())` because that would result in partial moves :(
+    let time_range = if args.clear_time_range {
+        Some(None)
+    } else if let Some(unit) = args.time_range_unit {
+        Some(Some(
             RelativeTime::builder()
                 .unit(unit)
                 // .unwrap is safe because value can only exist in conjunction with unit (and vice-versa)
                 .value(args.time_range_value.unwrap())
                 .build(),
-        )
+        ))
     } else {
         None
     };
@@ -296,15 +328,18 @@ async fn handle_update(args: UpdateArguments) -> Result<()> {
         &view_name,
         UpdateView::builder()
             .display_name(args.display_name)
-            .description(args.description)
+            .description(clear_or_update(args.clear_description, args.description))
             .color(args.color)
             .labels(
                 args.labels
                     .map(|labels| labels.into_iter().map(Into::into).collect()),
             )
             .relative_time(time_range)
-            .sort_by(args.sort_by)
-            .sort_direction(args.sort_direction)
+            .sort_by(clear_or_update(args.clear_sort_by, args.sort_by))
+            .sort_direction(clear_or_update(
+                args.clear_sort_direction,
+                args.sort_direction,
+            ))
             .build(),
     )
     .await?;
