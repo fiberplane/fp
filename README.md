@@ -70,7 +70,7 @@ Alternatively, you can create a blank template with the `init` command:
 fp templates init
 ```
 
-See the [template API documentation](https://github.com/fiberplane/templates/blob/main/docs/template_api.md) for all of the methods available in the template library.
+See the [template API documentation](https://github.com/fiberplane/fiberplane/blob/main/fiberplane-templates/docs/template_api.md) for all of the methods available in the template library.
 
 #### Using Templates to Create Notebooks
 
