@@ -19,7 +19,7 @@ cli-table = "0.4"
 crossterm = { version = "0.26.0", features = ["event-stream"] }
 directories = "4.0.1"
 dialoguer = { version = "0.10.1", features = ["fuzzy-select"] }
-fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane.git", branch = "main", features = [
+fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane.git", branch = "views-update-optionals", features = [
     "api-client",
     "base64uuid-creation",
     "clap",

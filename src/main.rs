@@ -48,6 +48,7 @@ mod tokens;
 mod triggers;
 mod update;
 mod users;
+mod utils;
 mod version;
 mod views;
 mod workspaces;
