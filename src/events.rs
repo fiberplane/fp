@@ -11,7 +11,6 @@ use fiberplane::models::events::{Event, NewEvent};
 use fiberplane::models::sorting::{EventSortFields, SortDirection};
 use fiberplane::models::timestamps::Timestamp;
 use std::{collections::HashMap, fmt::Display, path::PathBuf};
-use time::format_description::well_known::Rfc3339;
 use tracing::info;
 use url::Url;
 
@@ -144,16 +143,12 @@ async fn handle_event_create_command(args: CreateArguments) -> Result<()> {
     let title = interactive::text_req("Title", args.title, None)?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
-    let event = event_create(
-        &client,
-        workspace_id,
-        NewEvent::builder()
-            .title(title)
-            .labels(labels.unwrap_or_default())
-            .time(args.time.map(|timestamp| timestamp.0))
-            .build(),
-    )
-    .await?;
+    let mut new_event = NewEvent::builder()
+        .title(title)
+        .labels(labels.unwrap_or_default())
+        .build();
+    new_event.time = args.time;
+    let event = event_create(&client, workspace_id, new_event).await?;
 
     info!("Successfully created new event");
 
@@ -171,8 +166,8 @@ async fn handle_event_search_command(args: SearchArguments) -> Result<()> {
     let events = event_list(
         &client,
         workspace_id,
-        args.start.0,
-        args.end.0,
+        args.start,
+        args.end,
         args.labels
             .map(|args| args.into_iter().map(|kv| (kv.key, kv.value)).collect()),
         args.sort_by.map(Into::<&str>::into),
@@ -233,7 +228,7 @@ impl From<Event> for EventRow {
             id: event.id.to_string(),
             title: event.title,
             labels: event.labels,
-            time: event.occurrence_time.format(&Rfc3339).unwrap_or_default(),
+            time: event.occurrence_time.to_string(),
         }
     }
 }
@@ -263,10 +258,7 @@ impl GenericKeyValue {
         vec![
             GenericKeyValue::new("Title:", event.title),
             GenericKeyValue::new("Labels:", format!("{}", print_labels(&event.labels))),
-            GenericKeyValue::new(
-                "Occurrence Time:",
-                event.occurrence_time.format(&Rfc3339).unwrap_or_default(),
-            ),
+            GenericKeyValue::new("Occurrence Time:", event.occurrence_time.to_string()),
             GenericKeyValue::new("ID:", event.id.to_string()),
         ]
     }

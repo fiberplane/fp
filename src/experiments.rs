@@ -12,6 +12,7 @@ use fiberplane::markdown::notebook_to_markdown;
 use fiberplane::models::formatting::{Annotation, AnnotationWithOffset, Mention};
 use fiberplane::models::notebooks::{Cell, ProviderCell, TextCell};
 use fiberplane::models::{formatting, notebooks};
+use fiberplane::models::timestamps::Timestamp;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Error, Response, Server, StatusCode};
 use lazy_static::lazy_static;
@@ -21,7 +22,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::{convert::Infallible, sync::Arc};
 use std::{fmt::Write, io::ErrorKind, net::IpAddr, path::PathBuf, str::FromStr};
-use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use tokio::fs;
 use tracing::{debug, error, info, warn};
 use url::Url;
@@ -155,7 +155,7 @@ async fn handle_message_command(args: MessageArgs) -> Result<()> {
         }
     };
 
-    let timestamp_prefix = format!("💬 {} ", OffsetDateTime::now_utc().format(&Rfc3339)?);
+    let timestamp_prefix = format!("💬 {} ", Timestamp::now_utc().to_string());
     // Note we don't use .len() because it returns the byte length as opposed to the char length (which is different because of the emoji)
     let mention_start = timestamp_prefix.chars().count();
     let prefix = format!("{timestamp_prefix}@{name}:  ");
@@ -430,7 +430,6 @@ async fn handle_prometheus_redirect_command(args: PrometheusGraphToNotebookArgs)
                                         .query_data(format!(
                                             "application/x-www-form-urlencoded,query={query}"
                                         ))
-                                        .title("")
                                         .build(),
                                 )],
                             )

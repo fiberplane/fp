@@ -478,7 +478,7 @@ impl FromStr for KeyValueArgument {
 
 impl From<KeyValueArgument> for Label {
     fn from(kv: KeyValueArgument) -> Self {
-        Self::builder().key(kv.key).value(kv.value).build()
+        Self::new(kv.key, kv.value)
     }
 }
 

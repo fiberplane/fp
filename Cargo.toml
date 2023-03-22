@@ -19,7 +19,7 @@ cli-table = "0.4"
 crossterm = { version = "0.26.0", features = ["event-stream"] }
 directories = "4.0.1"
 dialoguer = { version = "0.10.1", features = ["fuzzy-select"] }
-fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane.git", branch = "main", features = [
+fiberplane = { version = "1.0.0-beta.2", features = [
     "api-client",
     "base64uuid-creation",
     "clap",
@@ -78,5 +78,6 @@ webbrowser = "0.8.7"
 anyhow = "1.0"
 vergen = "7"
 
-#[patch."ssh://git@github.com/fiberplane/fiberplane.git"]
+[patch.crates-io]
+fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane.git", branch = "type-cleanup" }
 #fiberplane = { path = "../fiberplane/fiberplane" }

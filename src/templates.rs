@@ -555,10 +555,8 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
             .await
             .is_ok()
         {
-            let template = UpdateTemplate::builder()
-                .description(description)
-                .body(template)
-                .build();
+            let mut template = UpdateTemplate::builder().body(template).build();
+            template.description = description;
 
             let template = template_update(&client, workspace_id, &template_name, template.clone())
                 .await
@@ -712,10 +710,9 @@ async fn handle_update_command(args: UpdateArguments) -> Result<()> {
         None
     };
 
-    let template = UpdateTemplate::builder()
-        .description(args.description)
-        .body(body)
-        .build();
+    let mut template = UpdateTemplate::default();
+    template.description = args.description;
+    template.body = body;
 
     let template = template_update(&client, workspace_id, &template_name, template)
         .await

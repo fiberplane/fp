@@ -26,7 +26,6 @@ use fiberplane::models::workspaces::{
 };
 use std::collections::BTreeMap;
 use std::{fmt::Display, path::PathBuf};
-use time::format_description::well_known::Rfc3339;
 use tracing::info;
 use url::Url;
 
@@ -300,10 +299,7 @@ async fn handle_invite_create(args: InviteCreateArgs) -> Result<()> {
     let invite = workspace_invite(
         &client,
         workspace_id,
-        NewWorkspaceInvite::builder()
-            .email(email)
-            .role(args.role)
-            .build(),
+        NewWorkspaceInvite::new(email, args.role),
     )
     .await?;
 
@@ -866,8 +862,8 @@ impl From<WorkspaceInvite> for PendingInviteRow {
             id: invite.id.to_string(),
             receiver: invite.receiver,
             sender: invite.sender.to_string(),
-            created_at: invite.created_at.format(&Rfc3339).unwrap_or_default(),
-            expires_at: invite.expires_at.format(&Rfc3339).unwrap_or_default(),
+            created_at: invite.created_at.to_string(),
+            expires_at: invite.expires_at.to_string(),
         }
     }
 }
@@ -900,8 +896,8 @@ impl From<Workspace> for WorkspaceRow {
             name: workspace.name.to_string(),
             _type: workspace.ty.to_string(),
             default_data_sources: workspace.default_data_sources,
-            created_at: workspace.created_at.0.format(&Rfc3339).unwrap_or_default(),
-            updated_at: workspace.updated_at.0.format(&Rfc3339).unwrap_or_default(),
+            created_at: workspace.created_at.to_string(),
+            updated_at: workspace.updated_at.to_string(),
         }
     }
 }

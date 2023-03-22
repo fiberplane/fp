@@ -470,10 +470,9 @@ async fn handle_update(args: UpdateArguments) -> Result<()> {
         None
     };
 
-    let snippet = UpdateSnippet::builder()
-        .description(args.description)
-        .body(body)
-        .build();
+    let mut snippet = UpdateSnippet::default();
+    snippet.description = args.description;
+    snippet.body = body;
 
     let snippet = snippet_update(&client, workspace_id, &snippet_name, snippet)
         .await
