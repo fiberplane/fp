@@ -3,6 +3,7 @@ use anyhow::{anyhow, Result};
 use clap::Parser;
 use indicatif::{ProgressBar, ProgressStyle};
 use sha2::{Digest, Sha256};
+use std::env;
 use std::fs::OpenOptions;
 use std::io::{BufWriter, Write};
 use tracing::{debug, info};
@@ -11,16 +12,26 @@ use tracing::{debug, info};
 use std::os::unix::prelude::OpenOptionsExt;
 
 #[derive(Parser)]
-pub struct Arguments {}
+pub struct Arguments {
+    #[clap(long, short)]
+    force: bool,
+}
 
-pub async fn handle_command(_args: Arguments) -> Result<()> {
+pub async fn handle_command(args: Arguments) -> Result<()> {
     // First check if the latest version is not the same as the current version
     let latest_version = retrieve_latest_version().await?;
     if latest_version == *MANIFEST.build_version {
         info!("Already running the latest version.");
         return Ok(());
     } else {
-        info!("Updating to version {}", latest_version);
+        if args.force {
+            info!("Forcing update to version {}", latest_version);
+        } else if installed_through_homebrew() {
+            info!("A new version of fp is available: {}", latest_version);
+            info!("You can update fp by running `brew upgrade fp` (or use `fp update --force`)");
+        } else {
+            info!("Updating to version {}", latest_version);
+        }
     };
 
     let current_exe = std::env::current_exe()?;
@@ -135,4 +146,40 @@ impl DummyOpenOptionsExt for OpenOptions {
     fn mode(&mut self, _: u32) -> &mut Self {
         self
     }
+}
+
+/// A naive way of checking if fp is installed through homebrew.
+///
+/// This will check if the current executable is located in the default linux
+/// homebrew location: `/home/linuxbrew/.linuxbrew`. This will give a false
+/// negative if the if the user has changed the homebrew path.
+#[cfg(target_os = "linux")]
+#[inline]
+fn installed_through_homebrew() -> bool {
+    env::current_exe()
+        .map(|path| path.starts_with("/home/linuxbrew/.linuxbrew"))
+        .unwrap_or(false)
+}
+
+/// A naive way of checking if fp is installed through homebrew.
+///
+/// This will check if the current executable is located in the default macOS
+/// homebrew location: `/usr/local` or `/opt/homebrew`. This will give a false
+/// negative if the user has changed the homebrew path.
+#[cfg(target_os = "macos")]
+#[inline]
+fn installed_through_homebrew() -> bool {
+    env::current_exe()
+        .map(|path| path.starts_with("/usr/local") || path.starts_with("/opt/homebrew"))
+        .unwrap_or(false)
+}
+
+/// A naive way of checking if fp is installed through homebrew.
+///
+/// This target OS is not supported by homebrew. So we will just always return
+/// false.
+#[cfg(all(not(target_os = "linux"), not(target_os = "macos")))]
+#[inline(always)]
+fn installed_through_homebrew() -> bool {
+    false
 }
