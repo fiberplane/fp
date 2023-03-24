@@ -11,6 +11,8 @@ use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::markdown::notebook_to_markdown;
 use fiberplane::models::formatting::{Annotation, AnnotationWithOffset, Mention};
 use fiberplane::models::notebooks::{Cell, ProviderCell, TextCell};
+use fiberplane::models::timestamps::Timestamp;
+use fiberplane::models::utils::char_count;
 use fiberplane::models::{formatting, notebooks};
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Error, Response, Server, StatusCode};
@@ -21,7 +23,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::{convert::Infallible, sync::Arc};
 use std::{fmt::Write, io::ErrorKind, net::IpAddr, path::PathBuf, str::FromStr};
-use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use tokio::fs;
 use tracing::{debug, error, info, warn};
 use url::Url;
@@ -155,17 +156,17 @@ async fn handle_message_command(args: MessageArgs) -> Result<()> {
         }
     };
 
-    let timestamp_prefix = format!("💬 {} ", OffsetDateTime::now_utc().format(&Rfc3339)?);
+    let timestamp_prefix = format!("💬 {} ", Timestamp::now_utc());
     // Note we don't use .len() because it returns the byte length as opposed to the char length (which is different because of the emoji)
-    let mention_start = timestamp_prefix.chars().count();
+    let mention_start = char_count(&timestamp_prefix);
     let prefix = format!("{timestamp_prefix}@{name}:  ");
-    let content = format!("{}{}", prefix, args.message.join(" "));
+    let content = format!("{prefix}{}", args.message.join(" "));
 
     let cell = Cell::Text(
         TextCell::builder()
             .content(content)
             .formatting(vec![AnnotationWithOffset::new(
-                mention_start as u32,
+                mention_start,
                 Annotation::Mention(Mention::builder().name(name).user_id(user_id).build()),
             )])
             .build(),
@@ -430,7 +431,6 @@ async fn handle_prometheus_redirect_command(args: PrometheusGraphToNotebookArgs)
                                         .query_data(format!(
                                             "application/x-www-form-urlencoded,query={query}"
                                         ))
-                                        .title("")
                                         .build(),
                                 )],
                             )

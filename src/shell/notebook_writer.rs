@@ -5,8 +5,8 @@ use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::formatting::{Annotation, AnnotationWithOffset, Formatting, Mention};
 use fiberplane::models::notebooks::operations::CellAppendText;
 use fiberplane::models::notebooks::{Cell, CodeCell, HeadingCell, HeadingType};
+use fiberplane::models::timestamps::Timestamp;
 use fiberplane::models::utils::char_count;
-use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
 pub struct NotebookWriter {
     config: ApiClient,
@@ -19,8 +19,8 @@ impl NotebookWriter {
     pub async fn new(config: ApiClient, notebook_id: Base64Uuid) -> Result<Self> {
         let user = profile_get(&config).await?;
 
-        let raw_timestamp = OffsetDateTime::now_utc();
-        let timestamp = raw_timestamp.format(&Rfc3339).unwrap();
+        let now = Timestamp::now_utc();
+        let timestamp = now.to_string();
 
         let content = format!(
             "@{}'s shell session\n🟢 Started at:\t{}",
@@ -41,17 +41,12 @@ impl NotebookWriter {
                         AnnotationWithOffset::new(
                             0,
                             Annotation::Mention(
-                                Mention::builder()
-                                    .name(user.name)
-                                    .user_id(user.id.to_string())
-                                    .build(),
+                                Mention::builder().name(user.name).user_id(user.id).build(),
                             ),
                         ),
                         AnnotationWithOffset::new(
                             timestamp_offset,
-                            Annotation::Timestamp {
-                                timestamp: raw_timestamp,
-                            },
+                            Annotation::Timestamp { timestamp: now },
                         ),
                     ])
                     .read_only(true)
@@ -115,9 +110,8 @@ impl NotebookWriter {
     }
 
     pub async fn close(&self) -> Result<()> {
-        let now = OffsetDateTime::now_utc();
-        let timestamp = now.format(&Rfc3339).unwrap();
-        let content = format!("\n🔴 Ended at: \t{timestamp}");
+        let now = Timestamp::now_utc();
+        let content = format!("\n🔴 Ended at: \t{now}");
 
         notebook_cell_append_text(
             &self.config,

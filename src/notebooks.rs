@@ -23,10 +23,8 @@ use fiberplane::models::notebooks::{
 };
 use fiberplane::models::sorting::{NotebookSortFields, SortDirection};
 use fiberplane::models::timestamps::{NewTimeRange, TimeRange, Timestamp};
-use std::collections::HashMap;
 use std::path::PathBuf;
-use time::format_description::well_known::Rfc3339;
-use time::{ext::NumericalDuration, OffsetDateTime};
+use time::ext::NumericalDuration;
 use tracing::info;
 use url::Url;
 use webbrowser::open;
@@ -176,9 +174,9 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let labels = args.labels.into_iter().map(Into::into).collect();
 
-    let now = OffsetDateTime::now_utc();
-    let from = args.from.unwrap_or_else(|| (now - 1.hours()).into());
-    let to = args.to.unwrap_or_else(|| now.into());
+    let now = Timestamp::now_utc();
+    let from = args.from.unwrap_or_else(|| now - 1.hours());
+    let to = args.to.unwrap_or(now);
 
     // Optionally parse the notebook from Markdown
     let notebook = match args.markdown {
@@ -416,33 +414,29 @@ async fn handle_search_command(args: SearchArgs) -> Result<()> {
     let client = api_client_configuration(args.config, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
-    let labels: Option<HashMap<_, _>> = if let Some(labels) = args.labels {
+    let mut search_params = NotebookSearch::default();
+
+    if let Some(labels) = args.labels {
         if !labels.is_empty() {
-            Some(
+            search_params.labels = Some(
                 labels
                     .into_iter()
                     .map(|kv| (kv.key, Some(kv.value)))
                     .collect(),
-            )
-        } else {
-            None
+            );
         }
-    } else {
-        None
-    };
+    }
 
-    let view = if labels.is_none() {
-        Some(view_picker(&client, Some(workspace_id), args.view).await?)
-    } else {
-        None
-    };
+    if search_params.labels.is_none() {
+        search_params.view = Some(view_picker(&client, Some(workspace_id), args.view).await?);
+    }
 
     let notebooks = notebook_search(
         &client,
         workspace_id,
         args.sort_by.map(Into::<&str>::into),
         args.sort_direction.map(Into::<&str>::into),
-        NotebookSearch::builder().labels(labels).view(view).build(),
+        search_params,
     )
     .await?;
 
@@ -751,11 +745,11 @@ impl GenericKeyValue {
 
         Ok(vec![
             GenericKeyValue::new("Title:", notebook.title),
-            GenericKeyValue::new("ID:", notebook.id.to_string()),
+            GenericKeyValue::new("ID:", notebook.id),
             //GenericKeyValue::new("Created by:", notebook.created_by.name),
             GenericKeyValue::new("Visibility:", visibility),
-            GenericKeyValue::new("Updated at:", notebook.updated_at.0.format(&Rfc3339)?),
-            GenericKeyValue::new("Created at:", notebook.created_at.0.format(&Rfc3339)?),
+            GenericKeyValue::new("Updated at:", notebook.updated_at.to_string()),
+            GenericKeyValue::new("Created at:", notebook.created_at.to_string()),
             GenericKeyValue::new("Current revision:", notebook.revision.to_string()),
             GenericKeyValue::new("Label:", labels),
         ])
@@ -803,8 +797,8 @@ impl From<NotebookSummary> for NotebookSummaryRow {
             title: notebook.title,
             //created_by: notebook.created_by.name,
             visibility,
-            updated_at: notebook.updated_at.format(&Rfc3339).unwrap_or_default(),
-            created_at: notebook.created_at.format(&Rfc3339).unwrap_or_default(),
+            updated_at: notebook.updated_at.to_string(),
+            created_at: notebook.created_at.to_string(),
         }
     }
 }

@@ -109,26 +109,23 @@ async fn handle_create(args: CreateArguments) -> Result<()> {
 
     let time_range = if let Some(unit) = args.time_range_unit {
         Some(
-            RelativeTime::builder()
-                .unit(unit)
-                // .unwrap is safe because value can only exist in conjunction with unit (and vice-versa)
-                .value(args.time_range_value.unwrap())
-                .build(),
+            // .unwrap is safe because value can only exist in conjunction with unit (and vice-versa)
+            RelativeTime::new(args.time_range_value.unwrap(), unit),
         )
     } else {
         None
     };
 
-    let view = NewView::builder()
+    let mut view = NewView::builder()
         .name(name)
-        .display_name(args.display_name)
         .description(description)
         .color(args.color)
         .labels(args.labels.into_iter().map(Into::into).collect())
-        .relative_time(time_range)
-        .sort_by(args.sort_by)
-        .sort_direction(args.sort_direction)
         .build();
+    view.display_name = args.display_name;
+    view.relative_time = time_range;
+    view.sort_by = args.sort_by;
+    view.sort_direction = args.sort_direction;
 
     let view = views_create(&client, workspace_id, view).await?;
 
@@ -312,37 +309,25 @@ async fn handle_update(args: UpdateArguments) -> Result<()> {
         Some(None)
     } else if let Some(unit) = args.time_range_unit {
         Some(Some(
-            RelativeTime::builder()
-                .unit(unit)
-                // .unwrap is safe because value can only exist in conjunction with unit (and vice-versa)
-                .value(args.time_range_value.unwrap())
-                .build(),
+            // .unwrap is safe because value can only exist in conjunction with unit (and vice-versa)
+            RelativeTime::new(args.time_range_value.unwrap(), unit),
         ))
     } else {
         None
     };
 
-    view_update(
-        &client,
-        workspace_id,
-        &view_name,
-        UpdateView::builder()
-            .display_name(args.display_name)
-            .description(clear_or_update(args.clear_description, args.description))
-            .color(args.color)
-            .labels(
-                args.labels
-                    .map(|labels| labels.into_iter().map(Into::into).collect()),
-            )
-            .relative_time(time_range)
-            .sort_by(clear_or_update(args.clear_sort_by, args.sort_by))
-            .sort_direction(clear_or_update(
-                args.clear_sort_direction,
-                args.sort_direction,
-            ))
-            .build(),
-    )
-    .await?;
+    let mut update = UpdateView::default();
+    update.display_name = args.display_name;
+    update.description = clear_or_update(args.clear_description, args.description);
+    update.color = args.color;
+    update.labels = args
+        .labels
+        .map(|labels| labels.into_iter().map(Into::into).collect());
+    update.relative_time = time_range;
+    update.sort_by = clear_or_update(args.clear_sort_by, args.sort_by);
+    update.sort_direction = clear_or_update(args.clear_sort_direction, args.sort_direction);
+
+    view_update(&client, workspace_id, &view_name, update).await?;
 
     info!("Successfully updated view");
     Ok(())

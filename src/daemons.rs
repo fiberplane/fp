@@ -161,16 +161,11 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
     let client = api_client_configuration(args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
-    let proxy = proxy_create(
-        &client,
-        workspace_id,
-        NewProxy::builder()
-            .name(name)
-            .description(args.description)
-            .build(),
-    )
-    .await
-    .map_err(|e| anyhow!("Error adding daemon: {:?}", e))?;
+    let mut new_proxy = NewProxy::builder().name(name).build();
+    new_proxy.description = args.description;
+    let proxy = proxy_create(&client, workspace_id, new_proxy)
+        .await
+        .map_err(|err| anyhow!("Error adding daemon: {err:?}"))?;
 
     match args.output {
         ProxyOutput::Table => {

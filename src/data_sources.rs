@@ -1,3 +1,7 @@
+use crate::config::api_client_configuration;
+use crate::interactive::{data_source_picker, name_req, text_opt, text_req, workspace_picker};
+use crate::output::{output_details, output_list, GenericKeyValue};
+use crate::workspaces;
 use anyhow::{anyhow, Result};
 use clap::{Parser, ValueEnum};
 use cli_table::Table;
@@ -10,13 +14,7 @@ use fiberplane::models::names::Name;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::{path::PathBuf, str::FromStr};
-use time::format_description::well_known::Rfc3339;
 use url::Url;
-
-use crate::config::api_client_configuration;
-use crate::interactive::{data_source_picker, name_req, text_opt, text_req, workspace_picker};
-use crate::output::{output_details, output_list, GenericKeyValue};
-use crate::workspaces;
 
 #[derive(Parser)]
 pub struct Arguments {
@@ -223,13 +221,13 @@ async fn handle_create(args: CreateArgs) -> Result<()> {
     // at the time of writing, but will emulate the new protocol version anyway.
     let protocol_version = 2;
 
-    let data_source = NewDataSource::builder()
+    let mut data_source = NewDataSource::builder()
         .name(name)
-        .description(description)
         .protocol_version(protocol_version)
         .provider_type(provider_type)
         .config(provider_config.0)
         .build();
+    data_source.description = description;
     let data_source = data_source_create(&client, workspace_id, data_source).await?;
 
     match args.output {
@@ -273,10 +271,9 @@ async fn handle_update(args: UpdateArgs) -> Result<()> {
 
     let data_source = data_source_picker(&client, Some(workspace_id), args.name).await?;
 
-    let update = UpdateDataSource::builder()
-        .description(args.description)
-        .config(args.provider_config.map(|c| c.0))
-        .build();
+    let mut update = UpdateDataSource::default();
+    update.description = args.description;
+    update.config = args.provider_config.map(|c| c.0);
 
     let data_source = data_source_update(&client, workspace_id, &data_source.name, update).await?;
 
@@ -324,14 +321,8 @@ impl GenericKeyValue {
                     .and_then(|c| serde_json::to_string(&c).ok())
                     .unwrap_or_default(),
             ),
-            GenericKeyValue::new(
-                "Created At",
-                data_source.created_at.format(&Rfc3339).unwrap_or_default(),
-            ),
-            GenericKeyValue::new(
-                "Updated At",
-                data_source.updated_at.format(&Rfc3339).unwrap_or_default(),
-            ),
+            GenericKeyValue::new("Created At", data_source.created_at.to_string()),
+            GenericKeyValue::new("Updated At", data_source.updated_at.to_string()),
         ]
     }
 }
@@ -366,8 +357,8 @@ impl From<DataSource> for DataSourceRow {
                 .proxy_name
                 .map_or_else(String::new, |name| name.to_string()),
             provider_type: data_source.provider_type,
-            updated_at: data_source.updated_at.format(&Rfc3339).unwrap_or_default(),
-            created_at: data_source.created_at.format(&Rfc3339).unwrap_or_default(),
+            updated_at: data_source.updated_at.to_string(),
+            created_at: data_source.created_at.to_string(),
         }
     }
 }

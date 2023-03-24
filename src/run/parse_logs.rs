@@ -82,12 +82,11 @@ pub fn parse_logs(output: &str) -> Vec<ProviderEvent> {
     // If none of the lines had timestamps, use the current moment as the timestamp
     if !lines_without_timestamps.is_empty() {
         let now = OffsetDateTime::now_utc();
-        logs.extend(lines_without_timestamps.drain(..).map(|line| {
-            ProviderEvent::builder()
-                .time(now.into())
-                .title(line)
-                .build()
-        }));
+        logs.extend(
+            lines_without_timestamps
+                .drain(..)
+                .map(|line| ProviderEvent::builder().time(now).title(line).build()),
+        );
     }
 
     logs
@@ -180,24 +179,24 @@ fn parse_flattened_json(mut json: BTreeMap<String, Value>) -> Option<ProviderEve
         });
 
     timestamp.map(|timestamp| {
+        let mut otel = OtelMetadata::builder()
+            .attributes(attributes)
+            .resource(resource)
+            .build();
+        otel.span_id = span_id.and_then(|span| {
+            span.as_str()
+                .and_then(|span| span.as_bytes().try_into().ok().map(OtelSpanId::new))
+        });
+        otel.trace_id = trace_id.and_then(|trace| {
+            trace
+                .as_str()
+                .and_then(|trace| trace.as_bytes().try_into().ok().map(OtelTraceId::new))
+        });
+
         ProviderEvent::builder()
-            .time(timestamp.into())
+            .time(timestamp)
             .title(body)
-            .otel(
-                OtelMetadata::builder()
-                    .attributes(attributes)
-                    .resource(resource)
-                    .span_id(span_id.and_then(|span| {
-                        span.as_str()
-                            .and_then(|span| span.as_bytes().try_into().ok().map(OtelSpanId::new))
-                    }))
-                    .trace_id(trace_id.and_then(|trace| {
-                        trace.as_str().and_then(|trace| {
-                            trace.as_bytes().try_into().ok().map(OtelTraceId::new)
-                        })
-                    }))
-                    .build(),
-            )
+            .otel(otel)
             .build()
     })
 }
@@ -223,10 +222,9 @@ fn flatten_nested_value(output: &mut BTreeMap<String, Value>, key: String, value
 
 #[cfg(test)]
 mod tests {
-    use serde_json::json;
-    use time::format_description::well_known::Rfc3339;
-
     use super::*;
+    use fiberplane::models::timestamps::Timestamp;
+    use serde_json::json;
     use std::iter::FromIterator;
 
     #[test]
@@ -238,14 +236,14 @@ mod tests {
 
         assert_eq!(logs[0].title, "test");
         assert_eq!(
-            logs[0].time.0,
-            OffsetDateTime::parse("2018-01-01T00:00:00Z", &Rfc3339).unwrap()
+            logs[0].time,
+            Timestamp::parse("2018-01-01T00:00:00Z").unwrap()
         );
 
         assert_eq!(logs[1].title, "hello");
         assert_eq!(
-            logs[1].time.0,
-            OffsetDateTime::parse("2022-07-12T09:47:33Z", &Rfc3339).unwrap()
+            logs[1].time,
+            Timestamp::parse("2022-07-12T09:47:33Z").unwrap()
         );
 
         assert_eq!(
@@ -298,8 +296,8 @@ build   Set up job      2022-07-11T15:12:28.2325020Z PullRequests: write";
         assert_eq!(logs.len(), 3);
 
         assert_eq!(
-            logs[0].time.0,
-            OffsetDateTime::parse("2022-07-11T15:12:28.2324317Z", &Rfc3339).unwrap()
+            logs[0].time,
+            Timestamp::parse("2022-07-11T15:12:28.2324317Z").unwrap()
         );
         assert_eq!(logs[0].title, "Packages: write");
         assert_eq!(logs[0].otel.attributes["job"], "build");
@@ -328,8 +326,8 @@ build   Set up job      2022-07-11T15:12:28.2325020Z PullRequests: write";
         assert_eq!(logs.len(), 5);
 
         assert_eq!(
-            logs[0].time.0,
-            OffsetDateTime::parse("2022-07-11T13:04:26Z", &Rfc3339).unwrap()
+            logs[0].time,
+            Timestamp::parse("2022-07-11T13:04:26Z").unwrap()
         );
         assert_eq!(
             logs[0].title,

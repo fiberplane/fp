@@ -123,7 +123,7 @@ pub struct DeleteArguments {
 async fn handle_token_create_command(args: CreateArguments) -> Result<()> {
     let client = api_client_configuration(args.config, args.base_url).await?;
 
-    let token = token_create(&client, NewToken::builder().title(args.name).build()).await?;
+    let token = token_create(&client, NewToken::new(args.name)).await?;
 
     if !matches!(args.output, TokenCreateOutput::Token) {
         info!("Successfully created new token");
