@@ -12,6 +12,7 @@ use fiberplane::markdown::notebook_to_markdown;
 use fiberplane::models::formatting::{Annotation, AnnotationWithOffset, Mention};
 use fiberplane::models::notebooks::{Cell, ProviderCell, TextCell};
 use fiberplane::models::timestamps::Timestamp;
+use fiberplane::models::utils::char_count;
 use fiberplane::models::{formatting, notebooks};
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Error, Response, Server, StatusCode};
@@ -155,17 +156,17 @@ async fn handle_message_command(args: MessageArgs) -> Result<()> {
         }
     };
 
-    let timestamp_prefix = format!("💬 {} ", Timestamp::now_utc().to_string());
+    let timestamp_prefix = format!("💬 {} ", Timestamp::now_utc());
     // Note we don't use .len() because it returns the byte length as opposed to the char length (which is different because of the emoji)
-    let mention_start = timestamp_prefix.chars().count();
+    let mention_start = char_count(&timestamp_prefix);
     let prefix = format!("{timestamp_prefix}@{name}:  ");
-    let content = format!("{}{}", prefix, args.message.join(" "));
+    let content = format!("{prefix}{}", args.message.join(" "));
 
     let cell = Cell::Text(
         TextCell::builder()
             .content(content)
             .formatting(vec![AnnotationWithOffset::new(
-                mention_start as u32,
+                mention_start,
                 Annotation::Mention(Mention::builder().name(name).user_id(user_id).build()),
             )])
             .build(),

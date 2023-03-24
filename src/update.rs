@@ -23,15 +23,13 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
     if latest_version == *MANIFEST.build_version {
         info!("Already running the latest version.");
         return Ok(());
+    } else if args.force {
+        info!("Forcing update to version {}", latest_version);
+    } else if installed_through_homebrew() {
+        info!("A new version of fp is available: {}", latest_version);
+        info!("You can update fp by running `brew upgrade fp` (or use `fp update --force`)");
     } else {
-        if args.force {
-            info!("Forcing update to version {}", latest_version);
-        } else if installed_through_homebrew() {
-            info!("A new version of fp is available: {}", latest_version);
-            info!("You can update fp by running `brew upgrade fp` (or use `fp update --force`)");
-        } else {
-            info!("Updating to version {}", latest_version);
-        }
+        info!("Updating to version {}", latest_version);
     };
 
     let current_exe = std::env::current_exe()?;
