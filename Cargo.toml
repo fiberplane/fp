@@ -79,5 +79,5 @@ anyhow = "1.0"
 vergen = "7"
 
 [patch.crates-io]
-fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane.git", branch = "type-cleanup" }
+fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane.git", branch = "main" }
 #fiberplane = { path = "../fiberplane/fiberplane" }
