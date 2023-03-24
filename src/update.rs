@@ -154,7 +154,7 @@ impl DummyOpenOptionsExt for OpenOptions {
 /// homebrew location: `/home/linuxbrew/.linuxbrew`. This will give a false
 /// negative if the if the user has changed the homebrew path.
 #[cfg(target_os = "linux")]
-#[inline(always)]
+#[inline]
 fn installed_through_homebrew() -> bool {
     env::current_exe()
         .map(|path| path.starts_with("/home/linuxbrew/.linuxbrew"))
@@ -167,7 +167,7 @@ fn installed_through_homebrew() -> bool {
 /// homebrew location: `/usr/local` or `/opt/homebrew`. This will give a false
 /// negative if the user has changed the homebrew path.
 #[cfg(target_os = "macos")]
-#[inline(always)]
+#[inline]
 fn installed_through_homebrew() -> bool {
     env::current_exe()
         .map(|path| path.starts_with("/usr/local") || path.starts_with("/opt/homebrew"))
