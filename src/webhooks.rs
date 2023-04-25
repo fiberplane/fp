@@ -587,7 +587,7 @@ impl From<WebhookDeliverySummary> for WebhookDeliverySummaryRow {
     }
 }
 
-fn print_categories(input: &Vec<WebhookCategory>) -> String {
+fn print_categories(input: &[WebhookCategory]) -> String {
     input
         .iter()
         .map(ToString::to_string)
