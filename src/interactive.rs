@@ -1,16 +1,19 @@
-use anyhow::{bail, Context, Result};
-use dialoguer::{theme, FuzzySelect, Input, Select};
+use anyhow::{anyhow, bail, Context, Result};
+use dialoguer::{theme, FuzzySelect, Input, MultiSelect, Select};
 use fiberplane::api_client::clients::ApiClient;
 use fiberplane::api_client::{
     data_source_get, data_source_list, notebook_search, proxy_list, snippet_list, template_list,
-    trigger_list, views_get, workspace_list, workspace_users_list,
+    trigger_list, views_get, webhook_delivery_list, webhooks_list, workspace_list,
+    workspace_users_list,
 };
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::data_sources::DataSource;
 use fiberplane::models::names::Name;
 use fiberplane::models::notebooks::NotebookSearch;
-use fiberplane::models::sorting::{NotebookSortFields, SortDirection};
+use fiberplane::models::sorting::{NotebookSortFields, Pagination, SortDirection};
+use fiberplane::models::webhooks::{InvalidWebhookIdError, WebhookCategory};
 use indicatif::ProgressBar;
+use std::convert::TryInto;
 
 pub fn default_theme() -> impl theme::Theme {
     theme::SimpleTheme
@@ -707,6 +710,142 @@ pub async fn workspace_user_picker(
     match selection {
         Some(selection) => Ok(results[selection].id),
         None => bail!("No workspace user selected"),
+    }
+}
+
+/// Get a specific workspaces' webhook ID from either a CLI argument, or from an interactive picker.
+///
+/// If the user has not specified the webhook ID through a CLI argument then it
+/// will retrieve all webhooks from that workspace using the workspace webhook list endpoint, and allow
+/// the user to select one.
+///
+/// NOTE: This currently does not do any limiting of the result.
+/// NOTE: If the user does not specify a value through a cli argument, the
+/// interactive input will always be shown. This is a limitation that we
+/// currently not check if the invocation is interactive or not.
+pub async fn webhook_picker(
+    client: &ApiClient,
+    workspace: Base64Uuid,
+    argument: Option<Base64Uuid>,
+) -> Result<Base64Uuid> {
+    // If the user provided an argument, use that. Otherwise, show the picker.
+    if let Some(id) = argument {
+        return Ok(id);
+    };
+
+    let pb = ProgressBar::new_spinner();
+    pb.set_message("Fetching webhooks");
+    pb.enable_steady_tick(100);
+
+    let max = Pagination::max();
+    let results = webhooks_list(
+        client,
+        workspace,
+        Some(max.page as i32),
+        Some(max.limit as i32),
+    )
+    .await?;
+
+    pb.finish_and_clear();
+
+    if results.is_empty() {
+        bail!("No webhooks found in the workspace");
+    }
+
+    let display_items: Vec<_> = results
+        .iter()
+        .map(|webhook| format!("{} ({})", webhook.endpoint, webhook.id))
+        .collect();
+
+    let selection = FuzzySelect::with_theme(&default_theme())
+        .with_prompt("Webhook")
+        .items(&display_items)
+        .default(0)
+        .interact_opt()?;
+
+    match selection {
+        Some(selection) => Ok(results[selection].id),
+        None => bail!("No webhook selected"),
+    }
+}
+
+/// Get a specific workspaces' webhook delivery ID from either a CLI argument, or from an interactive picker.
+///
+/// If the user has not specified the webhook delivery ID through a CLI argument then it
+/// will retrieve all webhooks deliveries from that workspace using the workspace webhook delivery list endpoint, and allow
+/// the user to select one.
+///
+/// NOTE: This currently does not do any limiting of the result.
+/// NOTE: If the user does not specify a value through a cli argument, the
+/// interactive input will always be shown. This is a limitation that we
+/// currently not check if the invocation is interactive or not.
+pub async fn webhook_delivery_picker(
+    client: &ApiClient,
+    workspace: Base64Uuid,
+    webhook: Base64Uuid,
+    argument: Option<Base64Uuid>,
+) -> Result<Base64Uuid> {
+    // If the user provided an argument, use that. Otherwise, show the picker.
+    if let Some(id) = argument {
+        return Ok(id);
+    };
+
+    let pb = ProgressBar::new_spinner();
+    pb.set_message("Fetching webhook deliveries");
+    pb.enable_steady_tick(100);
+
+    let max = Pagination::max();
+    let results = webhook_delivery_list(
+        client,
+        workspace,
+        webhook,
+        Some(max.page as i32),
+        Some(max.limit as i32),
+    )
+    .await?;
+
+    pb.finish_and_clear();
+
+    if results.is_empty() {
+        bail!("No webhook deliveries found for webhook");
+    }
+
+    let display_items: Vec<_> = results
+        .iter()
+        .map(|delivery| format!("{} ({})", delivery.id, delivery.event))
+        .collect();
+
+    let selection = FuzzySelect::with_theme(&default_theme())
+        .with_prompt("Webhook Delivery")
+        .items(&display_items)
+        .default(0)
+        .interact_opt()?;
+
+    match selection {
+        Some(selection) => Ok(results[selection].id),
+        None => bail!("No webhook delivery selected"),
+    }
+}
+
+pub fn webhook_category_picker(
+    input: Option<Vec<WebhookCategory>>,
+) -> Result<Vec<WebhookCategory>> {
+    match input {
+        Some(categories) => Ok(categories),
+        None => {
+            let items = MultiSelect::new()
+                .with_prompt("Categories")
+                .items(&vec!["Ping", "Front Matter"])
+                .interact()?;
+
+            let categories: Result<Vec<WebhookCategory>, InvalidWebhookIdError> = items
+                .into_iter()
+                .map(|index| index as i16) // only i16 has a From impl
+                .map(|index| index.try_into())
+                .collect();
+
+            categories.map_err(|err| anyhow!(err))
+        }
     }
 }
 
