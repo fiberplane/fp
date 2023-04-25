@@ -835,7 +835,7 @@ pub fn webhook_category_picker(
         None => {
             let items = MultiSelect::new()
                 .with_prompt("Categories")
-                .items(&vec!["Ping", "Front Matter"])
+                .items(&["Ping", "Front Matter"])
                 .interact()?;
 
             let categories: Result<Vec<WebhookCategory>, InvalidWebhookIdError> = items
