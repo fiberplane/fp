@@ -1,5 +1,5 @@
 use anyhow::{anyhow, bail, Context, Result};
-use dialoguer::{theme, FuzzySelect, Input, MultiSelect, Select};
+use dialoguer::{theme, Confirm, FuzzySelect, Input, MultiSelect, Select};
 use fiberplane::api_client::clients::ApiClient;
 use fiberplane::api_client::{
     data_source_get, data_source_list, notebook_search, proxy_list, snippet_list, template_list,
@@ -847,6 +847,13 @@ pub fn webhook_category_picker(
             categories.map_err(|err| anyhow!(err))
         }
     }
+}
+
+pub fn confirm(prompt: impl Into<String>) -> Result<bool> {
+    Confirm::new()
+        .with_prompt(prompt)
+        .interact()
+        .map_err(|err| anyhow!(err))
 }
 
 /// Interactively select one of the given items

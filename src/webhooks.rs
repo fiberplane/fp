@@ -1,6 +1,7 @@
 use crate::config::api_client_configuration;
 use crate::interactive::{
-    text_opt, webhook_category_picker, webhook_delivery_picker, webhook_picker, workspace_picker,
+    confirm, text_opt, webhook_category_picker, webhook_delivery_picker, webhook_picker,
+    workspace_picker,
 };
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use anyhow::Result;
@@ -188,6 +189,13 @@ async fn handle_webhook_delete(args: DeleteArgs) -> Result<()> {
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let webhook_id = webhook_picker(&client, workspace_id, args.webhook_id).await?;
+
+    if !confirm(format!(
+        "Are you sure you want to delete webhook {webhook_id}?"
+    ))? {
+        info!("Operation cancelled");
+        return Ok(());
+    }
 
     webhook_delete(&client, workspace_id, webhook_id).await?;
 
