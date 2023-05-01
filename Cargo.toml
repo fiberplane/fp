@@ -81,4 +81,6 @@ vergen = "7"
 
 [patch.crates-io]
 fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane.git", branch = "webhooks" }
+#fp-bindgen-support = { git = "ssh://git@github.com/fiberplane/fp-bindgen.git", branch = "release-3.0.0" }
+#fp-bindgen-macros = { git = "ssh://git@github.com/fiberplane/fp-bindgen.git", branch = "release-3.0.0" }
 #fiberplane = { path = "../fiberplane/fiberplane" }
