@@ -75,11 +75,12 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 #[derive(Parser)]
 struct CreateArgs {
     /// List of categories which this new webhook should receive deliveries for
-    #[clap(value_enum)]
+    #[clap(long, value_enum)]
     categories: Option<Vec<WebhookCategory>>,
 
     /// Endpoint URL to which deliveries should be sent to.
     /// Must start with `http` or `https`
+    #[clap(long)]
     endpoint: Option<String>,
 
     /// Workspace for which this webhook receives deliveries
@@ -171,6 +172,7 @@ async fn handle_webhook_list(args: ListArgs) -> Result<()> {
 #[derive(Parser)]
 struct DeleteArgs {
     /// Which webhook should be deleted
+    #[clap(long)]
     webhook_id: Option<Base64Uuid>,
 
     /// Workspace for which the webhook should be deleted for
@@ -446,7 +448,7 @@ enum WebhookDeliveryOutput {
     /// Output the delivery as JSON
     Json,
 
-    /// Output only teh request headers
+    /// Output only the request headers
     RequestHeaders,
 
     /// Output only the request body

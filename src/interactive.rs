@@ -14,6 +14,7 @@ use fiberplane::models::sorting::{NotebookSortFields, Pagination, SortDirection}
 use fiberplane::models::webhooks::{InvalidWebhookIdError, WebhookCategory};
 use indicatif::ProgressBar;
 use std::convert::TryInto;
+use strum::IntoEnumIterator;
 
 pub fn default_theme() -> impl theme::Theme {
     theme::SimpleTheme
@@ -833,9 +834,15 @@ pub fn webhook_category_picker(
     match input {
         Some(categories) => Ok(categories),
         None => {
+            let mut categories = Vec::new();
+
+            for category in WebhookCategory::iter() {
+                categories.push(category.to_string());
+            }
+
             let items = MultiSelect::new()
                 .with_prompt("Categories")
-                .items(&["Ping", "Front Matter"])
+                .items(&categories)
                 .interact()?;
 
             let categories: Result<Vec<WebhookCategory>, InvalidWebhookIdError> = items
