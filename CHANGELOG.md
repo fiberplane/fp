@@ -17,6 +17,7 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
   - `--clear-time-range`: Removes existing time range from view
   - `--clear-sort-by`: Removes existing sort by from view
   - `--clear-sort-direction`: Removes existing sort direction from view
+- Add new command `fp webhooks` used to interact with webhooks and their deliveries
 
 ### Changed
 

@@ -51,6 +51,7 @@ mod users;
 mod utils;
 mod version;
 mod views;
+mod webhooks;
 mod workspaces;
 
 /// The current build manifest associated with this binary
@@ -204,6 +205,12 @@ enum SubCommand {
     #[clap(alias = "workspace")]
     Workspaces(workspaces::Arguments),
 
+    /// Interact with webhooks
+    ///
+    /// Webhooks allow you to receive http requests from Fiberplane when certain events occur
+    #[clap(aliases = &["webhook", "wh"])]
+    Webhooks(webhooks::Arguments),
+
     /// Display extra version information
     #[clap()]
     Version(version::Arguments),
@@ -299,6 +306,7 @@ async fn main() {
         Update(args) => update::handle_command(args).await,
         Users(args) => users::handle_command(args).await,
         Workspaces(args) => workspaces::handle_command(args).await,
+        Webhooks(args) => webhooks::handle_command(args).await,
         Version(args) => version::handle_command(args).await,
         Completions { shell } => {
             let output = generate_completions(shell);
