@@ -11,7 +11,7 @@ use fiberplane::models::data_sources::DataSource;
 use fiberplane::models::names::Name;
 use fiberplane::models::notebooks::NotebookSearch;
 use fiberplane::models::sorting::{NotebookSortFields, Pagination, SortDirection};
-use fiberplane::models::webhooks::{InvalidWebhookIdError, WebhookCategory};
+use fiberplane::models::webhooks::{InvalidWebhookCategoryError, WebhookCategory};
 use indicatif::ProgressBar;
 use std::convert::TryInto;
 use strum::IntoEnumIterator;
@@ -845,7 +845,7 @@ pub fn webhook_category_picker(
                 .items(&categories)
                 .interact()?;
 
-            let categories: Result<Vec<WebhookCategory>, InvalidWebhookIdError> = items
+            let categories: Result<Vec<WebhookCategory>, InvalidWebhookCategoryError> = items
                 .into_iter()
                 .map(|index| index as i16) // only i16 has a From impl
                 .map(|index| index.try_into())
