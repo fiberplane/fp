@@ -1,6 +1,6 @@
 use crate::config::api_client_configuration;
 use crate::interactive::{
-    confirm, text_opt, webhook_category_picker, webhook_delivery_picker, webhook_picker,
+    bool_req, confirm, text_opt, webhook_category_picker, webhook_delivery_picker, webhook_picker,
     workspace_picker,
 };
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
@@ -83,6 +83,10 @@ struct CreateArgs {
     #[clap(long)]
     endpoint: Option<String>,
 
+    /// Whenever the newly created webhook should be enabled
+    #[clap(long)]
+    enabled: Option<bool>,
+
     /// Workspace for which this webhook receives deliveries
     #[clap(from_global)]
     workspace_id: Option<Base64Uuid>,
@@ -104,21 +108,23 @@ async fn handle_webhook_create(args: CreateArgs) -> Result<()> {
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let categories = webhook_category_picker(args.categories)?;
     let endpoint = text_opt("Endpoint Url", args.endpoint, None).unwrap();
+    let enabled = bool_req("Enabled", args.enabled, true);
 
     let payload = NewWebhook::builder()
         .events(categories)
         .endpoint(endpoint)
+        .enabled(enabled)
         .build();
 
     let webhook = webhook_create(&client, workspace_id, payload).await?;
 
-    if webhook.enabled {
-        info!("Successfully created new webhook.");
-    } else {
+    if !webhook.successful {
         warn!("The webhook has been created in the disabled state because it failed to handle the \"ping\" event.");
         warn!(
             "See documentation at https://docs.fiberplane.com/docs/webhooks for more information."
         );
+    } else {
+        info!("Successfully created new webhook.");
     }
 
     info!("Don't forget to copy the shared secret, as this will be the last time you'll see it.");
@@ -259,7 +265,7 @@ async fn handle_webhook_update(args: UpdateArgs) -> Result<()> {
 
     let webhook = webhook_update(&client, workspace_id, webhook_id, payload).await?;
 
-    if args.endpoint.is_some() && !webhook.enabled {
+    if args.endpoint.is_some() && !webhook.successful {
         warn!("The webhook has been updated into the disabled state because it failed to handle the \"ping\" event.");
         warn!(
             "See documentation at https://docs.fiberplane.com/docs/webhooks for more information."
@@ -541,6 +547,9 @@ struct WebhookRow {
     #[table(title = "Endpoint")]
     enabled: String,
 
+    #[table(title = "Last Delivery")]
+    successful: String,
+
     #[table(title = "Created by")]
     created_by: String,
 
@@ -562,6 +571,11 @@ impl From<Webhook> for WebhookRow {
                 .shared_secret
                 .unwrap_or_else(|| "[hidden]".to_string()),
             enabled: webhook.enabled.to_string(),
+            successful: if webhook.successful {
+                "Successful".to_string()
+            } else {
+                "Failed".to_string()
+            },
             created_by: webhook
                 .created_by
                 .map_or_else(|| "Unknown".to_string(), |id| id.to_string()),
@@ -579,7 +593,7 @@ struct WebhookDeliverySummaryRow {
     #[table(title = "Event")]
     event: String,
 
-    #[table(title = "Sucessful")]
+    #[table(title = "Successful")]
     successful: String,
 
     #[table(title = "Delivered at")]

@@ -18,6 +18,8 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
   - `--clear-sort-by`: Removes existing sort by from view
   - `--clear-sort-direction`: Removes existing sort direction from view
 - Add new command `fp webhooks` used to interact with webhooks and their deliveries
+- `fp webhooks create` now takes a `enabled` parameter (#242)
+- Webhooks commands now output whenever the latest delivery was successful (#242)
 
 ### Changed
 
