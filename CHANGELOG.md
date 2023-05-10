@@ -6,12 +6,22 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
-- Suggest using homebrew to update fp if we think that fp is installed through homebrew (#230)
+### Added
+
+-
+
+### Changed
+
+-
+
+### Fixed
+
+-
+
+## [2.9.0]
 
 ### Added
 
-- Add more aliases to DataSources command (#222)
-- Added ability to sort the output of the notebook search command (#232)
 - New arguments for `fp views update` (#233):
   - `--clear-description`: Removes existing description from view
   - `--clear-time-range`: Removes existing time range from view
@@ -20,6 +30,17 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 - Add new command `fp webhooks` used to interact with webhooks and their deliveries
 - `fp webhooks create` now takes a `enabled` parameter (#242)
 - Webhooks commands now output whenever the latest delivery was successful (#242)
+
+### Changed
+
+- Suggest using homebrew to update fp if we think that fp is installed through homebrew (#230)
+
+## [2.8.0]
+
+### Added
+
+- Add more aliases to DataSources command (#222)
+- Added ability to sort the output of the notebook search command (#232)
 
 ### Changed
 
