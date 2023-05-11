@@ -248,7 +248,6 @@ async fn main() {
     // +demo for demo.fiberplane.io
     // +prod/+production for studio.fiberplane.com
     let maybe_env = cli_args.next();
-
     let env = maybe_env.as_ref().and_then(|input| input.strip_prefix('+'));
 
     let clap_args = if let Some(env) = env {
