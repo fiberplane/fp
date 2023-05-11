@@ -249,13 +249,7 @@ async fn main() {
     // +prod/+production for studio.fiberplane.com
     let maybe_env = cli_args.next();
 
-    let env = maybe_env.as_ref().and_then(|input| {
-        if input.starts_with("+") {
-            Some(&input[1..])
-        } else {
-            None
-        }
-    });
+    let env = maybe_env.as_ref().and_then(|input| input.strip_prefix('+'));
 
     let clap_args: Vec<_> = if let Some(env) = env {
         let base_url = match env {
