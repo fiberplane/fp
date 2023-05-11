@@ -251,7 +251,7 @@ async fn main() {
 
     let env = maybe_env.as_ref().and_then(|input| input.strip_prefix('+'));
 
-    let clap_args: Vec<_> = if let Some(env) = env {
+    let clap_args = if let Some(env) = env {
         let base_url = match env {
             "prod" | "production" => "https://studio.fiberplane.com",
             "demo" => "https://demo.fiberplane.io",
