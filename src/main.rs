@@ -238,23 +238,60 @@ async fn main() {
         homepage: "https://fiberplane.com".into(),
     });
 
+    let mut cli_args = env::args();
+
+    // skip program name
+    let _ = cli_args.next();
+
+    // check if the second argument specifies a special environment
+    // +dev for dev.fiberplane.io
+    // +demo for demo.fiberplane.io
+    // +prod/+production for studio.fiberplane.com
+    let maybe_env = cli_args.next();
+
+    let env = maybe_env.as_ref().and_then(|input| {
+        if input.starts_with("+") {
+            Some(&input[1..])
+        } else {
+            None
+        }
+    });
+
+    let clap_args: Vec<_> = if let Some(env) = env {
+        let base_url = match env {
+            "prod" | "production" => "https://studio.fiberplane.com",
+            "demo" => "https://demo.fiberplane.io",
+            "dev" => "https://dev.fiberplane.io",
+            env => {
+                eprintln!("unknown environment: {env}, valid arguments are `dev`, `demo`, `prod` or `production`");
+                process::exit(0);
+            }
+        };
+
+        let mut vec: Vec<_> = env::args_os()
+            .take(1)
+            .chain(env::args_os().skip(2))
+            .collect();
+
+        vec.push(format!("--base-url={base_url}").into());
+        vec
+    } else {
+        env::args_os().collect()
+    };
+
     // We would like to override the builtin version display behavior, so we
     // will try to parse the arguments. If it failed, we will check if it was
     // the DisplayVersion error and show our version, otherwise just fallback to
     // clap's handling.
-    let args = {
-        match Arguments::try_parse() {
-            Ok(arguments) => arguments,
-            Err(err) => match err.kind() {
-                clap::error::ErrorKind::DisplayVersion => {
-                    version::output_version().await;
-                    process::exit(0);
-                }
-                _ => {
-                    err.exit();
-                }
-            },
-        }
+    let args: Arguments = match Parser::try_parse_from(clap_args) {
+        Ok(arguments) => arguments,
+        Err(err) => match err.kind() {
+            clap::error::ErrorKind::DisplayVersion => {
+                version::output_version().await;
+                process::exit(0);
+            }
+            _ => err.exit(),
+        },
     };
 
     if let Err(err) = initialize_logger(&args) {
