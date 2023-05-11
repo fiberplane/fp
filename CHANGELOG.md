@@ -8,7 +8,7 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 
 ### Added
 
--
+- Allow selection of one of our three pre-defined environments using a `+`'d argument (#244)
 
 ### Changed
 
