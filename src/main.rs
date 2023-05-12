@@ -39,6 +39,7 @@ mod labels;
 mod manifest;
 mod notebooks;
 mod output;
+mod profiles;
 mod providers;
 mod run;
 mod shell;
@@ -77,9 +78,9 @@ pub struct Arguments {
     )]
     base_url: Url,
 
-    /// Path to Fiberplane config file
+    /// Which profile to use
     #[clap(long, global = true, env, help_heading = "Global options")]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     /// Disables the version check
     #[clap(long, global = true, env, help_heading = "Global options")]
@@ -211,6 +212,10 @@ enum SubCommand {
     #[clap(aliases = &["webhook", "wh"])]
     Webhooks(webhooks::Arguments),
 
+    /// Profiles allow you to conveniently use different Fiberplane logins with the very same CLI
+    #[clap(alias = "profile")]
+    Profiles(profiles::Arguments),
+
     /// Display extra version information
     #[clap()]
     Version(version::Arguments),
@@ -261,6 +266,11 @@ async fn main() {
         eprintln!("unable to initialize logging: {err:?}");
         process::exit(1);
     };
+
+    if let Err(err) = config::init().await {
+        eprintln!("unable to initialize config file: {err}");
+        process::exit(1);
+    }
 
     // Start the background version check, but skip it when running the `Update`
     // or `Version` command, or if the disable_version_check is set to true.

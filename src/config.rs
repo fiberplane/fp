@@ -1,92 +1,102 @@
-use anyhow::{anyhow, Error, Result};
+use anyhow::{anyhow, bail, Error, Result};
 use directories::ProjectDirs;
 use fiberplane::api_client::clients::{default_config, ApiClient};
 use hyper::http::HeaderValue;
 use hyper::HeaderMap;
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::io::ErrorKind;
 use std::path::PathBuf;
 use tokio::fs;
-use tracing::debug;
+use tracing::{debug, info};
 use url::Url;
 
 use crate::MANIFEST;
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Config {
-    #[serde(skip)]
-    pub path: PathBuf,
+pub static FP_CONFIG_DIR: Lazy<PathBuf> = Lazy::new(|| {
+    ProjectDirs::from("com", "Fiberplane", "fiberplane-cli")
+        .expect("home directory to exist")
+        .config_dir()
+        .to_owned()
+});
 
+#[derive(Serialize, Deserialize, Default, Debug)]
+pub struct Config {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub api_token: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub endpoint: Option<String>,
 }
 
 impl Config {
-    pub async fn load(path: Option<PathBuf>) -> Result<Self, Error> {
-        let path = path_or_default(path);
-        debug!("loading config from: {}", path.as_path().display());
+    pub async fn load(profile_name: Option<&str>) -> Result<Self> {
+        let profile_path = profile_or_default(profile_name).await?;
 
-        match fs::read_to_string(&path).await {
-            Ok(string) => {
-                let mut config: Config = toml::from_str(&string).map_err(Error::from)?;
-                config.path = path;
-                Ok(config)
-            }
-            // TODO should we create an empty file here if one does not already exist?
-            Err(err) if err.kind() == ErrorKind::NotFound => {
-                debug!("no config file found, using default config");
-                Ok(Config {
-                    path,
-                    api_token: None,
-                })
-            }
-            Err(err) => Err(err.into()),
-        }
+        let config_str = fs::read_to_string(&profile_path).await?;
+        let config = toml::from_str(&config_str)?;
+
+        Ok(config)
     }
 
-    pub async fn save(&self) -> Result<(), Error> {
-        let string = toml::to_string_pretty(&self)?;
-        if let Some(dir) = self.path.parent() {
-            fs::create_dir_all(dir).await?;
-        }
-        fs::write(&self.path, string).await?;
-        debug!("saved config to: {}", self.path.as_path().display());
+    pub async fn save(&self, profile_name: Option<&str>) -> Result<()> {
+        let profile_path = profile_or_default(profile_name).await?;
+
+        fs::create_dir_all(
+            profile_path
+                .parent()
+                .expect("fiberplane path should not resolve to root"),
+        )
+        .await?;
+
+        let config = toml::to_string_pretty(&self)?;
+        fs::write(&profile_path, config).await?;
+
+        debug!("saved config to: {}", profile_path.as_path().display());
         Ok(())
     }
 }
 
-/// Returns the path if it is set and does not look like a directory, if it does
-/// look like a directory, then append config.toml to it. Finally if nothing is
-/// set then use the default path.
-fn path_or_default(path: Option<PathBuf>) -> PathBuf {
-    match path {
-        Some(path) => {
-            if path.is_dir() {
-                path.with_file_name("config.toml")
-            } else {
-                path
-            }
-        }
-        None => default_config_file_path(),
-    }
+async fn profile_or_default(profile_name: Option<&str>) -> Result<PathBuf> {
+    Ok(if let Some(profile_name) = profile_name {
+        profile_path(profile_name)
+    } else {
+        default_profile_path().await?
+    })
 }
 
-fn default_config_file_path() -> PathBuf {
-    ProjectDirs::from("com", "Fiberplane", "fiberplane-cli")
-        .unwrap()
-        .config_dir()
-        .to_owned()
-        .join("config.toml")
+fn profile_path(profile_name: &str) -> PathBuf {
+    FP_CONFIG_DIR.join(format!("{}.toml", profile_name.to_lowercase().trim_end()))
 }
 
-pub(crate) async fn api_client_configuration(
-    config_path: Option<PathBuf>,
-    base_url: Url,
-) -> Result<ApiClient> {
-    let token = Config::load(config_path).await?.api_token.ok_or_else(|| {
+pub async fn default_profile_name() -> Result<String> {
+    Ok(
+        match fs::read_to_string(FP_CONFIG_DIR.join("default_profile")).await {
+            Ok(default_profile) => default_profile,
+            Err(err) => match err.kind() {
+                ErrorKind::NotFound => "default.toml".to_string(),
+                _ => bail!("unable to read `default_profile` file: {err}"),
+            },
+        },
+    )
+}
+
+async fn default_profile_path() -> Result<PathBuf> {
+    Ok(FP_CONFIG_DIR.join(format!("{}.toml", default_profile_name()?)))
+}
+
+pub(crate) async fn api_client_configuration(profile: Option<&str>) -> Result<ApiClient> {
+    let config = Config::load(profile).await?;
+
+    let token = config.api_token.ok_or_else(|| {
         anyhow!("Must be logged in to run this command. Please run `fp login` first.")
     })?;
 
-    api_client_configuration_from_token(&token, base_url)
+    let endpoint = config.endpoint.map_or_else(
+        || Url::parse("https://studio.fiberplane.com"),
+        |input| Url::parse(&input),
+    )?;
+
+    api_client_configuration_from_token(&token, endpoint)
 }
 
 pub(crate) fn api_client_configuration_from_token(token: &str, base_url: Url) -> Result<ApiClient> {
@@ -106,4 +116,54 @@ pub(crate) fn api_client_configuration_from_token(token: &str, base_url: Url) ->
         client,
         server: base_url,
     })
+}
+
+#[derive(Deserialize, Debug)]
+struct OldConfig {
+    pub api_token: Option<String>,
+}
+
+impl From<OldConfig> for Config {
+    fn from(value: OldConfig) -> Self {
+        Config {
+            api_token: value.api_token,
+            ..Default::default()
+        }
+    }
+}
+
+pub async fn init() -> Result<()> {
+    // migrate old config format first if it exists
+    migrate().await?;
+
+    let default_path = default_profile_path().await?;
+
+    if let Err(err) = fs::metadata(default_path).await {
+        debug!("failed to read default profile file, creating it: {err}");
+        Config::default().save(None).await?;
+    }
+
+    Ok(())
+}
+
+/// Migrates from the old config format to the new one
+async fn migrate() -> Result<()> {
+    let old_config_path = FP_CONFIG_DIR.join("config.toml");
+
+    if fs::metadata(&old_config_path).await.is_err() {
+        return Ok(());
+    }
+
+    info!("Detected old config format, migrating to new format...");
+
+    let config_str = fs::read_to_string(&old_config_path).await?;
+
+    let old_config: OldConfig = toml::from_str(&config_str)?;
+    let new_config: Config = old_config.into();
+
+    new_config.save(None).await?;
+    fs::remove_file(old_config).await?;
+
+    info!("Successfully migrated to the new config format");
+    Ok(())
 }
