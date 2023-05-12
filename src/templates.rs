@@ -143,7 +143,7 @@ struct ExpandArguments {
     base_url: Url,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 }
 
 #[derive(Parser)]
@@ -189,7 +189,7 @@ struct ConvertArguments {
     base_url: Url,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 }
 
 #[derive(Parser)]
@@ -232,7 +232,7 @@ struct CreateArguments {
     base_url: Url,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 }
 
 #[derive(Parser)]
@@ -259,7 +259,7 @@ struct GetArguments {
     base_url: Url,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 }
 
 #[derive(Parser)]
@@ -275,7 +275,7 @@ struct DeleteArguments {
     base_url: Url,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 }
 
 #[derive(Parser, Debug)]
@@ -300,7 +300,7 @@ struct ListArguments {
     base_url: Url,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 }
 
 #[derive(Parser)]
@@ -332,7 +332,7 @@ struct UpdateArguments {
     base_url: Url,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 }
 
 #[derive(Parser)]
@@ -437,7 +437,7 @@ async fn load_template(template_path: &str) -> Result<String> {
 async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
     let base_url = args.base_url.clone();
 
-    let client = api_client_configuration(args.config.clone(), base_url.clone()).await?;
+    let client = api_client_configuration(args.profile.as_deref()).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let template_url_base = base_url.join(&format!("workspaces/{workspace_id}/templates/"))?;
 
@@ -468,7 +468,7 @@ async fn expand_template_api(
     workspace_id: Base64Uuid,
     template_name: Name,
 ) -> Result<Notebook> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.profile.as_deref()).await?;
 
     let notebook = template_expand(
         &client,
@@ -489,7 +489,7 @@ async fn expand_template_api(
 async fn expand_template_file(args: ExpandArguments, workspace_id: Base64Uuid) -> Result<Notebook> {
     let template = load_template(&args.template).await?;
 
-    let client = api_client_configuration(args.config, args.base_url.clone()).await?;
+    let client = api_client_configuration(args.profile.as_deref()).await?;
 
     let template_args = if let Some(args) = args.template_arguments {
         args.0
@@ -508,7 +508,7 @@ async fn expand_template_file(args: ExpandArguments, workspace_id: Base64Uuid) -
 
 async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
     // Load the notebook
-    let client = api_client_configuration(args.config.clone(), args.base_url.clone()).await?;
+    let client = api_client_configuration(args.profile.as_deref()).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let notebook_id =
         interactive::notebook_picker(&client, args.notebook_id, Some(workspace_id)).await?;
@@ -605,7 +605,7 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
 }
 
 async fn handle_create_command(args: CreateArguments) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.profile.as_deref()).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let name = interactive::name_opt(
@@ -641,7 +641,7 @@ async fn handle_create_command(args: CreateArguments) -> Result<()> {
 }
 
 async fn handle_get_command(args: GetArguments) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.profile.as_deref()).await?;
     let (workspace_id, template_name) =
         interactive::template_picker(&client, args.template_name, None).await?;
 
@@ -658,7 +658,7 @@ async fn handle_get_command(args: GetArguments) -> Result<()> {
 }
 
 async fn handle_delete_command(args: DeleteArguments) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.profile.as_deref()).await?;
     let (workspace_id, template_name) =
         interactive::template_picker(&client, args.template_name, None).await?;
 
@@ -673,7 +673,7 @@ async fn handle_delete_command(args: DeleteArguments) -> Result<()> {
 async fn handle_list_command(args: ListArguments) -> Result<()> {
     debug!("handle list command");
 
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.profile.as_deref()).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     let templates = template_list(
@@ -694,7 +694,7 @@ async fn handle_list_command(args: ListArguments) -> Result<()> {
 }
 
 async fn handle_update_command(args: UpdateArguments) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.profile.as_deref()).await?;
     let (workspace_id, template_name) =
         interactive::template_picker(&client, args.template_name, args.workspace_id).await?;
 

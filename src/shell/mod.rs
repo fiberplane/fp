@@ -9,7 +9,6 @@ use crate::interactive;
 use anyhow::Result;
 use clap::Parser;
 use fiberplane::base64uuid::Base64Uuid;
-use std::path::PathBuf;
 use std::time::Duration;
 use tracing::instrument;
 
@@ -31,7 +30,7 @@ pub struct Arguments {
     base_url: url::Url,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 }
 
 const TEXT_BUF_SIZE: usize = 256;
@@ -44,7 +43,7 @@ pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
         ));
     }
 
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.profile.as_deref()).await?;
     let notebook_id = interactive::notebook_picker(&client, args.notebook_id, None).await?;
 
     let launcher = ShellLauncher::new(notebook_id.into());

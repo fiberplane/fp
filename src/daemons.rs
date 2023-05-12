@@ -11,7 +11,7 @@ use fiberplane::models::names::Name;
 use fiberplane::models::proxies::{NewProxy, Proxy, ProxySummary};
 use petname::petname;
 use serde::Serialize;
-use std::{cmp::Ordering, collections::BTreeMap, path::PathBuf};
+use std::{cmp::Ordering, collections::BTreeMap};
 use tracing::info;
 use url::Url;
 
@@ -61,7 +61,7 @@ pub struct CreateArgs {
     base_url: Url,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 }
 
 #[derive(Parser)]
@@ -78,7 +78,7 @@ pub struct ListArgs {
     base_url: Url,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 }
 
 #[derive(Parser)]
@@ -95,7 +95,7 @@ pub struct DataSourcesArgs {
     base_url: Url,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 }
 
 #[derive(Parser)]
@@ -115,7 +115,7 @@ pub struct GetArgs {
     base_url: Url,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 }
 
 #[derive(Parser)]
@@ -131,7 +131,7 @@ pub struct DeleteArgs {
     base_url: Url,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 }
 
 /// A generic output for daemon related commands.
@@ -158,7 +158,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 async fn handle_create_command(args: CreateArgs) -> Result<()> {
     let default_name = Name::new(petname(2, "-")).expect("petname should be valid name");
     let name = name_req("Daemon name", args.name, Some(default_name))?;
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.profile.as_deref()).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     let mut new_proxy = NewProxy::builder().name(name).build();
@@ -189,7 +189,7 @@ struct ProxySummaryWithConnectedDataSources {
 }
 
 async fn handle_list_command(args: ListArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.profile.as_deref()).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let proxies = proxy_list(&client, workspace_id).await?;
     let data_sources = data_source_list(&client, workspace_id).await?;
@@ -249,7 +249,7 @@ async fn handle_list_command(args: ListArgs) -> Result<()> {
 }
 
 async fn handle_get_command(args: GetArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.profile.as_deref()).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let proxy_name = interactive::proxy_picker(
         &client,
@@ -270,7 +270,7 @@ async fn handle_get_command(args: GetArgs) -> Result<()> {
 }
 
 async fn handle_data_sources_command(args: DataSourcesArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.profile.as_deref()).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let data_sources = data_source_list(&client, workspace_id).await?;
 
@@ -286,7 +286,7 @@ async fn handle_data_sources_command(args: DataSourcesArgs) -> Result<()> {
 }
 
 async fn handle_delete_command(args: DeleteArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.profile.as_deref()).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let proxy_name = interactive::proxy_picker(
         &client,

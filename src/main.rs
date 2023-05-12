@@ -243,23 +243,42 @@ async fn main() {
         homepage: "https://fiberplane.com".into(),
     });
 
+    let mut cli_args = env::args();
+
+    // skip program name
+    let _ = cli_args.next();
+
+    // check if the second argument specifies a profile
+    let maybe_profile = cli_args.next();
+    let profile = maybe_profile
+        .as_ref()
+        .and_then(|input| input.strip_prefix('+'));
+
+    let clap_args = if let Some(profile) = profile {
+        let mut vec: Vec<_> = env::args_os()
+            .take(1)
+            .chain(env::args_os().skip(2))
+            .collect();
+
+        vec.push(format!("--profile={profile}").into());
+        vec
+    } else {
+        env::args_os().collect()
+    };
+
     // We would like to override the builtin version display behavior, so we
     // will try to parse the arguments. If it failed, we will check if it was
     // the DisplayVersion error and show our version, otherwise just fallback to
     // clap's handling.
-    let args = {
-        match Arguments::try_parse() {
-            Ok(arguments) => arguments,
-            Err(err) => match err.kind() {
-                clap::error::ErrorKind::DisplayVersion => {
-                    version::output_version().await;
-                    process::exit(0);
-                }
-                _ => {
-                    err.exit();
-                }
-            },
-        }
+    let args: Arguments = match Parser::try_parse_from(clap_args) {
+        Ok(arguments) => arguments,
+        Err(err) => match err.kind() {
+            clap::error::ErrorKind::DisplayVersion => {
+                version::output_version().await;
+                process::exit(0);
+            }
+            _ => err.exit(),
+        },
     };
 
     if let Err(err) = initialize_logger(&args) {
@@ -317,6 +336,7 @@ async fn main() {
         Users(args) => users::handle_command(args).await,
         Workspaces(args) => workspaces::handle_command(args).await,
         Webhooks(args) => webhooks::handle_command(args).await,
+        Profiles(args) => profiles::handle_command(args).await,
         Version(args) => version::handle_command(args).await,
         Completions { shell } => {
             let output = generate_completions(shell);
@@ -549,11 +569,11 @@ struct NewArguments {
     base_url: Url,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 }
 
 async fn handle_new_command(args: NewArguments) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url.clone()).await?;
+    let client = api_client_configuration(args.profile.as_deref()).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let title = if args.title.is_empty() {

@@ -1,4 +1,4 @@
-use anyhow::{anyhow, bail, Error, Result};
+use anyhow::{anyhow, bail, Result};
 use directories::ProjectDirs;
 use fiberplane::api_client::clients::{default_config, ApiClient};
 use hyper::http::HeaderValue;
@@ -73,7 +73,7 @@ pub async fn default_profile_name() -> Result<String> {
         match fs::read_to_string(FP_CONFIG_DIR.join("default_profile")).await {
             Ok(default_profile) => default_profile,
             Err(err) => match err.kind() {
-                ErrorKind::NotFound => "default.toml".to_string(),
+                ErrorKind::NotFound => "default".to_string(),
                 _ => bail!("unable to read `default_profile` file: {err}"),
             },
         },
@@ -81,7 +81,17 @@ pub async fn default_profile_name() -> Result<String> {
 }
 
 async fn default_profile_path() -> Result<PathBuf> {
-    Ok(FP_CONFIG_DIR.join(format!("{}.toml", default_profile_name()?)))
+    let default_profile = default_profile_name().await?;
+    Ok(FP_CONFIG_DIR.join(format!("{default_profile}.toml")))
+}
+
+pub(crate) async fn endpoint_url_for_endpoint(profile: Option<&str>) -> Result<String> {
+    let config = Config::load(profile).await?;
+
+    let endpoint = config
+        .endpoint
+        .unwrap_or_else(|| "https://studio.fiberplane.com".to_string());
+    Ok(endpoint)
 }
 
 pub(crate) async fn api_client_configuration(profile: Option<&str>) -> Result<ApiClient> {
@@ -162,7 +172,7 @@ async fn migrate() -> Result<()> {
     let new_config: Config = old_config.into();
 
     new_config.save(None).await?;
-    fs::remove_file(old_config).await?;
+    fs::remove_file(old_config_path).await?;
 
     info!("Successfully migrated to the new config format");
     Ok(())

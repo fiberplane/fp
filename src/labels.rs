@@ -5,7 +5,6 @@ use anyhow::Result;
 use clap::{Parser, ValueEnum};
 use fiberplane::api_client::{label_keys_list, label_values_list};
 use fiberplane::base64uuid::Base64Uuid;
-use std::path::PathBuf;
 use url::Url;
 
 #[derive(Parser)]
@@ -49,7 +48,7 @@ pub struct ListKeysArgs {
     base_url: Url,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 }
 
 #[derive(ValueEnum, Clone)]
@@ -62,7 +61,7 @@ enum ListKeysOutput {
 }
 
 async fn handle_list_keys_command(args: ListKeysArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.profile.as_deref()).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let prefix = interactive::text_opt("Prefix", args.prefix, None);
@@ -94,7 +93,7 @@ pub struct ListValuesArgs {
     base_url: Url,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 }
 
 #[derive(ValueEnum, Clone)]
@@ -107,7 +106,7 @@ enum ListValuesOutput {
 }
 
 async fn handle_list_values_command(args: ListValuesArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.profile.as_deref()).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let label_key = interactive::text_req("Label key", args.label_key, None)?;

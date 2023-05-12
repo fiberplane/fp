@@ -13,7 +13,7 @@ use fiberplane::models::data_sources::{DataSource, NewDataSource, UpdateDataSour
 use fiberplane::models::names::Name;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-use std::{path::PathBuf, str::FromStr};
+use std::str::FromStr;
 use url::Url;
 
 #[derive(Parser)]
@@ -95,7 +95,7 @@ struct CreateArgs {
     base_url: Url,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 }
 
 #[derive(Parser)]
@@ -116,7 +116,7 @@ struct GetArgs {
     base_url: Url,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 }
 
 #[derive(Parser)]
@@ -133,7 +133,7 @@ struct DeleteArgs {
     base_url: Url,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 }
 
 #[derive(Parser)]
@@ -162,7 +162,7 @@ struct UpdateArgs {
     base_url: Url,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 }
 
 #[derive(Parser)]
@@ -179,7 +179,7 @@ struct ListArgs {
     base_url: Url,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 }
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
@@ -196,7 +196,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 }
 
 async fn handle_create(args: CreateArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.profile.as_deref()).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let name = name_req("Data source name", args.name, None)?;
@@ -240,7 +240,7 @@ async fn handle_create(args: CreateArgs) -> Result<()> {
 }
 
 async fn handle_delete(args: DeleteArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.profile.as_deref()).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     let data_source = data_source_picker(&client, Some(workspace_id), args.name).await?;
@@ -251,7 +251,7 @@ async fn handle_delete(args: DeleteArgs) -> Result<()> {
 }
 
 async fn handle_get(args: GetArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.profile.as_deref()).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     let data_source = data_source_picker(&client, Some(workspace_id), args.name).await?;
@@ -266,7 +266,7 @@ async fn handle_get(args: GetArgs) -> Result<()> {
 }
 
 async fn handle_update(args: UpdateArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.profile.as_deref()).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     let data_source = data_source_picker(&client, Some(workspace_id), args.name).await?;
@@ -287,7 +287,7 @@ async fn handle_update(args: UpdateArgs) -> Result<()> {
 }
 
 async fn handle_list(args: ListArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.profile.as_deref()).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     let data_sources = data_source_list(&client, workspace_id).await?;

@@ -1,5 +1,5 @@
 use crate::config::{api_client_configuration_from_token, Config};
-use crate::Arguments;
+use crate::{config, Arguments};
 use anyhow::Error;
 use fiberplane::api_client::logout;
 use hyper::service::{make_service_fn, service_fn};
@@ -8,6 +8,7 @@ use qstring::QString;
 use std::convert::Infallible;
 use tokio::sync::broadcast;
 use tracing::{debug, error, info, warn};
+use url::Url;
 
 /// Run the OAuth flow and save the API token to the config
 ///
@@ -64,17 +65,18 @@ pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
     // flow is completed
     let port: u16 = server.local_addr().port();
     debug!("listening for the login redirect on port {}", port);
-    let login_url = format!(
-        "{}api/oidc/authorize/google?cli_redirect_port={}",
-        args.base_url, port
-    );
+
+    let base_url = Url::parse(&config::endpoint_url_for_endpoint(args.profile.as_deref()).await?)?;
+    let login_url = base_url.join(&format!(
+        "api/oidc/authorize/google?cli_redirect_port={port}"
+    ))?;
 
     // Open the user's web browser to start the login flow
-    if webbrowser::open(&login_url).is_err() {
-        info!("Please go to this URL to login: {}", login_url);
+    if webbrowser::open(login_url.as_str()).is_err() {
+        info!("Please go to this URL to login: {}", login_url.as_str());
     }
 
-    let mut config = Config::load(args.config).await?;
+    let mut config = Config::load(args.profile.as_deref()).await?;
 
     // Shut down the web server once the token is received
     server
@@ -86,15 +88,11 @@ pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
 
                     // Save the token to the config file
                     config.api_token = Some(token);
-                    match config.save().await {
+                    match config.save(args.profile.as_deref()).await {
                         Ok(_) => {
                             info!("You are logged in to Fiberplane");
                         }
-                        Err(e) => error!(
-                            "Error saving API token to config file {}: {:?}",
-                            config.path.display(),
-                            e
-                        ),
+                        Err(e) => error!("Error saving API token to config file: {:?}", e),
                     };
                 }
                 Err(_) => error!("login error"),
@@ -107,7 +105,7 @@ pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
 
 /// Logout from Fiberplane and delete the API Token from the config file
 pub async fn handle_logout_command(args: Arguments) -> Result<(), Error> {
-    let mut config = Config::load(args.config).await?;
+    let mut config = Config::load(args.profile.as_deref()).await?;
 
     match config.api_token {
         Some(token) => {
@@ -115,7 +113,7 @@ pub async fn handle_logout_command(args: Arguments) -> Result<(), Error> {
             logout(&api_config).await?;
 
             config.api_token = None;
-            config.save().await?;
+            config.save(args.profile.as_deref()).await?;
 
             info!("You are logged out");
         }

@@ -1,6 +1,6 @@
 use crate::config::{default_profile_name, Config, FP_CONFIG_DIR};
 use crate::interactive::{text_opt, text_req};
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use clap::Parser;
 use tracing::info;
 
@@ -22,7 +22,7 @@ enum SubCommand {
     Delete(DeleteArgs),
 
     /// Set a profile to a default profile
-    SetDefault(UpdateArgs),
+    SetDefault(SetDefaultArgs),
 }
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
@@ -74,7 +74,10 @@ async fn handle_profile_list() -> Result<()> {
 
     for entry in std::fs::read_dir(FP_CONFIG_DIR.as_path())? {
         let entry = entry?;
-        let file_name = entry.file_name().into_string()?;
+        let file_name = entry
+            .file_name()
+            .into_string()
+            .map_err(|_| anyhow!("failed to convert osstring to str"))?;
 
         if !file_name.ends_with(".toml") {
             continue;
@@ -125,6 +128,6 @@ async fn handle_profile_set_default(args: SetDefaultArgs) -> Result<()> {
 
     tokio::fs::write(FP_CONFIG_DIR.join("default_profile"), name).await?;
 
-    info!("Successfully set default profile to {name}");
+    info!("Successfully set default profile");
     Ok(())
 }

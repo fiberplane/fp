@@ -13,7 +13,6 @@ use fiberplane::models::names::Name;
 use fiberplane::models::sorting::{NotebookSortFields, SortDirection, ViewSortFields};
 use fiberplane::models::views::{NewView, RelativeTime, TimeUnit, UpdateView, View};
 use std::fmt::Display;
-use std::path::PathBuf;
 use time::format_description::well_known::Rfc3339;
 use tracing::info;
 use url::Url;
@@ -97,11 +96,11 @@ struct CreateArguments {
     base_url: Url,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 }
 
 async fn handle_create(args: CreateArguments) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.profile.as_deref()).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let name = name_opt("Name", args.name, None).unwrap();
@@ -167,11 +166,11 @@ struct ListArguments {
     base_url: Url,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 }
 
 async fn handle_list(args: ListArguments) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.profile.as_deref()).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
@@ -208,11 +207,11 @@ struct DeleteArguments {
     base_url: Url,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 }
 
 async fn handle_delete(args: DeleteArguments) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.profile.as_deref()).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let view_name = view_picker(&client, args.workspace_id, args.view_name).await?;
@@ -295,11 +294,11 @@ struct UpdateArguments {
     base_url: Url,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 }
 
 async fn handle_update(args: UpdateArguments) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.profile.as_deref()).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let view_name = view_picker(&client, args.workspace_id, args.view_name).await?;

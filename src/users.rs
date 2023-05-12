@@ -4,7 +4,6 @@ use anyhow::Result;
 use clap::{Parser, ValueEnum};
 use fiberplane::api_client::profile_get;
 use fiberplane::models::users::Profile;
-use std::path::PathBuf;
 use url::Url;
 
 #[derive(Parser)]
@@ -38,7 +37,7 @@ struct GetArgs {
     base_url: Url,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 }
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
@@ -48,7 +47,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 }
 
 async fn handle_get_profile_command(args: GetArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.profile.as_deref()).await?;
     let profile = profile_get(&client).await?;
 
     match args.output {

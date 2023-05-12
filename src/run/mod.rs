@@ -8,7 +8,7 @@ use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::notebooks::Cell;
 use futures::StreamExt;
 use std::io::ErrorKind;
-use std::{env, path::PathBuf, process::Stdio};
+use std::{env, process::Stdio};
 use tokio::io::{self, AsyncWriteExt};
 use tokio::{process::Command, signal};
 use tokio_util::io::ReaderStream;
@@ -36,7 +36,7 @@ pub struct Arguments {
     base_url: Url,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     /// Output type to display
     #[clap(long, short, default_value = "command", value_enum)]
@@ -56,7 +56,7 @@ enum ExecOutput {
 }
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
-    let client = api_client_configuration(args.config.clone(), args.base_url.clone()).await?;
+    let client = api_client_configuration(args.profile.as_deref()).await?;
     let command = args.command.join(" ");
 
     let workspace_id = interactive::workspace_picker(&client, args.workspace_id).await?;
