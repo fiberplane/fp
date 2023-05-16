@@ -8,7 +8,7 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 
 ### Added
 
--
+- Added builds for Linux ARM64
 
 ### Changed
 
