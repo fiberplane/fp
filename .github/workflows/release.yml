@@ -99,10 +99,9 @@ jobs:
           mkdir -p /tmp/artifact/
           cp "target/${{ matrix.target }}/release/fp" /tmp/artifact/
 
-      # We are not able to run the ARM based MacOS binary, since this is running
-      # on a x86_64 MacOS machine.
+      # We only run x86_64 binaries because this is the platform github runners use
       - name: Release version information
-        if: matrix.build != 'macos_aarch64'
+        if: matrix.build == 'linux_x86_64' || matrix.build == 'macos_x86_64'
         run: |
           target/${{ matrix.target }}/release/fp version -o verbose
           target/${{ matrix.target }}/release/fp version -o json > /tmp/artifact/manifest.json
