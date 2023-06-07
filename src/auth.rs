@@ -20,6 +20,8 @@ pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
     // so that we can move the tx into the service handler closures
     let (tx, mut rx) = broadcast::channel(1);
 
+
+
     // Bind to a random local port
     let redirect_server_addr = ([127, 0, 0, 1], 0).into();
     let make_service = make_service_fn(move |_| {
@@ -65,7 +67,7 @@ pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
     let port: u16 = server.local_addr().port();
     debug!("listening for the login redirect on port {}", port);
     let login_url = format!(
-        "{}api/oidc/authorize/google?cli_redirect_port={}",
+        "{}signin?cli_redirect_port={}",
         args.base_url, port
     );
 
