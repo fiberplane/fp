@@ -20,8 +20,6 @@ pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
     // so that we can move the tx into the service handler closures
     let (tx, mut rx) = broadcast::channel(1);
 
-
-
     // Bind to a random local port
     let redirect_server_addr = ([127, 0, 0, 1], 0).into();
     let make_service = make_service_fn(move |_| {
@@ -65,11 +63,9 @@ pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
     // API can redirect the browser back to us after the login
     // flow is completed
     let port: u16 = server.local_addr().port();
-    debug!("listening for the login redirect on port {}", port);
-    let login_url = format!(
-        "{}signin?cli_redirect_port={}",
-        args.base_url, port
-    );
+    let login_url = format!("{}signin?cli_redirect_port={}", args.base_url, port);
+
+    debug!("listening for the login redirect on port {port} (redirect url: {login_url})");
 
     // Open the user's web browser to start the login flow
     if webbrowser::open(&login_url).is_err() {
