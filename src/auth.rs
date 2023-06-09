@@ -63,11 +63,9 @@ pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
     // API can redirect the browser back to us after the login
     // flow is completed
     let port: u16 = server.local_addr().port();
-    debug!("listening for the login redirect on port {}", port);
-    let login_url = format!(
-        "{}api/oidc/authorize/google?cli_redirect_port={}",
-        args.base_url, port
-    );
+    let login_url = format!("{}signin?cli_redirect_port={}", args.base_url, port);
+
+    debug!("listening for the login redirect on port {port} (redirect url: {login_url})");
 
     // Open the user's web browser to start the login flow
     if webbrowser::open(&login_url).is_err() {
