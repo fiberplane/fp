@@ -1,7 +1,7 @@
 on:
   release:
     types:
-      - created
+      - published
   workflow_dispatch:
 
 name: Publish binaries
@@ -10,7 +10,7 @@ env:
   DISABLE_VERSION_CHECK: true
 
 jobs:
-  validate-release:
+  validate-version:
     name: Validate release (${{ github.event.release.tag_name }})
     runs-on: ubuntu-latest
     steps:
@@ -26,9 +26,24 @@ jobs:
             exit 1
           fi
 
+  test-release:
+    needs: validate-version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: de-vri-es/setup-git-credentials@v2
+        with:
+          credentials: "https://fiberplanebot:${{ secrets.PRIVATE_GITHUB_TOKEN }}@github.com/"
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Run tests
+        run: cargo test --release
+
   build-upload-assets:
     name: Build assets for ${{ matrix.build }} (${{ github.event.release.tag_name }})
-    needs: validate-release
+    needs: test-release
     runs-on: ${{ matrix.os }}
     env:
       CARGO: cargo
