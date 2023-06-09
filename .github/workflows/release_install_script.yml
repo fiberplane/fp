@@ -7,15 +7,17 @@ jobs:
   release-install-script:
     name: Releasing install script
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v3
 
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v1-node16
+        uses: aws-actions/configure-aws-credentials@v2
         with:
-          aws-access-key-id: ${{ secrets.DEPLOY_AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.DEPLOY_AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-central-1
+          role-to-assume: arn:aws:iam::901443922744:role/github_actions
 
       - name: Upload install script to S3
         run: |
