@@ -6,18 +6,14 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+TBD
+
+## [2.11.0]
+
 ### Added
 
 - Added builds for Linux ARM64
 - Added support for "Sign in with GitHub" (#248)
-
-### Changed
-
--
-
-### Fixed
-
--
 
 ## [2.9.0]
 
