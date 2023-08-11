@@ -1,6 +1,6 @@
 [package]
 name = "fp"
-version = "2.12.0"
+version = "2.12.0-beta.1"
 authors = ["Team Fiberplane"]
 edition = "2018"
 build = "build.rs"
@@ -19,7 +19,7 @@ cli-table = "0.4"
 crossterm = { version = "0.26.0", features = ["event-stream"] }
 directories = "4.0.1"
 dialoguer = { version = "0.10.1", features = ["fuzzy-select"] }
-fiberplane = { version = "1.0.0-beta.3", features = [
+fiberplane = { version = "1.0.0-beta.4", features = [
     "api-client",
     "base64uuid-creation",
     "clap",

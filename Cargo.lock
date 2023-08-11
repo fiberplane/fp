@@ -921,9 +921,9 @@ dependencies = [
 
 [[package]]
 name = "fiberplane"
-version = "1.0.0-beta.3"
+version = "1.0.0-beta.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01f06b2335db7ef381fe146a29a79ad079745521e13fcc90a7939ec73b5b957c"
+checksum = "a6c936da7f0ac963ea198039a59ae49a9f79be2a281bedd942ffa60151e1962e"
 dependencies = [
  "base64uuid",
  "fiberplane-api-client",
@@ -935,9 +935,9 @@ dependencies = [
 
 [[package]]
 name = "fiberplane-api-client"
-version = "1.0.0-beta.3"
+version = "1.0.0-beta.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ff0d6481d922dc76f7c9f313b94a9988f02b6c69fb3372cb8a9d76c1f767435"
+checksum = "1ec2e7da5fe07f69ac6a7af99e47137bece98c45585b6ea2d2e65bae4572f608"
 dependencies = [
  "anyhow",
  "base64uuid",
@@ -951,9 +951,9 @@ dependencies = [
 
 [[package]]
 name = "fiberplane-markdown"
-version = "1.0.0-beta.3"
+version = "1.0.0-beta.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c60697e2bb5348299a254034f808996906ab2f0daa27fc78144ff5a313a625c3"
+checksum = "a74c358de92bace498f81f08822963c6e4e55bc0c280ee37a48131317bcfefd0"
 dependencies = [
  "fiberplane-models",
  "pulldown-cmark",
@@ -964,9 +964,9 @@ dependencies = [
 
 [[package]]
 name = "fiberplane-models"
-version = "1.0.0-beta.3"
+version = "1.0.0-beta.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47c146ebade86a9d6a979e43806f2a815e25df51580b0d81ca54a1430414f11b"
+checksum = "e3203d7a0aeec02d76b487c2c70a230aeb1c5ec7ef68dd3f2a830211c920124e"
 dependencies = [
  "base64",
  "base64uuid",
@@ -988,9 +988,9 @@ dependencies = [
 
 [[package]]
 name = "fiberplane-provider-runtime"
-version = "2.0.0-beta.3"
+version = "2.0.0-beta.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0182a34b4545145c83057886a784823fed51dd83031cf95549195c79c096da4"
+checksum = "570b18e0a4e9b69f969b92910bb1c21d9bfed8adcc37d5922e92540e030e5744"
 dependencies = [
  "bytes",
  "fiberplane-models",
@@ -1009,9 +1009,9 @@ dependencies = [
 
 [[package]]
 name = "fiberplane-templates"
-version = "1.0.0-beta.3"
+version = "1.0.0-beta.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "956b163dd327b5e0c14cb13282823630755013eed6167caa11846a84f7b4ed8b"
+checksum = "031904b84d31559ee5f7ae064dba05b667c37c5e5779e58bc7862021e3ff9458"
 dependencies = [
  "base64uuid",
  "fiberplane-models",
@@ -1078,7 +1078,7 @@ dependencies = [
 
 [[package]]
 name = "fp"
-version = "2.12.0"
+version = "2.12.0-beta.1"
 dependencies = [
  "abort-on-drop",
  "anyhow",
