@@ -1,6 +1,6 @@
 [package]
 name = "fp"
-version = "2.13.0"
+version = "2.14.0"
 authors = ["Team Fiberplane"]
 edition = "2018"
 build = "build.rs"
@@ -19,7 +19,7 @@ cli-table = "0.4"
 crossterm = { version = "0.26.0", features = ["event-stream"] }
 directories = "4.0.1"
 dialoguer = { version = "0.10.1", features = ["fuzzy-select"] }
-fiberplane = { version = "1.0.0-beta.3", features = [
+fiberplane = { version = "1.0.0-beta.6", features = [
     "api-client",
     "base64uuid-creation",
     "clap",
@@ -78,7 +78,7 @@ webbrowser = "0.8.7"
 anyhow = "1.0"
 vergen = "7"
 
-[patch.crates-io]
+#[patch.crates-io]
 #fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane.git", branch = "main" }
 #fp-bindgen-support = { git = "ssh://git@github.com/fiberplane/fp-bindgen.git", branch = "release-3.0.0" }
 #fp-bindgen-macros = { git = "ssh://git@github.com/fiberplane/fp-bindgen.git", branch = "release-3.0.0" }
