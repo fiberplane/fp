@@ -1,4 +1,5 @@
 use anyhow::{anyhow, bail, Context, Result};
+use base64::prelude::*;
 use clap::Parser;
 use fiberplane::provider_runtime::spec::types::{Blob, ProviderConfig, ProviderRequest};
 
@@ -80,7 +81,7 @@ async fn handle_invoke2_command(args: InvokeArguments) -> Result<()> {
                     .context("Unable to transcode MessagePack to JSON")?;
                 println!("{}", serde_json::to_string_pretty(&value)?);
             } else {
-                println!("{}", base64::encode(blob.data.as_ref()));
+                println!("{}", BASE64_STANDARD.encode(blob.data.as_ref()));
             }
             Ok(())
         }
