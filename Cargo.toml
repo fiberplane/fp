@@ -18,7 +18,7 @@ clap-markdown = "0.1.3"
 cli-table = "0.4"
 crossterm = { version = "0.27.0", features = ["event-stream"] }
 directories = "5.0.1"
-dialoguer = { version = "0.10.1", features = ["fuzzy-select"] }
+dialoguer = { version = "0.11.0", features = ["fuzzy-select"] }
 fiberplane = { version = "1.0.0-beta.7", features = [
     "api-client",
     "base64uuid-creation",

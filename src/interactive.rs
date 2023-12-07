@@ -172,14 +172,14 @@ where
         return argument;
     }
 
+    let default_selected = if default { 0 } else { 1 };
+
     let theme = default_theme();
-    let mut select = Select::with_theme(&theme);
-    select.with_prompt(prompt).item("Yes").item("No");
-    if default {
-        select.default(0);
-    } else {
-        select.default(1);
-    }
+    let select = Select::with_theme(&theme)
+        .with_prompt(prompt)
+        .item("Yes")
+        .item("No")
+        .default(default_selected);
     let input = select.interact();
 
     match input {
