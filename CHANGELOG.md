@@ -6,7 +6,7 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
-TBD
+- Update all dependencies, except `hyper` (#260)
 
 ## [2.11.0]
 
