@@ -14,6 +14,7 @@ use fiberplane::models::sorting::{NotebookSortFields, Pagination, SortDirection}
 use fiberplane::models::webhooks::{InvalidWebhookCategoryError, WebhookCategory};
 use indicatif::ProgressBar;
 use std::convert::TryInto;
+use std::time::Duration;
 use strum::IntoEnumIterator;
 
 pub fn default_theme() -> impl theme::Theme {
@@ -237,7 +238,7 @@ pub async fn notebook_picker_with_prompt(
 
     let pb = ProgressBar::new_spinner();
     pb.set_message("Fetching recent notebooks");
-    pb.enable_steady_tick(100);
+    pb.enable_steady_tick(Duration::from_millis(100));
 
     let results = notebook_search(
         client,
@@ -300,7 +301,7 @@ pub async fn template_picker(
 
     let pb = ProgressBar::new_spinner();
     pb.set_message("Fetching templates");
-    pb.enable_steady_tick(100);
+    pb.enable_steady_tick(Duration::from_millis(100));
 
     let results =
         template_list(client, workspace_id, Some("updated_at"), Some("descending")).await?;
@@ -362,7 +363,7 @@ pub async fn snippet_picker(
 
     let pb = ProgressBar::new_spinner();
     pb.set_message("Fetching snippets");
-    pb.enable_steady_tick(100);
+    pb.enable_steady_tick(Duration::from_millis(100));
 
     let results =
         snippet_list(config, workspace_id, Some("updated_at"), Some("descending")).await?;
@@ -422,7 +423,7 @@ pub async fn trigger_picker(
 
     let pb = ProgressBar::new_spinner();
     pb.set_message("Fetching triggers");
-    pb.enable_steady_tick(100);
+    pb.enable_steady_tick(Duration::from_millis(100));
 
     let results = trigger_list(client, workspace_id).await?;
 
@@ -475,7 +476,7 @@ pub async fn proxy_picker(
 
     let pb = ProgressBar::new_spinner();
     pb.set_message("Fetching daemons");
-    pb.enable_steady_tick(100);
+    pb.enable_steady_tick(Duration::from_millis(100));
 
     let results = proxy_list(client, workspace_id).await?;
 
@@ -524,7 +525,7 @@ pub async fn data_source_picker(
 
     let pb = ProgressBar::new_spinner();
     pb.set_message("Fetching data sources");
-    pb.enable_steady_tick(100);
+    pb.enable_steady_tick(Duration::from_millis(100));
 
     let mut results = data_source_list(client, workspace_id).await?;
 
@@ -575,7 +576,7 @@ pub async fn view_picker(
 
     let pb = ProgressBar::new_spinner();
     pb.set_message("Fetching views");
-    pb.enable_steady_tick(100);
+    pb.enable_steady_tick(Duration::from_millis(100));
 
     let results = views_get(client, workspace_id, None, None, None, None).await?;
 
@@ -637,7 +638,7 @@ pub async fn workspace_picker_with_prompt(
 
     let pb = ProgressBar::new_spinner();
     pb.set_message("Fetching workspaces");
-    pb.enable_steady_tick(100);
+    pb.enable_steady_tick(Duration::from_millis(100));
 
     let results = workspace_list(client, Some("name"), Some("ascending")).await?;
 
@@ -687,7 +688,7 @@ pub async fn workspace_user_picker(
 
     let pb = ProgressBar::new_spinner();
     pb.set_message("Fetching workspace users");
-    pb.enable_steady_tick(100);
+    pb.enable_steady_tick(Duration::from_millis(100));
 
     let results = workspace_users_list(client, *workspace, Some("name"), Some("ascending")).await?;
 
@@ -736,7 +737,7 @@ pub async fn webhook_picker(
 
     let pb = ProgressBar::new_spinner();
     pb.set_message("Fetching webhooks");
-    pb.enable_steady_tick(100);
+    pb.enable_steady_tick(Duration::from_millis(100));
 
     let max = Pagination::max();
     let results = webhooks_list(
@@ -793,7 +794,7 @@ pub async fn webhook_delivery_picker(
 
     let pb = ProgressBar::new_spinner();
     pb.set_message("Fetching webhook deliveries");
-    pb.enable_steady_tick(100);
+    pb.enable_steady_tick(Duration::from_millis(100));
 
     let max = Pagination::max();
     let results = webhook_delivery_list(

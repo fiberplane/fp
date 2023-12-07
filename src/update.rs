@@ -55,6 +55,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
     let pb = ProgressBar::new(total_size);
     pb.set_style(ProgressStyle::default_bar()
         .template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})")
+        .expect("the template should never be invalid")
         .progress_chars("#>-"));
 
     let mut sha256_hasher = Sha256::new();
