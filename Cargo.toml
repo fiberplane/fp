@@ -47,7 +47,7 @@ petname = { version = "1.1.1", default-features = false, features = [
     "std_rng",
     "default_dictionary",
 ] }
-portable-pty = "0.7.0"
+portable-pty = "0.8.0"
 qstring = "0.7.2"
 rand = "0.8.5"
 regex = "1.5.5"

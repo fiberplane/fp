@@ -73,7 +73,7 @@ impl PtyTerminal {
             Self {
                 child_waiter,
                 stdin_task: ChildTask::from(tokio::spawn(Self::forward_stdin(
-                    Unblock::new(pty.master.try_clone_writer()?),
+                    Unblock::new(pty.master.take_writer()?),
                     launcher,
                 )))
                 .fuse(),
