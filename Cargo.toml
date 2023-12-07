@@ -61,7 +61,7 @@ serde = { version = "1.0.123", features = ["derive"] }
 serde_json = "1.0"
 sha2 = "0.10.2"
 strum = "0.24" # match what fiberplane-models uses
-sysinfo = "0.27.7"
+sysinfo = "0.29.0"
 termwiz = "0.20.0"
 time = { version = "0.3.11", features = ["macros"] }
 tokio = { version = "1", features = ["full"] }
