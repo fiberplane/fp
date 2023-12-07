@@ -2,10 +2,18 @@ use crate::config::{api_client_configuration_from_token, Config};
 use crate::Arguments;
 use anyhow::Error;
 use fiberplane::api_client::logout;
-use hyper::service::{make_service_fn, service_fn};
-use hyper::{Body, Response, Server, StatusCode};
+use futures_util::Future;
+use http_body_util::Full;
+use hyper::body::Bytes;
+use hyper::server::conn::http1;
+use hyper::service::Service;
+use hyper::{Request, Response, StatusCode};
+use hyper_util::rt::TokioIo;
 use qstring::QString;
-use std::convert::Infallible;
+use std::net::SocketAddr;
+use std::pin::Pin;
+use tokio::net::TcpListener;
+use tokio::select;
 use tokio::sync::broadcast;
 use tracing::{debug, error, info, warn};
 
@@ -16,72 +24,56 @@ use tracing::{debug, error, info, warn};
 /// the login flow is complete, the browser will redirect back
 /// to the local HTTP server with the API token in the query string.
 pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
+    let mut config = Config::load(args.config).await?;
+
     // Note this needs to be a broadcast channel, even though we are only using it once,
     // so that we can move the tx into the service handler closures
     let (tx, mut rx) = broadcast::channel(1);
 
     // Bind to a random local port
-    let redirect_server_addr = ([127, 0, 0, 1], 0).into();
-    let make_service = make_service_fn(move |_| {
-        let tx = tx.clone();
+    let addr = SocketAddr::from(([127, 0, 0, 1], 0));
+    // info!("Local redirect server listening on {}", addr.local) TODO!
+    let listener = TcpListener::bind(addr).await?;
 
-        async move {
-            Ok::<_, Infallible>(service_fn(move |req| {
-                let token = req
-                    .uri()
-                    .query()
-                    .and_then(|query| QString::from(query).get("token").map(String::from));
-                let tx = tx.clone();
-
-                async move {
-                    match token {
-                        Some(token) => {
-                            tx.send(token).expect("error sending token via channel");
-                            Ok::<_, Error>(
-                                Response::builder()
-                                    .status(StatusCode::OK)
-                                    .body(Body::from(
-                                        "You have been logged in to the CLI. You can now close this tab.",
-                                    ))
-                                    .unwrap(),
-                            )
-                        }
-                        None => Ok::<_, Error>(
-                            Response::builder()
-                                .status(StatusCode::BAD_REQUEST)
-                                .body(Body::from("Expected token query string parameter"))
-                                .unwrap(),
-                        ),
-                    }
-                }
-            }))
-        }
-    });
-    let server = Server::bind(&redirect_server_addr).serve(make_service);
-
+    let port: u16 = listener.local_addr()?.port();
     // Include the port of the local HTTP server so the
     // API can redirect the browser back to us after the login
     // flow is completed
-    let port: u16 = server.local_addr().port();
     let login_url = format!("{}signin?cli_redirect_port={}", args.base_url, port);
-
     debug!("listening for the login redirect on port {port} (redirect url: {login_url})");
+
+    // Start the local HTTP server
+    tokio::task::spawn(async move {
+        loop {
+            let local_tx = tx.clone();
+
+            let (stream, _) = listener
+                .accept()
+                .await
+                .expect("unable to accept connection");
+            let io = TokioIo::new(stream);
+
+            tokio::task::spawn(async move {
+                if let Err(err) = http1::Builder::new()
+                    .serve_connection(io, LoginRedirectServer { tx: local_tx })
+                    .await
+                {
+                    println!("Error serving connection: {:?}", err);
+                }
+            });
+        }
+    });
 
     // Open the user's web browser to start the login flow
     if webbrowser::open(&login_url).is_err() {
         info!("Please go to this URL to login: {}", login_url);
     }
 
-    let mut config = Config::load(args.config).await?;
-
-    // Shut down the web server once the token is received
-    server
-        .with_graceful_shutdown(async move {
-            // Wait for the token to be received
-            match rx.recv().await {
+    // wait for ctrl+c or a token to be received on the token channel
+    select! {
+        token = rx.recv() => {
+            match token {
                 Ok(token) => {
-                    debug!("api token: {}", token);
-
                     // Save the token to the config file
                     config.api_token = Some(token);
                     match config.save().await {
@@ -97,8 +89,8 @@ pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
                 }
                 Err(_) => error!("login error"),
             }
-        })
-        .await?;
+       }
+    };
 
     Ok(())
 }
@@ -123,4 +115,43 @@ pub async fn handle_logout_command(args: Arguments) -> Result<(), Error> {
     }
 
     Ok(())
+}
+
+struct LoginRedirectServer {
+    tx: broadcast::Sender<String>,
+}
+
+impl Service<Request<hyper::body::Incoming>> for LoginRedirectServer {
+    type Response = Response<Full<Bytes>>;
+    type Error = hyper::Error;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
+
+    fn call(&self, req: Request<hyper::body::Incoming>) -> Self::Future {
+        let token = req
+            .uri()
+            .query()
+            .and_then(|query| QString::from(query).get("token").map(String::from));
+
+        let res = match token {
+            Some(token) => {
+                self.tx
+                    .send(token)
+                    .expect("error sending token via channel");
+                Response::builder()
+                    .status(StatusCode::OK)
+                    .body(Full::new(Bytes::from(
+                        "You have been logged in to the CLI. You can now close this tab.",
+                    )))
+                    .unwrap()
+            }
+            None => Response::builder()
+                .status(StatusCode::BAD_REQUEST)
+                .body(Full::new(Bytes::from(
+                    "Expected token query string parameter",
+                )))
+                .unwrap(),
+        };
+
+        Box::pin(async { Ok(res) })
+    }
 }
