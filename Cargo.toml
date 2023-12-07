@@ -76,7 +76,7 @@ webbrowser = "0.8.7"
 
 [build-dependencies]
 anyhow = "1.0"
-vergen = "7"
+vergen = { version = "8.0.0", features = ["build", "cargo", "git", "gitcl", "rustc", "si"] }
 
 [patch.crates-io]
 # fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane.git", branch = "main" }

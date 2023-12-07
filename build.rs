@@ -1,7 +1,14 @@
-use anyhow::Result;
-use vergen::{vergen, Config};
+use std::error::Error;
+use vergen::EmitBuilder;
 
-fn main() -> Result<()> {
-    // Generate the default 'cargo:' instruction output
-    vergen(Config::default())
+fn main() -> Result<(), Box<dyn Error>> {
+    // Emit the instructions
+    EmitBuilder::builder()
+        .all_build()
+        .all_cargo()
+        .all_git()
+        .all_rustc()
+        .all_sysinfo()
+        .emit()?;
+    Ok(())
 }

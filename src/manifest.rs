@@ -20,7 +20,7 @@ impl Manifest {
     pub fn from_env() -> Manifest {
         Manifest {
             build_timestamp: env!("VERGEN_BUILD_TIMESTAMP").to_owned(),
-            build_version: env!("VERGEN_GIT_SEMVER").to_owned(),
+            build_version: env!("CARGO_PKG_VERSION").to_owned(),
             commit_date: env!("VERGEN_GIT_COMMIT_TIMESTAMP").to_owned(),
             commit_sha: env!("VERGEN_GIT_SHA").to_owned(),
             commit_branch: env!("VERGEN_GIT_BRANCH").to_owned(),
@@ -29,7 +29,7 @@ impl Manifest {
             rustc_host_triple: env!("VERGEN_RUSTC_HOST_TRIPLE").to_owned(),
             rustc_commit_sha: env!("VERGEN_RUSTC_COMMIT_HASH").to_owned(),
             cargo_target_triple: env!("VERGEN_CARGO_TARGET_TRIPLE").to_owned(),
-            cargo_profile: env!("VERGEN_CARGO_PROFILE").to_owned(),
+            cargo_profile: env!("VERGEN_CARGO_OPT_LEVEL").to_owned(),
         }
     }
 }
@@ -47,7 +47,7 @@ impl GenericKeyValue {
             GenericKeyValue::new("rustc Host Triple:", manifest.rustc_host_triple),
             GenericKeyValue::new("rustc Commit SHA:", manifest.rustc_commit_sha),
             GenericKeyValue::new("cargo Target Triple:", manifest.cargo_target_triple),
-            GenericKeyValue::new("cargo Profile:", manifest.cargo_profile),
+            GenericKeyValue::new("cargo Opt Level:", manifest.cargo_profile),
         ]
     }
 }
