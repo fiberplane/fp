@@ -96,6 +96,9 @@ struct CreateArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 #[derive(Parser)]
@@ -117,6 +120,9 @@ struct GetArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 #[derive(Parser)]
@@ -134,6 +140,9 @@ struct DeleteArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 #[derive(Parser)]
@@ -163,6 +172,9 @@ struct UpdateArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 #[derive(Parser)]
@@ -180,6 +192,9 @@ struct ListArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
@@ -196,7 +211,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 }
 
 async fn handle_create(args: CreateArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let name = name_req("Data source name", args.name, None)?;
@@ -240,7 +255,7 @@ async fn handle_create(args: CreateArgs) -> Result<()> {
 }
 
 async fn handle_delete(args: DeleteArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     let data_source = data_source_picker(&client, Some(workspace_id), args.name).await?;
@@ -251,7 +266,7 @@ async fn handle_delete(args: DeleteArgs) -> Result<()> {
 }
 
 async fn handle_get(args: GetArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     let data_source = data_source_picker(&client, Some(workspace_id), args.name).await?;
@@ -266,7 +281,7 @@ async fn handle_get(args: GetArgs) -> Result<()> {
 }
 
 async fn handle_update(args: UpdateArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     let data_source = data_source_picker(&client, Some(workspace_id), args.name).await?;
@@ -287,7 +302,7 @@ async fn handle_update(args: UpdateArgs) -> Result<()> {
 }
 
 async fn handle_list(args: ListArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     let data_sources = data_source_list(&client, workspace_id).await?;

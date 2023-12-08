@@ -39,6 +39,9 @@ struct GetArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
@@ -48,7 +51,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 }
 
 async fn handle_get_profile_command(args: GetArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let profile = profile_get(&client).await?;
 
     match args.output {

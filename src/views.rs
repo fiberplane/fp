@@ -98,10 +98,13 @@ struct CreateArguments {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_create(args: CreateArguments) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let name = name_opt("Name", args.name, None).unwrap();
@@ -168,10 +171,13 @@ struct ListArguments {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_list(args: ListArguments) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
@@ -209,10 +215,13 @@ struct DeleteArguments {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_delete(args: DeleteArguments) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let view_name = view_picker(&client, args.workspace_id, args.view_name).await?;
@@ -296,10 +305,13 @@ struct UpdateArguments {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_update(args: UpdateArguments) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let view_name = view_picker(&client, args.workspace_id, args.view_name).await?;

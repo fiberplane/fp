@@ -166,10 +166,13 @@ pub struct CreateArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_create_command(args: CreateArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url.clone()).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url.clone()).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let labels = args.labels.into_iter().map(Into::into).collect();
@@ -248,10 +251,13 @@ pub struct DuplicateArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_duplicate_command(args: DuplicateArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url.clone()).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url.clone()).await?;
 
     let notebook_id = interactive::notebook_picker_with_prompt(
         "Source Notebook",
@@ -320,10 +326,13 @@ pub struct GetArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_get_command(args: GetArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let notebook_id = notebook_picker(&client, args.notebook_id, args.workspace_id).await?;
 
     let notebook = notebook_get(&client, notebook_id).await?;
@@ -356,10 +365,13 @@ pub struct ListArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_list_command(args: ListArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let notebooks = notebook_list(&client, workspace_id).await?;
@@ -408,10 +420,13 @@ pub struct SearchArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_search_command(args: SearchArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let mut search_params = NotebookSearch::default();
@@ -465,10 +480,13 @@ pub struct OpenArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_open_command(args: OpenArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url.clone()).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url.clone()).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let notebook_id = notebook_picker(&client, args.notebook_id, None).await?;
 
@@ -497,10 +515,13 @@ pub struct DeleteArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_delete_command(args: DeleteArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let notebook_id = notebook_picker(&client, args.notebook_id, args.workspace_id).await?;
 
     notebook_delete(&client, notebook_id)
@@ -528,16 +549,19 @@ pub struct AppendCellArgs {
     #[clap(from_global)]
     base_url: Url,
 
-    #[clap(from_global)]
-    config: Option<PathBuf>,
-
     /// Output type to display
     #[clap(long, short, default_value = "table", value_enum)]
     output: CellOutput,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_append_cell_command(args: AppendCellArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let notebook_id = notebook_picker(&client, args.notebook_id, None).await?;
 
     let cell = if let Some(content) = args.text {
@@ -603,10 +627,13 @@ pub struct InsertSnippetArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 pub(crate) async fn handle_insert_snippet_command(args: InsertSnippetArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url.clone()).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url.clone()).await?;
 
     let workspace_id = workspace_picker_with_prompt(
         "Workspace of the snippet and notebook",
@@ -675,10 +702,13 @@ struct FrontMatterUpdateArguments {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_front_matter_update_command(args: FrontMatterUpdateArguments) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let notebook_id = notebook_picker(&client, args.notebook_id, Some(workspace_id)).await?;
@@ -704,10 +734,13 @@ struct FrontMatterClearArguments {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_front_matter_clear_command(args: FrontMatterClearArguments) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let notebook_id = notebook_picker(&client, args.notebook_id, Some(workspace_id)).await?;

@@ -146,10 +146,13 @@ struct CreateArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_workspace_create(args: CreateArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
     let name = name_opt("Unique workspace name", args.name, None)
         .ok_or_else(|| anyhow!("Name is required"))?;
@@ -183,10 +186,13 @@ struct DeleteArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_workspace_delete(args: DeleteArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     workspace_delete(&client, workspace_id).await?;
@@ -222,10 +228,13 @@ struct ListArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_workspace_list(args: ListArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
     let list = workspace_list(
         &client,
@@ -254,10 +263,13 @@ struct LeaveArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_workspace_leave(args: LeaveArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     workspace_leave(&client, workspace_id).await?;
@@ -289,10 +301,13 @@ struct InviteCreateArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_invite_create(args: InviteCreateArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let email = text_req("Email", args.email, None)?;
 
@@ -348,10 +363,13 @@ struct InviteListArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_invite_list(args: InviteListArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     let invites = workspace_invite_get(
@@ -384,10 +402,13 @@ struct InviteDeleteArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_invite_delete(args: InviteDeleteArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
     workspace_invite_delete(&client, args.invite_id).await?;
 
@@ -426,10 +447,13 @@ struct UserListArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_user_list(args: UserListArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     let users = workspace_users_list(
@@ -468,10 +492,13 @@ struct UserUpdateArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_user_update(args: UserUpdateArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let user = workspace_user_picker(&client, &workspace_id, args.user_id).await?;
@@ -501,10 +528,13 @@ struct UserDeleteArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_user_delete(args: UserDeleteArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let user = workspace_user_picker(&client, &workspace_id, args.user_id).await?;
@@ -542,6 +572,9 @@ struct MoveOwnerArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 #[derive(Parser)]
@@ -558,6 +591,9 @@ struct ChangeNameArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 #[derive(Parser)]
@@ -586,6 +622,9 @@ pub(crate) struct GetDefaultDataSourcesArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 #[derive(Parser)]
@@ -606,6 +645,9 @@ pub(crate) struct SetDefaultDataSourcesArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 #[derive(Parser)]
@@ -622,10 +664,13 @@ pub(crate) struct UnsetDefaultDataSourcesArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_move_owner(args: MoveOwnerArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     let new_owner = workspace_user_picker(&client, &workspace_id, args.new_owner_id).await?;
@@ -642,7 +687,7 @@ async fn handle_move_owner(args: MoveOwnerArgs) -> Result<()> {
 }
 
 async fn handle_change_name(args: ChangeNameArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     workspace_update(
@@ -659,7 +704,7 @@ async fn handle_change_name(args: ChangeNameArgs) -> Result<()> {
 }
 
 async fn handle_get_default_data_sources(args: GetDefaultDataSourcesArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     let default_data_sources = workspace_get(&client, workspace_id)
@@ -677,7 +722,7 @@ async fn handle_get_default_data_sources(args: GetDefaultDataSourcesArgs) -> Res
 }
 
 async fn handle_set_default_data_source(args: SetDefaultDataSourcesArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     let data_source =
@@ -721,7 +766,7 @@ async fn handle_set_default_data_source(args: SetDefaultDataSourcesArgs) -> Resu
 }
 
 async fn handle_unset_default_data_source(args: UnsetDefaultDataSourcesArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     let mut default_data_sources = workspace_get(&client, workspace_id)

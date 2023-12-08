@@ -78,18 +78,34 @@ fn default_config_file_path() -> PathBuf {
         .join("config.toml")
 }
 
+/// Returns a ApiClient with the token set. If `token` is `Some` then that will
+/// be used, otherwise the config will be used for the token.
 pub(crate) async fn api_client_configuration(
+    token: Option<String>,
     config_path: Option<PathBuf>,
     base_url: Url,
 ) -> Result<ApiClient> {
-    let token = Config::load(config_path).await?.api_token.ok_or_else(|| {
-        anyhow!("Must be logged in to run this command. Please run `fp login` first.")
-    })?;
+    let token = {
+        if let Some(token) = token {
+            // an override has been specified, use that
+            token
+        } else {
+            // no override, so try loading the config
+            let config = Config::load(config_path).await?;
+            if let Some(token) = config.api_token {
+                token
+            } else {
+                return Err(anyhow!(
+                    "Must be logged in to run this command. Please run `fp login` first."
+                ));
+            }
+        }
+    };
 
     api_client_configuration_from_token(&token, base_url)
 }
 
-pub(crate) fn api_client_configuration_from_token(token: &str, base_url: Url) -> Result<ApiClient> {
+pub fn api_client_configuration_from_token(token: &str, base_url: Url) -> Result<ApiClient> {
     let mut headers = HeaderMap::new();
     headers.insert(
         "Authorization",
