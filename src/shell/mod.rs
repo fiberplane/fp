@@ -32,6 +32,9 @@ pub struct Arguments {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 const TEXT_BUF_SIZE: usize = 256;
@@ -44,7 +47,7 @@ pub(crate) async fn handle_command(args: Arguments) -> Result<()> {
         ));
     }
 
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let notebook_id = interactive::notebook_picker(&client, args.notebook_id, None).await?;
 
     let launcher = ShellLauncher::new(notebook_id.into());

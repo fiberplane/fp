@@ -103,22 +103,35 @@ pub async fn handle_login_command(args: Arguments) -> Result<(), Error> {
     Ok(())
 }
 
-/// Logout from Fiberplane and delete the API Token from the config file
+/// Invalidate the API token.
+///
+/// If a token is set using the `--token` flag, then that will be used,
+/// otherwise it will use the token from the config file. The token will also be
+/// removed from the config file if that was used.
 pub async fn handle_logout_command(args: Arguments) -> Result<(), Error> {
-    let mut config = Config::load(args.config).await?;
+    if let Some(token) = args.token {
+        let api_config = api_client_configuration_from_token(&token, args.base_url)?;
 
-    match config.api_token {
-        Some(token) => {
-            let api_config = api_client_configuration_from_token(&token, args.base_url)?;
-            logout(&api_config).await?;
+        logout(&api_config).await?;
 
-            config.api_token = None;
-            config.save().await?;
+        info!("You are logged out");
+    } else {
+        let mut config = Config::load(args.config).await?;
 
-            info!("You are logged out");
-        }
-        None => {
-            warn!("You are already logged out");
+        match config.api_token {
+            Some(token) => {
+                let api_config = api_client_configuration_from_token(&token, args.base_url)?;
+
+                logout(&api_config).await?;
+
+                config.api_token = None;
+                config.save().await?;
+
+                info!("You are logged out");
+            }
+            None => {
+                warn!("You are already logged out");
+            }
         }
     }
 

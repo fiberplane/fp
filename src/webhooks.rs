@@ -100,10 +100,13 @@ struct CreateArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_webhook_create(args: CreateArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let categories = webhook_category_picker(args.categories)?;
@@ -158,10 +161,13 @@ struct ListArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_webhook_list(args: ListArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     let webhooks = webhooks_list(&client, workspace_id, args.page, args.limit).await?;
@@ -190,10 +196,13 @@ struct DeleteArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_webhook_delete(args: DeleteArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let webhook_id = webhook_picker(&client, workspace_id, args.webhook_id).await?;
@@ -247,10 +256,13 @@ struct UpdateArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_webhook_update(args: UpdateArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let webhook_id = webhook_picker(&client, workspace_id, args.webhook_id).await?;
@@ -313,10 +325,13 @@ struct WebhookDeliveryListArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_webhook_delivery_list(args: WebhookDeliveryListArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let webhook_id = webhook_picker(&client, workspace_id, args.webhook_id).await?;
@@ -357,10 +372,13 @@ struct WebhookDeliveryInfoArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_webhook_delivery_info(args: WebhookDeliveryInfoArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let webhook_id = webhook_picker(&client, workspace_id, args.webhook_id).await?;
@@ -412,10 +430,12 @@ struct WebhookDeliveryResendArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
-}
 
+    #[clap(from_global)]
+    token: Option<String>,
+}
 async fn handle_webhook_delivery_resend(args: WebhookDeliveryResendArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let webhook_id = webhook_picker(&client, workspace_id, args.webhook_id).await?;

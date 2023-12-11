@@ -144,6 +144,9 @@ struct ExpandArguments {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 #[derive(Parser)]
@@ -190,6 +193,9 @@ struct ConvertArguments {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 #[derive(Parser)]
@@ -233,6 +239,9 @@ struct CreateArguments {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 #[derive(Parser)]
@@ -260,6 +269,9 @@ struct GetArguments {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 #[derive(Parser)]
@@ -276,6 +288,9 @@ struct DeleteArguments {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 #[derive(Parser, Debug)]
@@ -301,6 +316,9 @@ struct ListArguments {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 #[derive(Parser)]
@@ -333,6 +351,9 @@ struct UpdateArguments {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 #[derive(Parser)]
@@ -437,21 +458,39 @@ async fn load_template(template_path: &str) -> Result<String> {
 async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
     let base_url = args.base_url.clone();
 
-    let client = api_client_configuration(args.config.clone(), base_url.clone()).await?;
+    let client = api_client_configuration(args.token, args.config, base_url.clone()).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let template_url_base = base_url.join(&format!("workspaces/{workspace_id}/templates/"))?;
 
     // First, check if the template is the ID of an uploaded template
     let notebook = if let Ok(template_name) = Name::from_str(&args.template) {
-        expand_template_api(args, workspace_id, template_name).await
+        expand_template_api(
+            &client,
+            workspace_id,
+            template_name,
+            args.template_arguments,
+        )
+        .await
     } else if let Some(template_name) = args.template.strip_prefix(template_url_base.as_str()) {
         // Next, check if it is a URL of an uploaded template
         let template_name = Name::from_str(template_name)
             .with_context(|| "Error parsing template name from URL")?;
-        expand_template_api(args, workspace_id, template_name).await
+        expand_template_api(
+            &client,
+            workspace_id,
+            template_name,
+            args.template_arguments,
+        )
+        .await
     } else {
         // Otherwise, treat the template as a local path or URL of a template file
-        expand_template_file(args, workspace_id).await
+        expand_template_file(
+            &client,
+            workspace_id,
+            args.template,
+            args.template_arguments,
+        )
+        .await
     }?;
 
     let notebook_id = Base64Uuid::parse_str(&notebook.id)?;
@@ -464,20 +503,18 @@ async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
 
 /// Expand a template that has already been uploaded to Fiberplane
 async fn expand_template_api(
-    args: ExpandArguments,
+    client: &ApiClient,
     workspace_id: Base64Uuid,
     template_name: Name,
+    template_arguments: Option<TemplateArguments>,
 ) -> Result<Notebook> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
-
     let notebook = template_expand(
-        &client,
+        client,
         workspace_id,
         &template_name,
-        args.template_arguments
-            .map_or_else(TemplateExpandPayload::new, |args| {
-                Map::from_iter(args.0.into_iter())
-            }),
+        template_arguments.map_or_else(TemplateExpandPayload::new, |args| {
+            Map::from_iter(args.0.into_iter())
+        }),
     )
     .await
     .with_context(|| format!("Error expanding template: {template_name}"))?;
@@ -486,12 +523,16 @@ async fn expand_template_api(
 }
 
 /// Expand a template that is either a local file or one hosted remotely
-async fn expand_template_file(args: ExpandArguments, workspace_id: Base64Uuid) -> Result<Notebook> {
-    let template = load_template(&args.template).await?;
 
-    let client = api_client_configuration(args.config, args.base_url.clone()).await?;
+async fn expand_template_file(
+    client: &ApiClient,
+    workspace_id: Base64Uuid,
+    template: String,
+    template_arguments: Option<TemplateArguments>,
+) -> Result<Notebook> {
+    let template = load_template(&template).await?;
 
-    let template_args = if let Some(args) = args.template_arguments {
+    let template_args = if let Some(args) = template_arguments {
         args.0
     } else {
         HashMap::new()
@@ -508,7 +549,8 @@ async fn expand_template_file(args: ExpandArguments, workspace_id: Base64Uuid) -
 
 async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
     // Load the notebook
-    let client = api_client_configuration(args.config.clone(), args.base_url.clone()).await?;
+    let client =
+        api_client_configuration(args.token, args.config.clone(), args.base_url.clone()).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let notebook_id =
         interactive::notebook_picker(&client, args.notebook_id, Some(workspace_id)).await?;
@@ -605,7 +647,7 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
 }
 
 async fn handle_create_command(args: CreateArguments) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let name = interactive::name_opt(
@@ -641,7 +683,7 @@ async fn handle_create_command(args: CreateArguments) -> Result<()> {
 }
 
 async fn handle_get_command(args: GetArguments) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let (workspace_id, template_name) =
         interactive::template_picker(&client, args.template_name, None).await?;
 
@@ -658,7 +700,7 @@ async fn handle_get_command(args: GetArguments) -> Result<()> {
 }
 
 async fn handle_delete_command(args: DeleteArguments) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let (workspace_id, template_name) =
         interactive::template_picker(&client, args.template_name, None).await?;
 
@@ -673,7 +715,7 @@ async fn handle_delete_command(args: DeleteArguments) -> Result<()> {
 async fn handle_list_command(args: ListArguments) -> Result<()> {
     debug!("handle list command");
 
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     let templates = template_list(
@@ -694,7 +736,7 @@ async fn handle_list_command(args: ListArguments) -> Result<()> {
 }
 
 async fn handle_update_command(args: UpdateArguments) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let (workspace_id, template_name) =
         interactive::template_picker(&client, args.template_name, args.workspace_id).await?;
 

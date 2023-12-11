@@ -81,6 +81,12 @@ pub struct Arguments {
     #[clap(long, global = true, env, help_heading = "Global options")]
     config: Option<PathBuf>,
 
+    /// Override the API token used
+    ///
+    /// If nothing is specified then it will use the token from the config file.
+    #[clap(long, global = true, env = "FP_TOKEN", help_heading = "Global options")]
+    token: Option<String>,
+
     /// Disables the version check
     #[clap(long, global = true, env, help_heading = "Global options")]
     disable_version_check: bool,
@@ -540,10 +546,13 @@ struct NewArguments {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_new_command(args: NewArguments) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url.clone()).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url.clone()).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let title = if args.title.is_empty() {

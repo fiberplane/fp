@@ -50,6 +50,9 @@ pub struct ListKeysArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 #[derive(ValueEnum, Clone)]
@@ -62,7 +65,7 @@ enum ListKeysOutput {
 }
 
 async fn handle_list_keys_command(args: ListKeysArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let prefix = interactive::text_opt("Prefix", args.prefix, None);
@@ -95,6 +98,9 @@ pub struct ListValuesArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 #[derive(ValueEnum, Clone)]
@@ -107,7 +113,7 @@ enum ListValuesOutput {
 }
 
 async fn handle_list_values_command(args: ListValuesArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let label_key = interactive::text_req("Label key", args.label_key, None)?;

@@ -35,12 +35,15 @@ pub struct Arguments {
     #[clap(from_global)]
     base_url: Url,
 
-    #[clap(from_global)]
-    config: Option<PathBuf>,
-
     /// Output type to display
     #[clap(long, short, default_value = "command", value_enum)]
     output: ExecOutput,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 #[derive(ValueEnum, Clone, PartialEq)]
@@ -56,7 +59,12 @@ enum ExecOutput {
 }
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
-    let client = api_client_configuration(args.config.clone(), args.base_url.clone()).await?;
+    let client = api_client_configuration(
+        args.token.clone(),
+        args.config.clone(),
+        args.base_url.clone(),
+    )
+    .await?;
     let command = args.command.join(" ");
 
     let workspace_id = interactive::workspace_picker(&client, args.workspace_id).await?;

@@ -79,6 +79,9 @@ struct CreateArguments {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 #[derive(Parser)]
@@ -124,10 +127,13 @@ pub struct SearchArguments {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_event_create_command(args: CreateArguments) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
     let key_values: HashMap<_, _> = args
         .labels
@@ -159,7 +165,7 @@ async fn handle_event_create_command(args: CreateArguments) -> Result<()> {
 }
 
 async fn handle_event_search_command(args: SearchArguments) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
@@ -196,10 +202,13 @@ pub struct DeleteArguments {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_event_delete_command(args: DeleteArguments) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
     event_delete(&client, args.id).await?;
 

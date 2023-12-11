@@ -7,6 +7,7 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 ## [Unreleased]
 
 - Update all dependencies, except `hyper` (#260)
+- Allow overriding the token through an argument or envvar (#261)
 
 ## [2.11.0]
 

@@ -85,6 +85,9 @@ struct CreateArguments {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 #[derive(Parser)]
@@ -101,6 +104,9 @@ struct GetArguments {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 #[derive(Parser)]
@@ -113,6 +119,9 @@ struct DeleteArguments {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 #[derive(Parser)]
@@ -130,6 +139,9 @@ struct ListArguments {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 #[derive(Parser)]
@@ -156,6 +168,9 @@ struct InvokeArguments {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 /// A generic output for trigger related commands.
@@ -169,7 +184,7 @@ enum TriggerOutput {
 }
 
 async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url.clone()).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url.clone()).await?;
 
     let workspace_id = interactive::workspace_picker(&client, args.workspace_id).await?;
     let (_, template_name) =
@@ -199,7 +214,7 @@ async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {
 }
 
 async fn handle_trigger_get_command(args: GetArguments) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url.clone()).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url.clone()).await?;
     let trigger_id = interactive::trigger_picker(&client, args.trigger_id, None).await?;
 
     let trigger = trigger_get(&client, trigger_id)
@@ -215,7 +230,7 @@ async fn handle_trigger_get_command(args: GetArguments) -> Result<()> {
 }
 
 async fn handle_trigger_delete_command(args: DeleteArguments) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let trigger_id = interactive::trigger_picker(&client, args.trigger_id, None).await?;
 
     trigger_delete(&client, trigger_id)
@@ -228,7 +243,7 @@ async fn handle_trigger_delete_command(args: DeleteArguments) -> Result<()> {
 }
 
 async fn handle_trigger_list_command(args: ListArguments) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let workspace_id = interactive::workspace_picker(&client, args.workspace_id).await?;
     let mut triggers = trigger_list(&client, workspace_id)
         .await
@@ -247,7 +262,7 @@ async fn handle_trigger_list_command(args: ListArguments) -> Result<()> {
 }
 
 async fn handle_trigger_invoke_command(args: InvokeArguments) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url.clone()).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url.clone()).await?;
     let trigger_id = interactive::trigger_picker(&client, args.trigger_id, None).await?;
     let secret_key = interactive::text_req("Secret Key", args.secret_key, None)?;
 

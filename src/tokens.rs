@@ -77,6 +77,9 @@ struct CreateArguments {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 #[derive(Parser)]
@@ -106,6 +109,9 @@ pub struct ListArguments {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 #[derive(Parser)]
@@ -118,10 +124,13 @@ pub struct DeleteArguments {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 async fn handle_token_create_command(args: CreateArguments) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
     let token = token_create(&client, NewToken::new(args.name)).await?;
 
@@ -140,7 +149,7 @@ async fn handle_token_create_command(args: CreateArguments) -> Result<()> {
 }
 
 async fn handle_token_list_command(args: ListArguments) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
     let tokens = token_list(
         &client,
@@ -161,7 +170,7 @@ async fn handle_token_list_command(args: ListArguments) -> Result<()> {
 }
 
 async fn handle_token_delete_command(args: DeleteArguments) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
     token_delete(&client, args.id).await?;
 

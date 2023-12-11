@@ -68,12 +68,15 @@ struct MessageArgs {
     #[clap(from_global)]
     base_url: Url,
 
-    #[clap(from_global)]
-    config: Option<PathBuf>,
-
     /// Output type to display
     #[clap(long, short, default_value = "table", value_enum)]
     output: MessageOutput,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 #[derive(Parser)]
@@ -92,6 +95,9 @@ struct CrawlArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 #[derive(Parser)]
@@ -115,6 +121,9 @@ struct PrometheusGraphToNotebookArgs {
 
     #[clap(from_global)]
     config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
 }
 
 #[derive(ValueEnum, Clone)]
@@ -138,7 +147,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 }
 
 async fn handle_message_command(args: MessageArgs) -> Result<()> {
-    let client = api_client_configuration(args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let notebook_id = interactive::notebook_picker(&client, args.notebook_id, None).await?;
     let mut cache = Cache::load().await?;
 
@@ -214,7 +223,7 @@ async fn handle_crawl_command(args: CrawlArgs) -> Result<()> {
     let mut notebook_titles: HashMap<String, usize> = HashMap::new();
     let mut notebooks_to_crawl = VecDeque::new();
 
-    let client = api_client_configuration(args.config, args.base_url.clone()).await?;
+    let client = api_client_configuration(args.token, args.config, args.base_url.clone()).await?;
     let starting_notebook_id =
         interactive::notebook_picker(&client, args.notebook_id, None).await?;
 
@@ -384,7 +393,7 @@ fn cache_file_path() -> PathBuf {
 }
 
 async fn handle_prometheus_redirect_command(args: PrometheusGraphToNotebookArgs) -> Result<()> {
-    let client = Arc::new(api_client_configuration(args.config, args.base_url).await?);
+    let client = Arc::new(api_client_configuration(args.token, args.config, args.base_url).await?);
     let workspace_id = interactive::workspace_picker(&client, args.workspace_id).await?;
     let notebook_id =
         interactive::notebook_picker(&client, args.notebook_id, Some(workspace_id)).await?;
