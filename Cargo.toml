@@ -9,17 +9,17 @@ build = "build.rs"
 [dependencies]
 abort-on-drop = "0.2.1"
 anyhow = "1.0"
-base64 = "0.13.0"
+base64 = "0.21.5"
 blocking = "1.2.0"
 bytes = "1.1.0"
 clap = { version = "4.0.17", features = ["derive", "env", "wrap_help"] }
 clap_complete = "4.0.3"
 clap-markdown = "0.1.3"
 cli-table = "0.4"
-crossterm = { version = "0.26.0", features = ["event-stream"] }
-directories = "4.0.1"
-dialoguer = { version = "0.10.1", features = ["fuzzy-select"] }
-fiberplane = { version = "1.0.0-beta.6", features = [
+crossterm = { version = "0.27.0", features = ["event-stream"] }
+directories = "5.0.1"
+dialoguer = { version = "0.11.0", features = ["fuzzy-select"] }
+fiberplane = { version = "1.0.0-beta.7", features = [
     "api-client",
     "base64uuid-creation",
     "clap",
@@ -39,7 +39,7 @@ hyper = { version = "0.14.13", features = [
     "tcp",
     "runtime",
 ] }
-indicatif = "0.16.2"
+indicatif = "0.17.0"
 lazy_static = "1.4.0"
 memchr = "2.5.0"
 once_cell = "1.8"
@@ -47,7 +47,7 @@ petname = { version = "1.1.1", default-features = false, features = [
     "std_rng",
     "default_dictionary",
 ] }
-portable-pty = "0.7.0"
+portable-pty = "0.8.0"
 qstring = "0.7.2"
 rand = "0.8.5"
 regex = "1.5.5"
@@ -61,12 +61,12 @@ serde = { version = "1.0.123", features = ["derive"] }
 serde_json = "1.0"
 sha2 = "0.10.2"
 strum = "0.24" # match what fiberplane-models uses
-sysinfo = "0.27.7"
-termwiz = "0.19.0"
+sysinfo = "0.29.0"
+termwiz = "0.20.0"
 time = { version = "0.3.11", features = ["macros"] }
 tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7.1", features = ["io", "compat"] }
-toml = "0.7.3"
+toml = "0.8.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 url = "2.2"
@@ -76,9 +76,9 @@ webbrowser = "0.8.7"
 
 [build-dependencies]
 anyhow = "1.0"
-vergen = "7"
+vergen = { version = "8.0.0", features = ["build", "cargo", "git", "gitcl", "rustc", "si"] }
 
 [patch.crates-io]
-fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane.git", branch = "main" }
+# fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane.git", branch = "main" }
 #fp-bindgen-support = { git = "ssh://git@github.com/fiberplane/fp-bindgen.git", branch = "release-3.0.0" }
 #fp-bindgen-macros = { git = "ssh://git@github.com/fiberplane/fp-bindgen.git", branch = "release-3.0.0" }
