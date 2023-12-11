@@ -127,7 +127,7 @@ pub async fn retrieve_sha256_hash(version: &str, arch: &str) -> Result<String> {
     response
         .lines()
         .find_map(|line| match line.split_once("  ") {
-            Some((sha256_hash, file)) if file == "fp" => Some(sha256_hash.to_owned()),
+            Some((sha256_hash, "fp")) => Some(sha256_hash.to_owned()),
             _ => None,
         })
         .map_or_else(|| Err(anyhow!("version not found in checksum.sha256")), Ok)

@@ -540,7 +540,7 @@ async fn expand_template_file(
 
     let notebook = expand_template(template, template_args).context("expanding template")?;
 
-    let notebook = notebook_create(&client, workspace_id, notebook)
+    let notebook = notebook_create(client, workspace_id, notebook)
         .await
         .context("Error creating notebook")?;
 

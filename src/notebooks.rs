@@ -191,7 +191,7 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
         None => NewNotebook::builder()
             .title(String::new())
             .time_range(NewTimeRange::Absolute(TimeRange { from, to }))
-            .front_matter(args.front_matter.unwrap_or_else(FrontMatter::new))
+            .front_matter(args.front_matter.unwrap_or_default())
             .build(),
     };
 
