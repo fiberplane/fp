@@ -8,6 +8,7 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 
 - Update all dependencies, except `hyper` (#260)
 - Allow overriding the token through an argument or envvar (#261)
+- Replace Lint code in our CI with Clippy+reviewdog (#262)
 
 ## [2.11.0]
 

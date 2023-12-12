@@ -36,11 +36,12 @@ jobs:
       - name: Build binary and tests
         run: cargo build --bins --tests --release
 
-      - name: Lint code
-        uses: actions-rs/clippy-check@v1
+      - name: Clippy
+        uses: giraffate/clippy-action@v1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-features --release
+          filter_mode: nofilter
+          fail_on_error: true
+          clippy_flags: --all-features --release
 
       - name: Run tests
         run: cargo test --release
