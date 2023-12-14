@@ -44,7 +44,11 @@ jobs:
           clippy_flags: --all-features --release
 
       - name: Run tests
-        run: cargo test --release
+        run: cargo test --release --all
+
+      # Clap has specific debug asserts when generating completions
+      - name: Run Completion generation test
+        run: cargo test generating_completions --bin fp
 
       - name: Generate manifest
         run: target/release/fp version -o json > manifest.json
