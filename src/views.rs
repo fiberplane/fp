@@ -64,10 +64,11 @@ struct CreateArguments {
     description: Option<String>,
 
     /// The color the resulting view should be displayed as in Fiberplane Studio
-    #[clap(value_parser = clap::value_parser!(i16).range(0..10))]
+    #[clap(long, value_parser = clap::value_parser!(i16).range(0..10))]
     color: i16,
 
     /// Labels which are associated with this newly created view
+    #[clap(long, short)]
     labels: Vec<KeyValueArgument>,
 
     /// Time range value in either seconds, minutes, hours or days (without suffix).
@@ -76,13 +77,15 @@ struct CreateArguments {
     time_range_value: Option<i64>,
 
     /// Time range unit. Used in conjunction with `time_range_value`
-    #[clap(requires = "time_range_value")]
+    #[clap(requires = "time_range_value", value_enum)]
     time_range_unit: Option<TimeUnit>,
 
     /// What the notebooks displayed in the view should be sorted by, by default
+    #[clap(value_enum)]
     sort_by: Option<NotebookSortFields>,
 
     /// Sort direction displayed by default when opening the view
+    #[clap(value_enum)]
     sort_direction: Option<SortDirection>,
 
     /// Workspace in which this view lives
