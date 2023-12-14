@@ -27,6 +27,7 @@ use tracing_subscriber::fmt::format;
 use update::retrieve_latest_version;
 use url::Url;
 
+mod append_cell;
 mod auth;
 mod config;
 mod daemons;
@@ -158,11 +159,16 @@ enum SubCommand {
     #[clap(aliases = &["daemon", "proxy", "proxies"])]
     Daemons(daemons::Arguments),
 
-    /// Run a command and send the output to a notebook
+    /// Append a cell to a notebook with output from a shell command
     ///
     /// Note: to run a command with pipes, you must wrap the command in quotes.
-    /// For example, `fp run "echo hello world | grep hello"`
-    #[clap(trailing_var_arg = true)]
+    /// For example, `fp append-cell "echo hello world | grep hello"`
+    #[clap(alias = "append", trailing_var_arg = true)]
+    AppendCell(append_cell::Arguments),
+
+    /// Runs a FiberScript
+    ///
+    /// Example: `fp run script.ts`
     Run(run::Arguments),
 
     /// Interact with templates
@@ -301,13 +307,14 @@ async fn main() {
         Notebooks(args) => notebooks::handle_command(args).await,
         Providers(args) => providers::handle_command(args).await,
         Daemons(args) => daemons::handle_command(args).await,
-        Run(args) => run::handle_command(args).await,
+        AppendCell(args) => append_cell::handle_command(args).await,
         Shell(args) => shell::handle_command(args).await,
         Snippets(args) => snippets::handle_command(args).await,
         Views(args) => views::handle_command(args).await,
         Templates(args) => templates::handle_command(args).await,
         Triggers(args) => triggers::handle_command(args).await,
         Events(args) => events::handle_command(args).await,
+        Run(args) => run::handle_command(args).await,
         Tokens(args) => tokens::handle_command(args).await,
         Update(args) => update::handle_command(args).await,
         Users(args) => users::handle_command(args).await,
