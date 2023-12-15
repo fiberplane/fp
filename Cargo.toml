@@ -1,6 +1,6 @@
 [package]
 name = "fp"
-version = "2.17.0"
+version = "2.18.0"
 authors = ["Team Fiberplane"]
 edition = "2018"
 build = "build.rs"
@@ -76,7 +76,14 @@ webbrowser = "0.8.7"
 
 [build-dependencies]
 anyhow = "1.0"
-vergen = { version = "8.0.0", features = ["build", "cargo", "git", "gitcl", "rustc", "si"] }
+vergen = { version = "8.0.0", features = [
+    "build",
+    "cargo",
+    "git",
+    "gitcl",
+    "rustc",
+    "si",
+] }
 
 [patch.crates-io]
 # fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane.git", branch = "main" }

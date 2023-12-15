@@ -6,11 +6,11 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
-## [2.16.0]
+## [2.17.0]
 
 - Fixed an issue with CLI argument completion failing. (#264)
 
-## [2.15.0]
+## [2.16.0]
 
 - Update all dependencies, except `hyper` (#260)
 - Allow overriding the token through an argument or envvar (#261)
