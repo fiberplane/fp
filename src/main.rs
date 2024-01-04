@@ -34,6 +34,7 @@ mod data_sources;
 mod events;
 mod experiments;
 mod fp_urls;
+mod integrations;
 mod interactive;
 mod labels;
 mod manifest;
@@ -119,11 +120,9 @@ enum SubCommand {
     Experiments(experiments::Arguments),
 
     /// Login to Fiberplane and authorize the CLI to access your account
-    #[clap()]
     Login,
 
     /// Logout from Fiberplane
-    #[clap()]
     Logout,
 
     /// Interact with labels
@@ -175,10 +174,12 @@ enum SubCommand {
     Shell(shell::Arguments),
 
     /// Snippets allow you to save reusable groups of cells and insert them into notebooks.
+    #[clap(alias = "snippet")]
     Snippets(snippets::Arguments),
 
     /// Views allow you to save label searches and display them as a view, allowing you to search for
     /// notebooks easier and more convenient
+    #[clap(alias = "view")]
     Views(views::Arguments),
 
     /// Interact with triggers
@@ -195,10 +196,10 @@ enum SubCommand {
     Events(events::Arguments),
 
     /// Interact with API tokens
+    #[clap(alias = "token")]
     Tokens(tokens::Arguments),
 
     /// Update the current FP binary
-    #[clap()]
     Update(update::Arguments),
 
     /// Interact with user details
@@ -217,15 +218,20 @@ enum SubCommand {
     #[clap(aliases = &["webhook", "wh"])]
     Webhooks(webhooks::Arguments),
 
+    /// Interact with integrations
+    ///
+    /// Integrations allow you to integrate various third-party tools into Fiberplane
+    #[clap(alias = "integration")]
+    Integrations(integrations::Arguments),
+
     /// Display extra version information
-    #[clap()]
     Version(version::Arguments),
 
     /// Generate fp shell completions for your shell and print to stdout
     #[clap(hide = true)]
     Completions {
         #[clap(value_enum)]
-        shell: clap_complete::Shell,
+        shell: Shell,
     },
 
     /// Generate markdown reference for fp.
@@ -313,6 +319,7 @@ async fn main() {
         Users(args) => users::handle_command(args).await,
         Workspaces(args) => workspaces::handle_command(args).await,
         Webhooks(args) => webhooks::handle_command(args).await,
+        Integrations(args) => integrations::handle_command(args).await,
         Version(args) => version::handle_command(args).await,
         Completions { shell } => {
             let output = generate_completions(shell);
