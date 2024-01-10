@@ -54,7 +54,7 @@ jobs:
         run: target/release/fp version -o json > manifest.json
 
       - name: Upload fp
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: fp
           path: target/release/fp
@@ -62,7 +62,7 @@ jobs:
           retention-days: 1
 
       - name: Upload manifest
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: manifest.json
           path: manifest.json
