@@ -4,7 +4,7 @@ use anyhow::Result;
 use clap::{Parser, ValueEnum};
 use cli_table::Table;
 use fiberplane::api_client::integrations_get;
-use fiberplane::models::integrations::Integration;
+use fiberplane::models::integrations::IntegrationSummary;
 use std::path::PathBuf;
 use time::format_description::well_known::Rfc3339;
 use url::Url;
@@ -88,8 +88,8 @@ struct IntegrationRow {
     updated_at: String,
 }
 
-impl From<Integration> for IntegrationRow {
-    fn from(integration: Integration) -> Self {
+impl From<IntegrationSummary> for IntegrationRow {
+    fn from(integration: IntegrationSummary) -> Self {
         Self {
             id: integration.id.to_string(),
             status: integration.status.to_string(),
