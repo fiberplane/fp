@@ -131,7 +131,7 @@ jobs:
       #       /target/arm-unknown-linux-gnueabihf/release/rg
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.target }}
           path: /tmp/artifact/
@@ -148,7 +148,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           path: artifacts
 
