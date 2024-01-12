@@ -6,6 +6,8 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Add `integrations list` command (#267)
+
 ## [2.17.0]
 
 - Fixed an issue with CLI argument completion failing. (#264)

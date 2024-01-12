@@ -195,8 +195,7 @@ checksum = "35636a1494ede3b646cc98f74f8e62c773a38a659ebc777a2cf26b9b74171df9"
 [[package]]
 name = "base64uuid"
 version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9e3d2060139fc5977f18e2514ddd54aa594ee087f2fc8486a73f897423fd41b"
+source = "git+ssh://git@github.com/fiberplane/fiberplane.git?branch=main#870da734c8c758b53ba549601df45acbdbf243c0"
 dependencies = [
  "base64 0.13.1",
  "serde",
@@ -936,9 +935,8 @@ checksum = "25cbce373ec4653f1a01a31e8a5e5ec0c622dc27ff9c4e6606eefef5cbbed4a5"
 
 [[package]]
 name = "fiberplane"
-version = "1.0.0-beta.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be4a2148048020d687b5535336298eb782d4a129d1cfba23d4171f723b8e75a9"
+version = "1.0.0-beta.8"
+source = "git+ssh://git@github.com/fiberplane/fiberplane.git?branch=main#870da734c8c758b53ba549601df45acbdbf243c0"
 dependencies = [
  "base64uuid",
  "fiberplane-api-client",
@@ -950,9 +948,8 @@ dependencies = [
 
 [[package]]
 name = "fiberplane-api-client"
-version = "1.0.0-beta.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91f28c14ea7872eb627e961b242e260caf0290598bd474d02879d1e584ab04e6"
+version = "1.0.0-beta.8"
+source = "git+ssh://git@github.com/fiberplane/fiberplane.git?branch=main#870da734c8c758b53ba549601df45acbdbf243c0"
 dependencies = [
  "anyhow",
  "base64uuid",
@@ -966,9 +963,8 @@ dependencies = [
 
 [[package]]
 name = "fiberplane-markdown"
-version = "1.0.0-beta.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "89c46631b7ba189ac94cd5cad5d77033afac8b922197173776f99fa364ddd2e8"
+version = "1.0.0-beta.8"
+source = "git+ssh://git@github.com/fiberplane/fiberplane.git?branch=main#870da734c8c758b53ba549601df45acbdbf243c0"
 dependencies = [
  "fiberplane-models",
  "pulldown-cmark",
@@ -979,15 +975,15 @@ dependencies = [
 
 [[package]]
 name = "fiberplane-models"
-version = "1.0.0-beta.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7238e65837ec36e6dba17d52162436c110204195cb8a88c43deb0546df2761f6"
+version = "1.0.0-beta.8"
+source = "git+ssh://git@github.com/fiberplane/fiberplane.git?branch=main#870da734c8c758b53ba549601df45acbdbf243c0"
 dependencies = [
  "base64 0.13.1",
  "base64uuid",
  "bytes",
  "clap",
  "form_urlencoded",
+ "ordered-float 4.2.0",
  "rmp-serde",
  "rmpv",
  "serde",
@@ -1003,9 +999,8 @@ dependencies = [
 
 [[package]]
 name = "fiberplane-provider-runtime"
-version = "2.0.0-beta.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc026bec1e9e41c8f7334aacd3857718971e72cad2e92cf2c778c09821e1ee13"
+version = "2.0.0-beta.8"
+source = "git+ssh://git@github.com/fiberplane/fiberplane.git?branch=main#870da734c8c758b53ba549601df45acbdbf243c0"
 dependencies = [
  "bytes",
  "fiberplane-models",
@@ -1024,9 +1019,8 @@ dependencies = [
 
 [[package]]
 name = "fiberplane-templates"
-version = "1.0.0-beta.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be236021457ed2dd48d5e7c40217a3ad9ff09f17aa5dd06d59fbc41c40455d86"
+version = "1.0.0-beta.8"
+source = "git+ssh://git@github.com/fiberplane/fiberplane.git?branch=main#870da734c8c758b53ba549601df45acbdbf243c0"
 dependencies = [
  "base64uuid",
  "fiberplane-models",
@@ -1092,7 +1086,7 @@ dependencies = [
 
 [[package]]
 name = "fp"
-version = "2.16.0"
+version = "2.18.0"
 dependencies = [
  "abort-on-drop",
  "anyhow",
@@ -2099,6 +2093,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ordered-float"
+version = "4.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a76df7075c7d4d01fdcb46c912dd17fba5b60c78ea480b475f2b6ab6f666584e"
+dependencies = [
+ "num-traits",
+ "rand",
+ "serde",
+]
+
+[[package]]
 name = "os_info"
 version = "3.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2489,6 +2494,7 @@ dependencies = [
  "libc",
  "rand_chacha",
  "rand_core",
+ "serde",
 ]
 
 [[package]]
@@ -2508,6 +2514,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
 dependencies = [
  "getrandom",
+ "serde",
 ]
 
 [[package]]
@@ -3342,7 +3349,7 @@ dependencies = [
  "nix 0.24.3",
  "num-derive",
  "num-traits",
- "ordered-float",
+ "ordered-float 3.9.2",
  "pest",
  "pest_derive",
  "phf 0.10.1",
@@ -4198,7 +4205,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a75e78c0cc60a76de5d93f9dad05651105351e151b6446ab305514945d7588aa"
 dependencies = [
  "log",
- "ordered-float",
+ "ordered-float 3.9.2",
  "strsim",
  "thiserror",
  "wezterm-dynamic-derive",
