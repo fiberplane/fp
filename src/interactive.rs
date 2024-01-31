@@ -3,8 +3,8 @@ use dialoguer::{theme, Confirm, FuzzySelect, Input, MultiSelect, Select};
 use fiberplane::api_client::clients::ApiClient;
 use fiberplane::api_client::{
     data_source_get, data_source_list, notebook_search, proxy_list, snippet_list, template_list,
-    trigger_list, views_get, webhook_delivery_list, webhooks_list, workspace_list,
-    workspace_users_list,
+    trigger_list, views_get, webhook_delivery_list, webhooks_list,
+    workspace_front_matter_schemas_get, workspace_list, workspace_users_list,
 };
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::data_sources::DataSource;
@@ -854,6 +854,70 @@ pub fn webhook_category_picker(
 
             categories.map_err(|err| anyhow!(err))
         }
+    }
+}
+
+/// Get a (workspace id, front matter collection name) pair from either a CLI argument, or from a interactive picker.
+///
+/// If the user has not specified the front matter collection through a CLI argument then it
+/// will retrieve recent snippets using the snippet list endpoint, and allow
+/// the user to select one.
+///
+/// NOTE: This currently does not do any limiting of the result. It will allow
+/// client side filtering.
+/// NOTE: If the user does not specifies a value through a cli argument, the
+/// interactive input will always be shown. This is a limitation that we
+/// currently not check if the invocation is interactive or not.
+pub async fn front_matter_collection_picker(
+    config: &ApiClient,
+    workspace_id: Option<Base64Uuid>,
+    front_matter_collection_name: Option<Name>,
+) -> Result<(Base64Uuid, Name)> {
+    // If the user provided an argument _and_ the workspace, use that. Otherwise show the picker.
+    if let (Some(workspace), Some(name)) = (workspace_id, front_matter_collection_name) {
+        return Ok((workspace, name));
+    };
+
+    // No argument was provided, so we need to know the workspace ID in order to query
+    // the snippet name.
+    let workspace_id = workspace_picker_with_prompt(
+        "Workspace of the front matter collection",
+        config,
+        workspace_id,
+    )
+    .await?;
+
+    let pb = ProgressBar::new_spinner();
+    pb.set_message("Fetching front matter collections");
+    pb.enable_steady_tick(Duration::from_millis(100));
+
+    let results = workspace_front_matter_schemas_get(config, workspace_id).await?;
+
+    pb.finish_and_clear();
+
+    if results.is_empty() {
+        bail!("No front matter collection found");
+    }
+
+    let display_items: Vec<_> = results
+        .iter()
+        .map(|(name, _schema)| name.to_string())
+        .collect();
+
+    let selection = FuzzySelect::with_theme(&default_theme())
+        .with_prompt("Front matter collection")
+        .items(&display_items)
+        .default(0)
+        .interact_opt()?;
+
+    match selection {
+        Some(selection) => Ok((
+            workspace_id,
+            display_items[selection]
+                .parse()
+                .context("invalid name was returned")?,
+        )),
+        None => bail!("No front matter collection selected"),
     }
 }
 

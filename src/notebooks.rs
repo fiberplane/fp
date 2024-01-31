@@ -1,29 +1,36 @@
 use crate::interactive::{
-    self, notebook_picker, snippet_picker, view_picker, workspace_picker,
+    self, default_theme, notebook_picker, snippet_picker, view_picker, workspace_picker,
     workspace_picker_with_prompt,
 };
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use crate::KeyValueArgument;
 use crate::{config::api_client_configuration, fp_urls::NotebookUrlBuilder};
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use clap::{Parser, ValueEnum, ValueHint};
 use cli_table::Table;
+use dialoguer::FuzzySelect;
 use fiberplane::api_client::{
-    front_matter_delete, front_matter_update, notebook_cells_append, notebook_create,
-    notebook_delete, notebook_duplicate, notebook_get, notebook_list, notebook_search,
-    notebook_snippet_insert,
+    front_matter_add_keys, front_matter_delete, front_matter_delete_key, front_matter_update,
+    front_matter_update_key, notebook_cells_append, notebook_create, notebook_delete,
+    notebook_duplicate, notebook_get, notebook_list, notebook_search, notebook_snippet_insert,
 };
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::markdown::{markdown_to_notebook, notebook_to_markdown};
+use fiberplane::models::front_matter_schemas::{
+    FrontMatterAddRows, FrontMatterDateTimeSchema, FrontMatterNumberSchema,
+    FrontMatterStringSchema, FrontMatterUpdateRow, FrontMatterUserSchema, FrontMatterValueSchema,
+};
 use fiberplane::models::names::Name;
 use fiberplane::models::notebooks;
+use fiberplane::models::notebooks::operations::FrontMatterSchemaRow;
 use fiberplane::models::notebooks::{
     Cell, CodeCell, FrontMatter, NewNotebook, Notebook, NotebookCopyDestination, NotebookSearch,
     NotebookSummary, TextCell,
 };
 use fiberplane::models::sorting::{NotebookSortFields, SortDirection};
 use fiberplane::models::timestamps::{NewTimeRange, TimeRange, Timestamp};
-use std::path::PathBuf;
+use serde_json::Value;
+use std::{convert::TryInto, path::PathBuf};
 use time::ext::NumericalDuration;
 use tracing::info;
 use url::Url;
@@ -670,16 +677,36 @@ pub async fn handle_front_matter_command(args: FrontMatterArguments) -> Result<(
     match args.sub_command {
         Update(args) => handle_front_matter_update_command(args).await,
         Clear(args) => handle_front_matter_clear_command(args).await,
+        Append(args) => handle_front_matter_append_command(args).await,
+        Delete(args) => handle_front_matter_delete_command(args).await,
+        Edit(args) => handle_front_matter_edit_command(args).await,
     }
 }
 
 #[derive(Parser)]
 enum FrontMatterSubCommand {
+    /// Deprecated: use "append", "edit", or "delete" to manipulate front matter granularly
+    ///
     /// Updates front matter for an existing notebook
     Update(FrontMatterUpdateArguments),
 
+    /// Deprecated: use "delete" with the "--all" flag to clear all rows of front matter.
+    ///
     /// Clears all front matter from an existing notebook
     Clear(FrontMatterClearArguments),
+
+    /// Append a row of front matter to an existing notebook
+    Append(FrontMatterAppendArguments),
+
+    /// Delete rows from the front matter of an existing notebook
+    Delete(FrontMatterDeleteArguments),
+
+    /// Edit the value of front matter in an existing notebook.
+    ///
+    /// Changing the type of the front matter row (e.g. from string to number) is
+    /// not supported yet.
+    Edit(FrontMatterEditArguments),
+    // TODO: Make an AppendCollection command that queries a collection name to add to the notebook.
 }
 
 #[derive(Parser)]
@@ -690,7 +717,7 @@ struct FrontMatterUpdateArguments {
     front_matter: FrontMatter,
 
     /// Notebook for which front matter should be updated for
-    #[clap(long)]
+    #[clap(long, env)]
     notebook_id: Option<Base64Uuid>,
 
     /// Workspace in which the notebook resides in
@@ -753,6 +780,292 @@ async fn handle_front_matter_clear_command(args: FrontMatterClearArguments) -> R
 
 pub fn parse_from_str(input: &str) -> serde_json::Result<FrontMatter> {
     serde_json::from_str(input)
+}
+
+#[derive(Parser)]
+struct FrontMatterAppendArguments {
+    /// The key to use internally for the front matter row
+    #[clap(long)]
+    key: String,
+
+    /// The type of the front matter row to add
+    #[clap(long)]
+    value_type: FrontMatterValueType,
+
+    /// The displayed name for the front matter property
+    #[clap(long)]
+    display_name: Option<String>,
+
+    /// Whether the front matter entry should accept multiple values of the same type
+    #[clap(long)]
+    multiple: bool,
+
+    /// An optional initial value to set for the appended row.
+    #[clap(long, short, value_parser = parse_from_str)]
+    value: Option<Value>,
+
+    /// Notebook for which front matter should be updated for
+    #[clap(long, env)]
+    notebook_id: Option<Base64Uuid>,
+
+    /// Workspace in which the notebook resides in
+    #[clap(from_global)]
+    workspace_id: Option<Base64Uuid>,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
+}
+
+#[derive(ValueEnum, Clone)]
+enum FrontMatterValueType {
+    /// A single number (expecting a json number as a value)
+    Number,
+
+    /// A single or multiple strings (expecting json strings as values)
+    String,
+
+    /// A single or multiple user (expecting user Base64Uuid as json strings as values)
+    User,
+
+    /// A single timestamp (expecting an RFC3339 formatted date as a json string as a value)
+    DateTime,
+}
+
+#[derive(Parser)]
+struct FrontMatterDeleteArguments {
+    /// Front matter key which should be deleted.
+    ///
+    /// If the key is not specified, you will get prompted for the key to delete.
+    front_matter_key: Option<String>,
+
+    /// Whether the entire front matter as currently known should be wiped.
+    #[clap(long)]
+    all: bool,
+
+    /// Notebook for which front matter should be updated for
+    #[clap(long, env)]
+    notebook_id: Option<Base64Uuid>,
+
+    /// Workspace in which the notebook resides in
+    #[clap(from_global)]
+    workspace_id: Option<Base64Uuid>,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
+}
+
+#[derive(Parser)]
+struct FrontMatterEditArguments {
+    /// Front matter key which should be edited.
+    ///
+    /// If the key is not specified, you will get prompted for the key to delete.
+    #[clap(long)]
+    front_matter_key: Option<String>,
+
+    /// The new value to assign to the key. Any JSON value is accepted here, but note
+    /// that validation can reject malformed values.
+    #[clap(long)]
+    new_value: serde_json::Value,
+
+    /// Notebook for which front matter should be updated for
+    #[clap(long, env)]
+    notebook_id: Option<Base64Uuid>,
+
+    /// Workspace in which the notebook resides in
+    #[clap(from_global)]
+    workspace_id: Option<Base64Uuid>,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
+}
+
+async fn handle_front_matter_append_command(args: FrontMatterAppendArguments) -> Result<()> {
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
+    let notebook_id = notebook_picker(&client, args.notebook_id, Some(workspace_id)).await?;
+
+    let key = args.key.clone();
+    let display_name = args.display_name.clone().unwrap_or_else(|| key.clone());
+    let new_schema: FrontMatterValueSchema = match args.value_type {
+        FrontMatterValueType::Number => {
+            let builder = FrontMatterNumberSchema::builder().display_name(display_name);
+            builder.build().into()
+        }
+        FrontMatterValueType::String => {
+            let builder = FrontMatterStringSchema::builder().display_name(display_name);
+            if args.multiple {
+                builder.multiple().build().into()
+            } else {
+                builder.build().into()
+            }
+        }
+        FrontMatterValueType::User => {
+            let builder = FrontMatterUserSchema::builder().display_name(display_name);
+            builder.build().into()
+        }
+        FrontMatterValueType::DateTime => {
+            let builder = FrontMatterDateTimeSchema::builder().display_name(display_name);
+            builder.build().into()
+        }
+    };
+    let new_row = FrontMatterSchemaRow::builder()
+        .key(args.key)
+        .schema(new_schema)
+        .value(args.value)
+        .build();
+
+    let notebook = notebook_get(&client, notebook_id).await?;
+    let additions = FrontMatterAddRows::builder()
+        .to_index(notebook.front_matter_schema.len().try_into().unwrap())
+        .insertions(vec![new_row])
+        .build();
+
+    front_matter_add_keys(&client, notebook_id, additions).await?;
+
+    info!("Successfully updated front matter");
+    Ok(())
+}
+
+async fn handle_front_matter_delete_command(args: FrontMatterDeleteArguments) -> Result<()> {
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
+    let notebook_id = notebook_picker(&client, args.notebook_id, Some(workspace_id)).await?;
+    let notebook = notebook_get(&client, notebook_id).await?;
+
+    if args.all {
+        for key in notebook
+            .front_matter_schema
+            .iter()
+            .map(|schema| schema.key.clone())
+        {
+            front_matter_delete_key(&client, notebook_id, &key).await?;
+        }
+        info!("Successfully updated front matter");
+        return Ok(());
+    }
+
+    match args.front_matter_key {
+        Some(key) => {
+            front_matter_delete_key(&client, notebook_id, &key).await?;
+        }
+        None => {
+            let keys: Vec<_> = notebook
+                .front_matter_schema
+                .iter()
+                .map(|schema| {
+                    let display_name = match &schema.schema {
+                        FrontMatterValueSchema::Number(inner) => inner.display_name.clone(),
+                        FrontMatterValueSchema::String(inner) => inner.display_name.clone(),
+                        FrontMatterValueSchema::DateTime(inner) => inner.display_name.clone(),
+                        FrontMatterValueSchema::User(inner) => inner.display_name.clone(),
+                        _ => unimplemented!(
+                            "Extract display name from Front Matter Value Schema variant"
+                        ),
+                    };
+                    (schema.key.clone(), display_name)
+                })
+                .collect();
+
+            let display_items: Vec<_> = keys
+                .iter()
+                .map(|(key, display_name)| format!("{} ({})", key, display_name))
+                .collect();
+
+            let selection = FuzzySelect::with_theme(&default_theme())
+                .with_prompt("Key to delete")
+                .items(&display_items)
+                .default(0)
+                .interact_opt()?;
+
+            match selection {
+                Some(selection) => {
+                    front_matter_delete_key(&client, notebook_id, &keys[selection].0).await?;
+                }
+                None => bail!("No key selected"),
+            }
+        }
+    }
+
+    info!("Successfully updated front matter");
+    Ok(())
+}
+
+async fn handle_front_matter_edit_command(args: FrontMatterEditArguments) -> Result<()> {
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
+    let notebook_id = notebook_picker(&client, args.notebook_id, Some(workspace_id)).await?;
+    let notebook = notebook_get(&client, notebook_id).await?;
+
+    let payload = FrontMatterUpdateRow::builder()
+        .new_value(Some(args.new_value))
+        .build();
+
+    match args.front_matter_key {
+        Some(key) => {
+            front_matter_update_key(&client, notebook_id, &key, payload).await?;
+        }
+        None => {
+            let keys: Vec<_> = notebook
+                .front_matter_schema
+                .iter()
+                .map(|schema| {
+                    let display_name = match &schema.schema {
+                        FrontMatterValueSchema::Number(inner) => inner.display_name.clone(),
+                        FrontMatterValueSchema::String(inner) => inner.display_name.clone(),
+                        FrontMatterValueSchema::DateTime(inner) => inner.display_name.clone(),
+                        FrontMatterValueSchema::User(inner) => inner.display_name.clone(),
+                        _ => unimplemented!(
+                            "Extract display name from Front Matter Value Schema variant"
+                        ),
+                    };
+                    (schema.key.clone(), display_name)
+                })
+                .collect();
+
+            let display_items: Vec<_> = keys
+                .iter()
+                .map(|(key, display_name)| format!("{} ({})", key, display_name))
+                .collect();
+
+            let selection = FuzzySelect::with_theme(&default_theme())
+                .with_prompt("Key to edit")
+                .items(&display_items)
+                .default(0)
+                .interact_opt()?;
+
+            match selection {
+                Some(selection) => {
+                    front_matter_update_key(&client, notebook_id, &keys[selection].0, payload)
+                        .await?;
+                }
+                None => bail!("No key selected"),
+            }
+        }
+    }
+
+    info!("Successfully updated front matter");
+    Ok(())
 }
 
 impl GenericKeyValue {
