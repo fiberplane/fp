@@ -3,6 +3,7 @@ use anyhow::{anyhow, Result};
 use clap::Parser;
 use indicatif::{ProgressBar, ProgressStyle};
 use sha2::{Digest, Sha256};
+#[allow(unused_imports)]
 use std::env;
 use std::fs::OpenOptions;
 use std::io::{BufWriter, Write};
