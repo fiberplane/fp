@@ -801,7 +801,7 @@ struct FrontMatterAppendArguments {
     multiple: bool,
 
     /// An optional initial value to set for the appended row.
-    #[clap(long, short, value_parser = parse_from_str)]
+    #[clap(long)]
     value: Option<Value>,
 
     /// Notebook for which front matter should be updated for
