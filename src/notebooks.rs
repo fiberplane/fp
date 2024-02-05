@@ -1,6 +1,6 @@
 use crate::interactive::{
-    self, default_theme, notebook_picker, snippet_picker, view_picker, workspace_picker,
-    workspace_picker_with_prompt,
+    self, default_theme, front_matter_collection_picker, notebook_picker, snippet_picker,
+    view_picker, workspace_picker, workspace_picker_with_prompt,
 };
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use crate::KeyValueArgument;
@@ -13,6 +13,7 @@ use fiberplane::api_client::{
     front_matter_add_keys, front_matter_delete, front_matter_delete_key, front_matter_update,
     front_matter_update_key, notebook_cells_append, notebook_create, notebook_delete,
     notebook_duplicate, notebook_get, notebook_list, notebook_search, notebook_snippet_insert,
+    workspace_front_matter_schemas_get_by_name,
 };
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::markdown::{markdown_to_notebook, notebook_to_markdown};
@@ -680,6 +681,7 @@ pub async fn handle_front_matter_command(args: FrontMatterArguments) -> Result<(
         Append(args) => handle_front_matter_append_command(args).await,
         Delete(args) => handle_front_matter_delete_command(args).await,
         Edit(args) => handle_front_matter_edit_command(args).await,
+        AddCollection(args) => handle_front_matter_add_collection_command(args).await,
     }
 }
 
@@ -706,7 +708,10 @@ enum FrontMatterSubCommand {
     /// Changing the type of the front matter row (e.g. from string to number) is
     /// not supported yet.
     Edit(FrontMatterEditArguments),
-    // TODO: Make an AppendCollection command that queries a collection name to add to the notebook.
+
+    /// Adds an existing collection of front matter to the notebook.
+    #[clap(aliases = &["add-c", "collection", "coll"])]
+    AddCollection(FrontMatterAddCollectionArguments),
 }
 
 #[derive(Parser)]
@@ -1065,6 +1070,76 @@ async fn handle_front_matter_edit_command(args: FrontMatterEditArguments) -> Res
     }
 
     info!("Successfully updated front matter");
+    Ok(())
+}
+
+#[derive(Parser)]
+struct FrontMatterAddCollectionArguments {
+    /// Name of the front matter collection to set.
+    #[clap(short, long)]
+    name: Option<Name>,
+
+    /// Position to insert the collection in the existing front matter.
+    ///
+    /// Omit to append at the end (the default).
+    #[clap(long, value_parser = parse_from_str)]
+    position: Option<u32>,
+
+    /// Notebook for which front matter should be updated for
+    #[clap(long, env)]
+    notebook_id: Option<Base64Uuid>,
+
+    /// Workspace in which the notebook resides in
+    #[clap(from_global)]
+    workspace_id: Option<Base64Uuid>,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
+}
+
+async fn handle_front_matter_add_collection_command(
+    args: FrontMatterAddCollectionArguments,
+) -> Result<()> {
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+
+    let (workspace_id, fmc_name) =
+        front_matter_collection_picker(&client, args.workspace_id, args.name).await?;
+    let notebook_id = notebook_picker(&client, args.notebook_id, Some(workspace_id)).await?;
+
+    let fmc = workspace_front_matter_schemas_get_by_name(&client, workspace_id, &fmc_name).await?;
+
+    let insertions: Vec<FrontMatterSchemaRow> = fmc
+        .iter()
+        .map(|entry| {
+            FrontMatterSchemaRow::builder()
+                .key(entry.key.clone())
+                .schema(entry.schema.clone())
+                .build()
+        })
+        .collect();
+
+    let to_index: u32 = match args.position {
+        Some(index) => index,
+        None => {
+            let notebook = notebook_get(&client, notebook_id).await?;
+            notebook.front_matter_schema.len().try_into()?
+        }
+    };
+
+    let payload = FrontMatterAddRows::builder()
+        .to_index(to_index)
+        .insertions(insertions)
+        .build();
+
+    front_matter_add_keys(&client, notebook_id, payload).await?;
+
+    info!("Successfully added {fmc_name} collection to front matter");
     Ok(())
 }
 
