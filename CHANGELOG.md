@@ -6,6 +6,9 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [2.19.0]
+
+- Update fiberplane dependencies
 - Add `integrations list` command (#267)
 
 ## [2.17.0]
