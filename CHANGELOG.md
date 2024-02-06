@@ -11,6 +11,10 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 - Update fiberplane dependencies
 - Add `integrations list` command (#267)
 
+## [2.18.0]
+
+- Update fiberplane dependencies
+
 ## [2.17.0]
 
 - Fixed an issue with CLI argument completion failing. (#264)
