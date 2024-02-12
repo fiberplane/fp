@@ -116,6 +116,81 @@ The CLI also supports the following operations for your (organization's) trigger
 - `fp triggers get <id>`
 - `fp triggers delete <id>`
 
+### Front Matter Collections
+
+The CLI allows to manage the front matter collections of a workspace, so that common front matter
+fields can easily be grouped for integration in notebooks. The subcommand for these is `fp front-matter-collections`, which
+can be shortened to `fp fmc`. Check `fp fmc help` to see all the available subcommands
+
+#### Creating a front matter collection
+
+All the parameters that are not specified in the command line will be prompted by the CLI when creating
+a front matter collection.
+
+``` shell
+fp fmc create path/to/schema.json
+```
+
+An example of the format of the expected JSON (it follows the API format from the common models of fiberplane):
+
+``` json
+[
+    {
+        "key": "incident.commander",
+        "schema": {
+            "type": "user",
+            "displayName": "Commander"
+        }
+    },
+    {
+        "key": "incident.status",
+        "schema": {
+            "type": "string",
+            "displayName": "Status",
+            "options": [
+                {"value": "started"},
+                {"value": "detected"},
+                {"value": "root cause found"},
+                {"value": "patch applied"},
+                {"value": "resolved"}
+            ]
+        }
+    },
+    {
+        "key": "incident.ebit-loss",
+        "schema": {
+            "type": "number",
+            "displayName": "EBIT loss",
+            "suffix": "EUR"
+        }
+    },
+    {
+        "key": "incident.affected-slos",
+        "schema": {
+            "type": "string",
+            "displayName": "Affected SLOs",
+            "multiple": true,
+            "allowExtraValues": true,
+            "options": [
+                {"value": "API latency"},
+                {"value": "Payment success rate"}
+            ]
+        }
+    }
+]
+```
+
+#### Fetching a front matter collection
+
+A good way to modify a front matter collection is to fetch the current version to modify only the relevant
+fields in the received JSON. The way to get a front matter collection is to use the `get` subcommand:
+
+```shell
+fp fmc get
+```
+
+Just as all other commands within `fp`, the CLI will prompt you for all the missing informations to complete the query.
+
 ### Notebooks
 
 The CLI allows for management for management of your notebooks. Currently the
@@ -123,6 +198,7 @@ following commands are supported:
 
 - `fp notebooks add`
 - `fp notebooks get <id>`
+- `fp notebooks front-matter ...`
 
 #### Creating a new notebook
 
@@ -139,6 +215,24 @@ It is also possible to retrieve the notebook and display it as JSON.
 
 ```shell
 fp notebooks get <notebook_id>
+```
+
+#### Manipulating front matter
+
+It is possible to manipulate the front matter of notebooks programmatically using the `front-matter`
+subcommand of notebook. Check all the options out using:
+
+``` shell
+fp notebooks front-matter help
+```
+
+Examples include:
+
+``` shell
+# Edit a front matter entry in an existing notebook
+fp notebook front-matter edit --front-matter-key severity --new-value info
+# Append the "incident" collection to an existing notebook
+fp nb fm add-collection --name incident
 ```
 
 ## Getting Help

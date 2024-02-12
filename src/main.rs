@@ -34,6 +34,7 @@ mod data_sources;
 mod events;
 mod experiments;
 mod fp_urls;
+mod front_matter;
 mod integrations;
 mod interactive;
 mod labels;
@@ -142,6 +143,13 @@ enum SubCommand {
     /// Notebooks are the main resource that Studio exposes.
     #[clap(aliases = &["notebook", "nb"])]
     Notebooks(notebooks::Arguments),
+
+    /// Interact with front matter collections
+    ///
+    /// Front matter collections are pre-determined sets of front matter metadata
+    /// that is used to attach metadata to notebooks.
+    #[clap(aliases = &["fmc", "frontmatter"])]
+    FrontMatterCollection(front_matter::Arguments),
 
     /// Interact with providers
     ///
@@ -305,6 +313,7 @@ async fn main() {
         Labels(args) => labels::handle_command(args).await,
         New(args) => handle_new_command(args).await,
         Notebooks(args) => notebooks::handle_command(args).await,
+        FrontMatterCollection(args) => front_matter::handle_command(args).await,
         Providers(args) => providers::handle_command(args).await,
         Daemons(args) => daemons::handle_command(args).await,
         Run(args) => run::handle_command(args).await,

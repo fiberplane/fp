@@ -6,10 +6,27 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Added
+- Add `integrations list` command (#267)
+- Add `front-matter-collection get` command (#271)
+- Add `front-matter-collection set` command (#271)
+- Add `front-matter-collection create` command (#271)
+- Add `notebook front-matter append` command (#271)
+- Add `notebook front-matter edit` command (#271)
+- Add `notebook front-matter delete` command (#271)
+
+### Deprecated
+
+- `notebook front-matter update` will not work as expected with the new front matter
+  most of the time, and therefore it is deprecated. Use the new
+  `notebook front-matter edit` instead (#271)
+- `notebook front-matter clear` will not work as expected with the new front matter
+  most of the time, therefore it is deprecated. Use the new
+  `notebook front-matter delete` with the `--all` flag instead (#271)
+
 ## [2.19.0]
 
 - Update fiberplane dependencies
-- Add `integrations list` command (#267)
 
 ## [2.18.0]
 
