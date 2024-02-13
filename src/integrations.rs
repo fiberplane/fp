@@ -29,14 +29,6 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 
 #[derive(Parser)]
 struct ListArgs {
-    /// Page to display
-    #[clap(long)]
-    page: Option<i32>,
-
-    /// Amount of integrations to display per page
-    #[clap(long)]
-    limit: Option<i32>,
-
     /// Output of the webhooks
     #[clap(long, short, default_value = "table", value_enum)]
     output: IntegrationOutput,
@@ -62,7 +54,7 @@ enum IntegrationOutput {
 
 async fn handle_integrations_list(args: ListArgs) -> Result<()> {
     let client = api_client_configuration(args.token, args.config, args.base_url).await?;
-    let integrations = integrations_get(&client, args.page, args.limit).await?;
+    let integrations = integrations_get(&client).await?;
 
     match args.output {
         IntegrationOutput::Table => {
