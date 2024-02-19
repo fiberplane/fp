@@ -4,7 +4,6 @@ use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use anyhow::{anyhow, Result};
 use clap::{Parser, ValueEnum};
 use cli_table::Table;
-use fiberplane::api_client::{data_source_list, proxy_create, proxy_delete, proxy_get, proxy_list};
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::data_sources::{DataSource, DataSourceStatus};
 use fiberplane::models::names::Name;
@@ -178,7 +177,8 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
 
     let mut new_proxy = NewProxy::builder().name(name).build();
     new_proxy.description = args.description;
-    let proxy = proxy_create(&client, workspace_id, new_proxy)
+    let proxy = client
+        .proxy_create(workspace_id, new_proxy)
         .await
         .map_err(|err| anyhow!("Error adding daemon: {err:?}"))?;
 
@@ -206,8 +206,8 @@ struct ProxySummaryWithConnectedDataSources {
 async fn handle_list_command(args: ListArgs) -> Result<()> {
     let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
-    let proxies = proxy_list(&client, workspace_id).await?;
-    let data_sources = data_source_list(&client, workspace_id).await?;
+    let proxies = client.proxy_list(workspace_id).await?;
+    let data_sources = client.data_source_list(workspace_id).await?;
 
     // Put all of the proxies in a map so we can easily look them up by ID and add the data source counts
     let mut proxies: BTreeMap<String, ProxySummaryWithConnectedDataSources> = proxies
@@ -273,7 +273,7 @@ async fn handle_get_command(args: GetArgs) -> Result<()> {
     )
     .await?;
 
-    let proxy = proxy_get(&client, workspace_id, &proxy_name).await?;
+    let proxy = client.proxy_get(workspace_id, &proxy_name).await?;
 
     match args.output {
         ProxyOutput::Table => {
@@ -287,7 +287,7 @@ async fn handle_get_command(args: GetArgs) -> Result<()> {
 async fn handle_data_sources_command(args: DataSourcesArgs) -> Result<()> {
     let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
-    let data_sources = data_source_list(&client, workspace_id).await?;
+    let data_sources = client.data_source_list(workspace_id).await?;
 
     match args.output {
         ProxyOutput::Table => {
@@ -310,7 +310,7 @@ async fn handle_delete_command(args: DeleteArgs) -> Result<()> {
     )
     .await?;
 
-    proxy_delete(&client, workspace_id, &proxy_name).await?;
+    client.proxy_delete(workspace_id, &proxy_name).await?;
 
     info!("Deleted daemon");
     Ok(())

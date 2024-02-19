@@ -1,8 +1,7 @@
 use super::parse_logs::{contains_logs, parse_logs};
 use anyhow::{anyhow, Context, Result};
 use bytes::Bytes;
-use fiberplane::api_client::clients::ApiClient;
-use fiberplane::api_client::notebook_cells_append;
+use fiberplane::api_client::ApiClient;
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::notebooks;
 use fiberplane::models::notebooks::{Cell, CodeCell, LogCell, TextCell};
@@ -128,7 +127,9 @@ impl CellWriter {
     }
 
     async fn append_cell(&self, cell: Cell) -> Result<Cell> {
-        let cell = notebook_cells_append(&self.client, self.notebook_id, None, None, vec![cell])
+        let cell = self
+            .client
+            .notebook_cells_append(self.notebook_id, None, None, vec![cell])
             .await
             .with_context(|| "Error appending cell to notebook")?
             .pop()

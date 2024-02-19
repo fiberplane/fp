@@ -8,10 +8,6 @@ use anyhow::Result;
 use clap::Parser;
 use clap::ValueEnum;
 use cli_table::Table;
-use fiberplane::api_client::{
-    webhook_create, webhook_delete, webhook_delivery_get, webhook_delivery_list,
-    webhook_delivery_resend, webhook_list, webhook_update,
-};
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::webhooks::{
     NewWebhook, UpdateWebhook, Webhook, WebhookCategory, WebhookDelivery, WebhookDeliverySummary,
@@ -119,7 +115,7 @@ async fn handle_webhook_create(args: CreateArgs) -> Result<()> {
         .enabled(enabled)
         .build();
 
-    let webhook = webhook_create(&client, workspace_id, payload).await?;
+    let webhook = client.webhook_create(workspace_id, payload).await?;
 
     if !webhook.successful {
         warn!("The webhook has been created in the disabled state because it failed to handle the \"ping\" event.");
@@ -170,7 +166,9 @@ async fn handle_webhook_list(args: ListArgs) -> Result<()> {
     let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
-    let webhooks = webhook_list(&client, workspace_id, args.page, args.limit).await?;
+    let webhooks = client
+        .webhook_list(workspace_id, args.page, args.limit)
+        .await?;
 
     match args.output {
         WebhookOutput::Table => {
@@ -214,7 +212,7 @@ async fn handle_webhook_delete(args: DeleteArgs) -> Result<()> {
         return Ok(());
     }
 
-    webhook_delete(&client, workspace_id, webhook_id).await?;
+    client.webhook_delete(workspace_id, webhook_id).await?;
 
     info!("Successfully deleted webhook");
     Ok(())
@@ -275,7 +273,9 @@ async fn handle_webhook_update(args: UpdateArgs) -> Result<()> {
     payload.events = args.categories;
     payload.enabled = args.enabled;
 
-    let webhook = webhook_update(&client, workspace_id, webhook_id, payload).await?;
+    let webhook = client
+        .webhook_update(workspace_id, webhook_id, payload)
+        .await?;
 
     if args.endpoint.is_some() && !webhook.successful {
         warn!("The webhook has been updated into the disabled state because it failed to handle the \"ping\" event.");
@@ -336,8 +336,9 @@ async fn handle_webhook_delivery_list(args: WebhookDeliveryListArgs) -> Result<(
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let webhook_id = webhook_picker(&client, workspace_id, args.webhook_id).await?;
 
-    let deliveries =
-        webhook_delivery_list(&client, workspace_id, webhook_id, args.page, args.limit).await?;
+    let deliveries = client
+        .webhook_delivery_list(workspace_id, webhook_id, args.page, args.limit)
+        .await?;
 
     match args.output {
         WebhookOutput::Table => {
@@ -385,7 +386,9 @@ async fn handle_webhook_delivery_info(args: WebhookDeliveryInfoArgs) -> Result<(
     let delivery_id =
         webhook_delivery_picker(&client, workspace_id, webhook_id, args.delivery_id).await?;
 
-    let delivery = webhook_delivery_get(&client, workspace_id, webhook_id, delivery_id).await?;
+    let delivery = client
+        .webhook_delivery_get(workspace_id, webhook_id, delivery_id)
+        .await?;
 
     match args.output {
         WebhookDeliveryOutput::Table => {
@@ -442,7 +445,9 @@ async fn handle_webhook_delivery_resend(args: WebhookDeliveryResendArgs) -> Resu
     let delivery_id =
         webhook_delivery_picker(&client, workspace_id, webhook_id, args.delivery_id).await?;
 
-    webhook_delivery_resend(&client, workspace_id, webhook_id, delivery_id).await?;
+    client
+        .webhook_delivery_resend(workspace_id, webhook_id, delivery_id)
+        .await?;
 
     info!("Successfully triggered a resend on the delivery");
     Ok(())

@@ -1,19 +1,13 @@
+use crate::config::api_client_configuration;
+use crate::interactive::{front_matter_collection_picker, workspace_picker};
 use anyhow::{Context, Result};
 use clap::{Parser, ValueHint};
-use fiberplane::api_client::{
-    workspace_front_matter_schema_create, workspace_front_matter_schema_get_by_name,
-};
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::front_matter_schemas::FrontMatterSchema;
 use fiberplane::models::names::Name;
 use fiberplane::models::workspaces::NewWorkspaceFrontMatterSchema;
 use std::{io::stdin, path::PathBuf};
 use url::Url;
-
-use crate::{
-    config::api_client_configuration,
-    interactive::{front_matter_collection_picker, workspace_picker},
-};
 
 #[derive(Parser)]
 pub struct Arguments {
@@ -155,15 +149,15 @@ pub async fn handle_set_command(args: SetArgs) -> Result<()> {
         serde_json::from_str(&content).with_context(|| "cannot parse content as schema")?
     };
 
-    workspace_front_matter_schema_create(
-        &client,
-        workspace_id,
-        NewWorkspaceFrontMatterSchema::builder()
-            .name(fmc_name.to_string())
-            .schema(front_matter_schema)
-            .build(),
-    )
-    .await?;
+    client
+        .workspace_front_matter_schema_create(
+            workspace_id,
+            NewWorkspaceFrontMatterSchema::builder()
+                .name(fmc_name.to_string())
+                .schema(front_matter_schema)
+                .build(),
+        )
+        .await?;
 
     Ok(())
 }
@@ -185,15 +179,15 @@ pub async fn handle_create_command(args: CreateArgs) -> Result<()> {
         serde_json::from_str(&content).with_context(|| "cannot parse content as schema")?
     };
 
-    workspace_front_matter_schema_create(
-        &client,
-        workspace_id,
-        NewWorkspaceFrontMatterSchema::builder()
-            .name(args.name.to_string())
-            .schema(front_matter_schema)
-            .build(),
-    )
-    .await?;
+    client
+        .workspace_front_matter_schema_create(
+            workspace_id,
+            NewWorkspaceFrontMatterSchema::builder()
+                .name(args.name.to_string())
+                .schema(front_matter_schema)
+                .build(),
+        )
+        .await?;
 
     Ok(())
 }
@@ -204,7 +198,9 @@ pub async fn handle_get_command(args: GetArgs) -> Result<()> {
     let (workspace_id, fmc_name) =
         front_matter_collection_picker(&client, args.workspace_id, args.name).await?;
 
-    let fmc = workspace_front_matter_schema_get_by_name(&client, workspace_id, &fmc_name).await?;
+    let fmc = client
+        .workspace_front_matter_schema_get_by_name(workspace_id, &fmc_name)
+        .await?;
 
     println!(
         "{}",

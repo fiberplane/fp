@@ -3,7 +3,6 @@ use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
 use cli_table::Table;
-use fiberplane::api_client::{token_create, token_delete, token_list};
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::sorting::{SortDirection, TokenListSortFields};
 use fiberplane::models::tokens::{NewToken, Token, TokenSummary};
@@ -132,7 +131,7 @@ pub struct DeleteArguments {
 async fn handle_token_create_command(args: CreateArguments) -> Result<()> {
     let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
-    let token = token_create(&client, NewToken::new(args.name)).await?;
+    let token = client.token_create(NewToken::new(args.name)).await?;
 
     if !matches!(args.output, TokenCreateOutput::Token) {
         info!("Successfully created new token");
@@ -151,14 +150,14 @@ async fn handle_token_create_command(args: CreateArguments) -> Result<()> {
 async fn handle_token_list_command(args: ListArguments) -> Result<()> {
     let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
-    let tokens = token_list(
-        &client,
-        args.sort_by.map(Into::<&str>::into),
-        args.sort_direction.map(Into::<&str>::into),
-        args.page,
-        args.limit,
-    )
-    .await?;
+    let tokens = client
+        .token_list(
+            args.sort_by.map(Into::<&str>::into),
+            args.sort_direction.map(Into::<&str>::into),
+            args.page,
+            args.limit,
+        )
+        .await?;
 
     match args.output {
         TokenListOutput::Table => {
@@ -172,7 +171,7 @@ async fn handle_token_list_command(args: ListArguments) -> Result<()> {
 async fn handle_token_delete_command(args: DeleteArguments) -> Result<()> {
     let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
-    token_delete(&client, args.id).await?;
+    client.token_delete(args.id).await?;
 
     info!("Successfully deleted token");
     Ok(())

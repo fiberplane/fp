@@ -3,7 +3,6 @@ use crate::interactive::{self, workspace_picker};
 use crate::output::{output_json, output_string_list};
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
-use fiberplane::api_client::{label_keys_list, label_values_list};
 use fiberplane::base64uuid::Base64Uuid;
 use std::path::PathBuf;
 use url::Url;
@@ -70,7 +69,9 @@ async fn handle_list_keys_command(args: ListKeysArgs) -> Result<()> {
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let prefix = interactive::text_opt("Prefix", args.prefix, None);
 
-    let keys = label_keys_list(&client, workspace_id, prefix.as_deref()).await?;
+    let keys = client
+        .label_keys_list(workspace_id, prefix.as_deref())
+        .await?;
 
     match args.output {
         ListKeysOutput::List => output_string_list(keys),
@@ -119,7 +120,9 @@ async fn handle_list_values_command(args: ListValuesArgs) -> Result<()> {
     let label_key = interactive::text_req("Label key", args.label_key, None)?;
     let prefix = interactive::text_opt("Prefix", args.prefix, None);
 
-    let values = label_values_list(&client, workspace_id, &label_key, prefix.as_deref()).await?;
+    let values = client
+        .label_values_list(workspace_id, &label_key, prefix.as_deref())
+        .await?;
 
     match args.output {
         ListValuesOutput::List => output_string_list(values),

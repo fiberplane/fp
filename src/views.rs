@@ -6,7 +6,6 @@ use crate::KeyValueArgument;
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
 use cli_table::Table;
-use fiberplane::api_client::{view_create, view_delete, view_list, view_update};
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::labels::Label;
 use fiberplane::models::names::Name;
@@ -133,7 +132,7 @@ async fn handle_create(args: CreateArguments) -> Result<()> {
     view.sort_by = args.sort_by;
     view.sort_direction = args.sort_direction;
 
-    let view = view_create(&client, workspace_id, view).await?;
+    let view = client.view_create(workspace_id, view).await?;
 
     info!("Successfully created new view");
 
@@ -184,15 +183,15 @@ async fn handle_list(args: ListArguments) -> Result<()> {
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
-    let views = view_list(
-        &client,
-        workspace_id,
-        args.sort_by.map(Into::<&str>::into),
-        args.sort_direction.map(Into::<&str>::into),
-        args.page,
-        args.limit,
-    )
-    .await?;
+    let views = client
+        .view_list(
+            workspace_id,
+            args.sort_by.map(Into::<&str>::into),
+            args.sort_direction.map(Into::<&str>::into),
+            args.page,
+            args.limit,
+        )
+        .await?;
 
     match args.output {
         ViewOutput::Table => {
@@ -229,7 +228,7 @@ async fn handle_delete(args: DeleteArguments) -> Result<()> {
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let view_name = view_picker(&client, args.workspace_id, args.view_name).await?;
 
-    view_delete(&client, workspace_id, &view_name).await?;
+    client.view_delete(workspace_id, &view_name).await?;
 
     info!("Successfully deleted view");
     Ok(())
@@ -342,7 +341,7 @@ async fn handle_update(args: UpdateArguments) -> Result<()> {
     update.sort_by = clear_or_update(args.clear_sort_by, args.sort_by);
     update.sort_direction = clear_or_update(args.clear_sort_direction, args.sort_direction);
 
-    view_update(&client, workspace_id, &view_name, update).await?;
+    client.view_update(workspace_id, &view_name, update).await?;
 
     info!("Successfully updated view");
     Ok(())

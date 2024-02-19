@@ -5,10 +5,8 @@ use crate::templates::TemplateArguments;
 use anyhow::{Context, Result};
 use clap::{Parser, ValueEnum};
 use cli_table::Table;
-use fiberplane::api_client::clients::{default_config, ApiClient};
-use fiberplane::api_client::{
-    trigger_create, trigger_delete, trigger_get, trigger_invoke, trigger_list,
-};
+use fiberplane::api_client::clients::default_config;
+use fiberplane::api_client::ApiClient;
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::names::Name;
 use fiberplane::models::notebooks::{
@@ -200,7 +198,8 @@ async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {
         .template_name(template_name)
         .default_arguments(default_arguments)
         .build();
-    let trigger = trigger_create(&client, workspace_id, trigger)
+    let trigger = client
+        .trigger_create(workspace_id, trigger)
         .await
         .context("Error creating trigger")?;
 
@@ -217,7 +216,8 @@ async fn handle_trigger_get_command(args: GetArguments) -> Result<()> {
     let client = api_client_configuration(args.token, args.config, args.base_url.clone()).await?;
     let trigger_id = interactive::trigger_picker(&client, args.trigger_id, None).await?;
 
-    let trigger = trigger_get(&client, trigger_id)
+    let trigger = client
+        .trigger_get(trigger_id)
         .await
         .with_context(|| "Error getting trigger details")?;
 
@@ -233,7 +233,8 @@ async fn handle_trigger_delete_command(args: DeleteArguments) -> Result<()> {
     let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let trigger_id = interactive::trigger_picker(&client, args.trigger_id, None).await?;
 
-    trigger_delete(&client, trigger_id)
+    client
+        .trigger_delete(trigger_id)
         .await
         .context("Error deleting trigger")?;
 
@@ -245,7 +246,8 @@ async fn handle_trigger_delete_command(args: DeleteArguments) -> Result<()> {
 async fn handle_trigger_list_command(args: ListArguments) -> Result<()> {
     let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let workspace_id = interactive::workspace_picker(&client, args.workspace_id).await?;
-    let mut triggers = trigger_list(&client, workspace_id)
+    let mut triggers = client
+        .trigger_list(workspace_id)
         .await
         .with_context(|| "Error getting triggers")?;
 
@@ -271,17 +273,17 @@ async fn handle_trigger_invoke_command(args: InvokeArguments) -> Result<()> {
         server: args.base_url,
     };
 
-    let response = trigger_invoke(
-        &anon_client,
-        trigger_id,
-        &secret_key,
-        args.template_arguments
-            .map_or_else(TemplateExpandPayload::new, |args| {
-                Map::from_iter(args.0.into_iter())
-            }),
-    )
-    .await
-    .context("Error invoking trigger")?;
+    let response = anon_client
+        .trigger_invoke(
+            trigger_id,
+            &secret_key,
+            args.template_arguments
+                .map_or_else(TemplateExpandPayload::new, |args| {
+                    Map::from_iter(args.0.into_iter())
+                }),
+        )
+        .await
+        .context("Error invoking trigger")?;
 
     match args.output {
         TriggerOutput::Table => {

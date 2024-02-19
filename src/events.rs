@@ -5,7 +5,6 @@ use crate::KeyValueArgument;
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
 use cli_table::Table;
-use fiberplane::api_client::{event_create, event_delete, event_list};
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::events::{Event, NewEvent};
 use fiberplane::models::sorting::{EventSortFields, SortDirection};
@@ -154,7 +153,7 @@ async fn handle_event_create_command(args: CreateArguments) -> Result<()> {
         .labels(labels.unwrap_or_default())
         .build();
     new_event.time = args.time;
-    let event = event_create(&client, workspace_id, new_event).await?;
+    let event = client.event_create(workspace_id, new_event).await?;
 
     info!("Successfully created new event");
 
@@ -169,19 +168,19 @@ async fn handle_event_search_command(args: SearchArguments) -> Result<()> {
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
-    let events = event_list(
-        &client,
-        workspace_id,
-        args.start,
-        args.end,
-        args.labels
-            .map(|args| args.into_iter().map(|kv| (kv.key, kv.value)).collect()),
-        args.sort_by.map(Into::<&str>::into),
-        args.sort_direction.map(Into::<&str>::into),
-        args.page,
-        args.limit,
-    )
-    .await?;
+    let events = client
+        .event_list(
+            workspace_id,
+            args.start,
+            args.end,
+            args.labels
+                .map(|args| args.into_iter().map(|kv| (kv.key, kv.value)).collect()),
+            args.sort_by.map(Into::<&str>::into),
+            args.sort_direction.map(Into::<&str>::into),
+            args.page,
+            args.limit,
+        )
+        .await?;
 
     match args.output {
         EventOutput::Table => {
@@ -210,7 +209,7 @@ pub struct DeleteArguments {
 async fn handle_event_delete_command(args: DeleteArguments) -> Result<()> {
     let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
-    event_delete(&client, args.id).await?;
+    client.event_delete(args.id).await?;
 
     info!("Successfully deleted event");
     Ok(())

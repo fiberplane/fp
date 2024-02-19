@@ -1,16 +1,12 @@
 use anyhow::{anyhow, bail, Context, Result};
 use dialoguer::{theme, Confirm, FuzzySelect, Input, MultiSelect, Select};
-use fiberplane::api_client::clients::ApiClient;
-use fiberplane::api_client::{
-    data_source_get, data_source_list, notebook_search, proxy_list, snippet_list, template_list,
-    trigger_list, view_list, webhook_delivery_list, webhook_list,
-    workspace_front_matter_schema_get, workspace_list, workspace_user_list,
-};
+use fiberplane::api_client::ApiClient;
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::data_sources::DataSource;
 use fiberplane::models::names::Name;
 use fiberplane::models::notebooks::NotebookSearch;
-use fiberplane::models::sorting::{NotebookSortFields, Pagination, SortDirection};
+use fiberplane::models::paging::Pagination;
+use fiberplane::models::sorting::{NotebookSortFields, SortDirection};
 use fiberplane::models::webhooks::{InvalidWebhookCategoryError, WebhookCategory};
 use indicatif::ProgressBar;
 use std::convert::TryInto;
@@ -240,14 +236,14 @@ pub async fn notebook_picker_with_prompt(
     pb.set_message("Fetching recent notebooks");
     pb.enable_steady_tick(Duration::from_millis(100));
 
-    let results = notebook_search(
-        client,
-        workspace_id,
-        Some(NotebookSortFields::CreatedAt.into()),
-        Some(SortDirection::Descending.into()), // show notebooks which have been created most recently first
-        NotebookSearch::default(),
-    )
-    .await?;
+    let results = client
+        .notebook_search(
+            workspace_id,
+            Some(NotebookSortFields::CreatedAt.into()),
+            Some(SortDirection::Descending.into()), // show notebooks which have been created most recently first
+            NotebookSearch::default(),
+        )
+        .await?;
 
     pb.finish_and_clear();
 
@@ -303,8 +299,9 @@ pub async fn template_picker(
     pb.set_message("Fetching templates");
     pb.enable_steady_tick(Duration::from_millis(100));
 
-    let results =
-        template_list(client, workspace_id, Some("updated_at"), Some("descending")).await?;
+    let results = client
+        .template_list(workspace_id, Some("updated_at"), Some("descending"))
+        .await?;
 
     pb.finish_and_clear();
 
@@ -347,7 +344,7 @@ pub async fn template_picker(
 /// interactive input will always be shown. This is a limitation that we
 /// currently not check if the invocation is interactive or not.
 pub async fn snippet_picker(
-    config: &ApiClient,
+    client: &ApiClient,
     snippet_name: Option<Name>,
     workspace_id: Option<Base64Uuid>,
 ) -> Result<(Base64Uuid, Name)> {
@@ -359,14 +356,15 @@ pub async fn snippet_picker(
     // No argument was provided, so we need to know the workspace ID in order to query
     // the snippet name.
     let workspace_id =
-        workspace_picker_with_prompt("Workspace of the snippet", config, workspace_id).await?;
+        workspace_picker_with_prompt("Workspace of the snippet", client, workspace_id).await?;
 
     let pb = ProgressBar::new_spinner();
     pb.set_message("Fetching snippets");
     pb.enable_steady_tick(Duration::from_millis(100));
 
-    let results =
-        snippet_list(config, workspace_id, Some("updated_at"), Some("descending")).await?;
+    let results = client
+        .snippet_list(workspace_id, Some("updated_at"), Some("descending"))
+        .await?;
 
     pb.finish_and_clear();
 
@@ -425,7 +423,7 @@ pub async fn trigger_picker(
     pb.set_message("Fetching triggers");
     pb.enable_steady_tick(Duration::from_millis(100));
 
-    let results = trigger_list(client, workspace_id).await?;
+    let results = client.trigger_list(workspace_id).await?;
 
     pb.finish_and_clear();
 
@@ -478,7 +476,7 @@ pub async fn proxy_picker(
     pb.set_message("Fetching daemons");
     pb.enable_steady_tick(Duration::from_millis(100));
 
-    let results = proxy_list(client, workspace_id).await?;
+    let results = client.proxy_list(workspace_id).await?;
 
     pb.finish_and_clear();
 
@@ -519,7 +517,7 @@ pub async fn data_source_picker(
     let workspace_id = workspace_picker(client, workspace_id).await?;
 
     if let Some(name) = argument {
-        let data_source = data_source_get(client, workspace_id, &name).await?;
+        let data_source = client.data_source_get(workspace_id, &name).await?;
         return Ok(data_source);
     }
 
@@ -527,7 +525,7 @@ pub async fn data_source_picker(
     pb.set_message("Fetching data sources");
     pb.enable_steady_tick(Duration::from_millis(100));
 
-    let mut results = data_source_list(client, workspace_id).await?;
+    let mut results = client.data_source_list(workspace_id).await?;
 
     pb.finish_and_clear();
 
@@ -578,7 +576,9 @@ pub async fn view_picker(
     pb.set_message("Fetching views");
     pb.enable_steady_tick(Duration::from_millis(100));
 
-    let results = view_list(client, workspace_id, None, None, None, None).await?;
+    let results = client
+        .view_list(workspace_id, None, None, None, None)
+        .await?;
 
     pb.finish_and_clear();
 
@@ -640,7 +640,9 @@ pub async fn workspace_picker_with_prompt(
     pb.set_message("Fetching workspaces");
     pb.enable_steady_tick(Duration::from_millis(100));
 
-    let results = workspace_list(client, Some("name"), Some("ascending")).await?;
+    let results = client
+        .workspace_list(Some("name"), Some("ascending"))
+        .await?;
 
     pb.finish_and_clear();
 
@@ -678,7 +680,7 @@ pub async fn workspace_picker_with_prompt(
 /// currently not check if the invocation is interactive or not.
 pub async fn workspace_user_picker(
     client: &ApiClient,
-    workspace: &Base64Uuid,
+    workspace_id: &Base64Uuid,
     argument: Option<Base64Uuid>,
 ) -> Result<Base64Uuid> {
     // If the user provided an argument, use that. Otherwise show the picker.
@@ -690,7 +692,9 @@ pub async fn workspace_user_picker(
     pb.set_message("Fetching workspace users");
     pb.enable_steady_tick(Duration::from_millis(100));
 
-    let results = workspace_user_list(client, *workspace, Some("name"), Some("ascending")).await?;
+    let results = client
+        .workspace_user_list(*workspace_id, Some("name"), Some("ascending"))
+        .await?;
 
     pb.finish_and_clear();
 
@@ -727,7 +731,7 @@ pub async fn workspace_user_picker(
 /// currently not check if the invocation is interactive or not.
 pub async fn webhook_picker(
     client: &ApiClient,
-    workspace: Base64Uuid,
+    workspace_id: Base64Uuid,
     argument: Option<Base64Uuid>,
 ) -> Result<Base64Uuid> {
     // If the user provided an argument, use that. Otherwise, show the picker.
@@ -740,13 +744,9 @@ pub async fn webhook_picker(
     pb.enable_steady_tick(Duration::from_millis(100));
 
     let max = Pagination::max();
-    let results = webhook_list(
-        client,
-        workspace,
-        Some(max.page as i32),
-        Some(max.limit as i32),
-    )
-    .await?;
+    let results = client
+        .webhook_list(workspace_id, Some(max.page as i32), Some(max.limit as i32))
+        .await?;
 
     pb.finish_and_clear();
 
@@ -783,8 +783,8 @@ pub async fn webhook_picker(
 /// currently not check if the invocation is interactive or not.
 pub async fn webhook_delivery_picker(
     client: &ApiClient,
-    workspace: Base64Uuid,
-    webhook: Base64Uuid,
+    workspace_id: Base64Uuid,
+    webhook_id: Base64Uuid,
     argument: Option<Base64Uuid>,
 ) -> Result<Base64Uuid> {
     // If the user provided an argument, use that. Otherwise, show the picker.
@@ -797,14 +797,14 @@ pub async fn webhook_delivery_picker(
     pb.enable_steady_tick(Duration::from_millis(100));
 
     let max = Pagination::max();
-    let results = webhook_delivery_list(
-        client,
-        workspace,
-        webhook,
-        Some(max.page as i32),
-        Some(max.limit as i32),
-    )
-    .await?;
+    let results = client
+        .webhook_delivery_list(
+            workspace_id,
+            webhook_id,
+            Some(max.page as i32),
+            Some(max.limit as i32),
+        )
+        .await?;
 
     pb.finish_and_clear();
 
@@ -869,7 +869,7 @@ pub fn webhook_category_picker(
 /// interactive input will always be shown. This is a limitation that we
 /// currently not check if the invocation is interactive or not.
 pub async fn front_matter_collection_picker(
-    config: &ApiClient,
+    client: &ApiClient,
     workspace_id: Option<Base64Uuid>,
     front_matter_collection_name: Option<Name>,
 ) -> Result<(Base64Uuid, Name)> {
@@ -882,7 +882,7 @@ pub async fn front_matter_collection_picker(
     // the snippet name.
     let workspace_id = workspace_picker_with_prompt(
         "Workspace of the front matter collection",
-        config,
+        client,
         workspace_id,
     )
     .await?;
@@ -891,7 +891,9 @@ pub async fn front_matter_collection_picker(
     pb.set_message("Fetching front matter collections");
     pb.enable_steady_tick(Duration::from_millis(100));
 
-    let results = workspace_front_matter_schema_get(config, workspace_id).await?;
+    let results = client
+        .workspace_front_matter_schema_get(workspace_id)
+        .await?;
 
     pb.finish_and_clear();
 

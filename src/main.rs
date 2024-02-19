@@ -4,7 +4,6 @@ use clap::{CommandFactory, Parser, ValueHint};
 use clap_complete::{generate, Shell};
 use config::api_client_configuration;
 use directories::ProjectDirs;
-use fiberplane::api_client::notebook_create;
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::labels::Label;
 use fiberplane::models::notebooks::NewNotebook;
@@ -583,7 +582,7 @@ async fn handle_new_command(args: NewArguments) -> Result<()> {
         .title(title)
         .time_range(NewTimeRange::Relative(RelativeTimeRange::from_minutes(60)))
         .build();
-    let notebook = notebook_create(&client, workspace_id, new_notebook).await?;
+    let notebook = client.notebook_create(workspace_id, new_notebook).await?;
 
     let notebook_id = Base64Uuid::parse_str(&notebook.id)?;
 

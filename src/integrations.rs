@@ -3,11 +3,12 @@ use crate::output::{output_json, output_list};
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
 use cli_table::Table;
-use fiberplane::api_client::integrations_get_by_user;
 use fiberplane::models::integrations::PersonalIntegrationSummary;
 use std::path::PathBuf;
 use time::format_description::well_known::Rfc3339;
 use url::Url;
+
+mod pagerduty_receivers;
 
 #[derive(Parser)]
 pub struct Arguments {
@@ -19,11 +20,17 @@ pub struct Arguments {
 enum SubCommand {
     /// List all integrations
     List(ListArgs),
+
+    /// All commands related to the creation and management of PagerDuty receivers.
+    #[clap(name = "pagerduty-receivers", alias = "pagerduty-receiver")]
+    PagerDutyReceivers(pagerduty_receivers::Arguments),
 }
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
     match args.sub_command {
         SubCommand::List(args) => handle_integrations_list(args).await,
+
+        SubCommand::PagerDutyReceivers(args) => pagerduty_receivers::handle_command(args).await,
     }
 }
 
@@ -54,7 +61,7 @@ pub(crate) enum IntegrationOutput {
 
 async fn handle_integrations_list(args: ListArgs) -> Result<()> {
     let client = api_client_configuration(args.token, args.config, args.base_url).await?;
-    let integrations = integrations_get_by_user(&client).await?;
+    let integrations = client.integrations_get_by_user().await?;
 
     match args.output {
         IntegrationOutput::Table => {

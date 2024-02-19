@@ -4,11 +4,7 @@ use crate::{config::api_client_configuration, fp_urls::NotebookUrlBuilder};
 use anyhow::{anyhow, bail, Context, Error, Result};
 use clap::{Parser, ValueEnum, ValueHint};
 use cli_table::Table;
-use fiberplane::api_client::clients::ApiClient;
-use fiberplane::api_client::{
-    notebook_create, notebook_get, template_create, template_delete, template_expand, template_get,
-    template_list, template_update, trigger_create,
-};
+use fiberplane::api_client::ApiClient;
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::names::Name;
 use fiberplane::models::notebooks::{
@@ -508,16 +504,16 @@ async fn expand_template_api(
     template_name: Name,
     template_arguments: Option<TemplateArguments>,
 ) -> Result<Notebook> {
-    let notebook = template_expand(
-        client,
-        workspace_id,
-        &template_name,
-        template_arguments.map_or_else(TemplateExpandPayload::new, |args| {
-            Map::from_iter(args.0.into_iter())
-        }),
-    )
-    .await
-    .with_context(|| format!("Error expanding template: {template_name}"))?;
+    let notebook = client
+        .template_expand(
+            workspace_id,
+            &template_name,
+            template_arguments.map_or_else(TemplateExpandPayload::new, |args| {
+                Map::from_iter(args.0.into_iter())
+            }),
+        )
+        .await
+        .with_context(|| format!("Error expanding template: {template_name}"))?;
 
     Ok(notebook)
 }
@@ -540,7 +536,8 @@ async fn expand_template_file(
 
     let notebook = expand_template(template, template_args).context("expanding template")?;
 
-    let notebook = notebook_create(client, workspace_id, notebook)
+    let notebook = client
+        .notebook_create(workspace_id, notebook)
         .await
         .context("Error creating notebook")?;
 
@@ -555,7 +552,8 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
     let notebook_id =
         interactive::notebook_picker(&client, args.notebook_id, Some(workspace_id)).await?;
 
-    let mut notebook = notebook_get(&client, notebook_id)
+    let mut notebook = client
+        .notebook_get(notebook_id)
         .await
         .context("Error fetching notebook")?;
 
@@ -593,14 +591,16 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
 
     // Create or update the template
     let (template, trigger_url) = if let Some(template_name) = args.template_name {
-        if template_get(&client, workspace_id, &template_name)
+        if client
+            .template_get(workspace_id, &template_name)
             .await
             .is_ok()
         {
             let mut template = UpdateTemplate::builder().body(template).build();
             template.description = description;
 
-            let template = template_update(&client, workspace_id, &template_name, template.clone())
+            let template = client
+                .template_update(workspace_id, &template_name, template.clone())
                 .await
                 .with_context(|| format!("Error updating template {template_name}"))?;
 
@@ -687,7 +687,7 @@ async fn handle_get_command(args: GetArguments) -> Result<()> {
     let (workspace_id, template_name) =
         interactive::template_picker(&client, args.template_name, None).await?;
 
-    let template = template_get(&client, workspace_id, &template_name).await?;
+    let template = client.template_get(workspace_id, &template_name).await?;
 
     match args.output {
         TemplateOutput::Table => output_details(GenericKeyValue::from_template(template)),
@@ -704,7 +704,8 @@ async fn handle_delete_command(args: DeleteArguments) -> Result<()> {
     let (workspace_id, template_name) =
         interactive::template_picker(&client, args.template_name, None).await?;
 
-    template_delete(&client, workspace_id, &template_name)
+    client
+        .template_delete(workspace_id, &template_name)
         .await
         .with_context(|| format!("Error deleting template {template_name}"))?;
 
@@ -718,13 +719,13 @@ async fn handle_list_command(args: ListArguments) -> Result<()> {
     let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
-    let templates = template_list(
-        &client,
-        workspace_id,
-        args.sort_by.map(Into::<&str>::into),
-        args.sort_direction.map(Into::<&str>::into),
-    )
-    .await?;
+    let templates = client
+        .template_list(
+            workspace_id,
+            args.sort_by.map(Into::<&str>::into),
+            args.sort_direction.map(Into::<&str>::into),
+        )
+        .await?;
 
     match args.output {
         TemplateListOutput::Table => {
@@ -756,7 +757,8 @@ async fn handle_update_command(args: UpdateArguments) -> Result<()> {
     template.description = args.description;
     template.body = body;
 
-    let template = template_update(&client, workspace_id, &template_name, template)
+    let template = client
+        .template_update(workspace_id, &template_name, template)
         .await
         .with_context(|| format!("Error updating template {template_name}"))?;
     info!("Updated template");
@@ -952,22 +954,23 @@ async fn create_template_and_trigger(
         false,
     );
 
-    let template = template_create(client, workspace_id, template)
+    let template = client
+        .template_create(workspace_id, template)
         .await
         .with_context(|| "Error creating template")?;
     info!("Uploaded template");
 
     let trigger_url = if create_trigger {
-        let trigger = trigger_create(
-            client,
-            workspace_id,
-            NewTrigger::builder()
-                .title(format!("{} Trigger", &template.name))
-                .template_name(template.name.clone())
-                .build(),
-        )
-        .await
-        .context("Error creating trigger")?;
+        let trigger = client
+            .trigger_create(
+                workspace_id,
+                NewTrigger::builder()
+                    .title(format!("{} Trigger", &template.name))
+                    .template_name(template.name.clone())
+                    .build(),
+            )
+            .await
+            .context("Error creating trigger")?;
 
         let trigger_url = client.server.join(&format!(
             "api/triggers/{}/{}",

@@ -9,12 +9,6 @@ use anyhow::{anyhow, bail, Result};
 use clap::{Parser, ValueEnum};
 use cli_table::Table;
 use dialoguer::FuzzySelect;
-use fiberplane::api_client::{
-    integrations_get_by_workspace, workspace_create, workspace_delete, workspace_get,
-    workspace_invite_create, workspace_invite_delete, workspace_invite_get, workspace_leave,
-    workspace_list, workspace_update, workspace_user_list, workspace_user_remove,
-    workspace_user_update,
-};
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::data_sources::{ProviderType, SelectedDataSource};
 use fiberplane::models::integrations::WorkspaceIntegrationSummary;
@@ -175,14 +169,14 @@ async fn handle_workspace_create(args: CreateArgs) -> Result<()> {
         .ok_or_else(|| anyhow!("Name is required"))?;
     let display_name = text_opt("Display Name", args.display_name, Some(name.to_string()));
 
-    let workspace = workspace_create(
-        &client,
-        NewWorkspace::builder()
-            .name(name)
-            .display_name(display_name.unwrap_or_default())
-            .build(),
-    )
-    .await?;
+    let workspace = client
+        .workspace_create(
+            NewWorkspace::builder()
+                .name(name)
+                .display_name(display_name.unwrap_or_default())
+                .build(),
+        )
+        .await?;
 
     info!("Successfully created new workspace");
 
@@ -212,7 +206,7 @@ async fn handle_workspace_delete(args: DeleteArgs) -> Result<()> {
     let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
-    workspace_delete(&client, workspace_id).await?;
+    client.workspace_delete(workspace_id).await?;
 
     info!("Successfully deleted workspace");
     Ok(())
@@ -253,12 +247,12 @@ struct ListArgs {
 async fn handle_workspace_list(args: ListArgs) -> Result<()> {
     let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
-    let list = workspace_list(
-        &client,
-        args.sort_by.map(Into::<&str>::into),
-        args.sort_direction.map(Into::<&str>::into),
-    )
-    .await?;
+    let list = client
+        .workspace_list(
+            args.sort_by.map(Into::<&str>::into),
+            args.sort_direction.map(Into::<&str>::into),
+        )
+        .await?;
 
     match args.output {
         WorkspaceListOutput::Table => {
@@ -289,7 +283,7 @@ async fn handle_workspace_leave(args: LeaveArgs) -> Result<()> {
     let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
-    workspace_leave(&client, workspace_id).await?;
+    client.workspace_leave(workspace_id).await?;
 
     info!("Successfully left workspace");
     Ok(())
@@ -328,12 +322,9 @@ async fn handle_invite_create(args: InviteCreateArgs) -> Result<()> {
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let email = text_req("Email", args.email, None)?;
 
-    let invite = workspace_invite_create(
-        &client,
-        workspace_id,
-        NewWorkspaceInvite::new(email, args.role),
-    )
-    .await?;
+    let invite = client
+        .workspace_invite_create(workspace_id, NewWorkspaceInvite::new(email, args.role))
+        .await?;
 
     if !matches!(args.output, NewInviteOutput::InviteUrl) {
         info!("Successfully invited user to workspace");
@@ -389,15 +380,15 @@ async fn handle_invite_list(args: InviteListArgs) -> Result<()> {
     let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
-    let invites = workspace_invite_get(
-        &client,
-        workspace_id,
-        args.sort_by.map(Into::<&str>::into),
-        args.sort_direction.map(Into::<&str>::into),
-        args.page,
-        args.limit,
-    )
-    .await?;
+    let invites = client
+        .workspace_invite_get(
+            workspace_id,
+            args.sort_by.map(Into::<&str>::into),
+            args.sort_direction.map(Into::<&str>::into),
+            args.page,
+            args.limit,
+        )
+        .await?;
 
     match args.output {
         PendingInvitesOutput::Table => {
@@ -427,7 +418,7 @@ struct InviteDeleteArgs {
 async fn handle_invite_delete(args: InviteDeleteArgs) -> Result<()> {
     let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
-    workspace_invite_delete(&client, args.invite_id).await?;
+    client.workspace_invite_delete(args.invite_id).await?;
 
     info!("Successfully deleted invitation from workspace");
     Ok(())
@@ -473,13 +464,13 @@ async fn handle_user_list(args: UserListArgs) -> Result<()> {
     let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
-    let users = workspace_user_list(
-        &client,
-        workspace_id,
-        args.sort_by.map(Into::<&str>::into),
-        args.sort_direction.map(Into::<&str>::into),
-    )
-    .await?;
+    let users = client
+        .workspace_user_list(
+            workspace_id,
+            args.sort_by.map(Into::<&str>::into),
+            args.sort_direction.map(Into::<&str>::into),
+        )
+        .await?;
 
     match args.output {
         UserListOutput::Table => {
@@ -524,7 +515,9 @@ async fn handle_user_update(args: UserUpdateArgs) -> Result<()> {
         Some(role) => UpdateWorkspaceUser::builder().role(role).build(),
         None => UpdateWorkspaceUser::builder().build(),
     };
-    workspace_user_update(&client, workspace_id, user, payload).await?;
+    client
+        .workspace_user_update(workspace_id, user, payload)
+        .await?;
 
     info!("Successfully updated user within workspace");
     Ok(())
@@ -556,7 +549,7 @@ async fn handle_user_delete(args: UserDeleteArgs) -> Result<()> {
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let user = workspace_user_picker(&client, &workspace_id, args.user_id).await?;
 
-    workspace_user_remove(&client, workspace_id, user).await?;
+    client.workspace_user_remove(workspace_id, user).await?;
 
     info!("Successfully removed user from workspace");
     Ok(())
@@ -711,12 +704,12 @@ async fn handle_move_owner(args: MoveOwnerArgs) -> Result<()> {
 
     let new_owner = workspace_user_picker(&client, &workspace_id, args.new_owner_id).await?;
 
-    workspace_update(
-        &client,
-        workspace_id,
-        UpdateWorkspace::builder().owner(new_owner).build(),
-    )
-    .await?;
+    client
+        .workspace_update(
+            workspace_id,
+            UpdateWorkspace::builder().owner(new_owner).build(),
+        )
+        .await?;
 
     info!("Successfully moved ownership of workspace");
     Ok(())
@@ -726,14 +719,14 @@ async fn handle_change_name(args: ChangeNameArgs) -> Result<()> {
     let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
-    workspace_update(
-        &client,
-        workspace_id,
-        UpdateWorkspace::builder()
-            .display_name(args.new_name)
-            .build(),
-    )
-    .await?;
+    client
+        .workspace_update(
+            workspace_id,
+            UpdateWorkspace::builder()
+                .display_name(args.new_name)
+                .build(),
+        )
+        .await?;
 
     info!("Successfully changed name of workspace");
     Ok(())
@@ -743,7 +736,8 @@ async fn handle_get_default_data_sources(args: GetDefaultDataSourcesArgs) -> Res
     let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
-    let default_data_sources = workspace_get(&client, workspace_id)
+    let default_data_sources = client
+        .workspace_get(workspace_id)
         .await?
         .default_data_sources;
 
@@ -764,7 +758,8 @@ async fn handle_set_default_data_source(args: SetDefaultDataSourcesArgs) -> Resu
     let data_source =
         data_source_picker(&client, Some(workspace_id), args.data_source_name).await?;
 
-    let mut default_data_sources = workspace_get(&client, workspace_id)
+    let mut default_data_sources = client
+        .workspace_get(workspace_id)
         .await?
         .default_data_sources;
 
@@ -779,14 +774,14 @@ async fn handle_set_default_data_source(args: SetDefaultDataSourcesArgs) -> Resu
     };
     default_data_sources.insert(data_source.provider_type.clone(), sds);
 
-    workspace_update(
-        &client,
-        workspace_id,
-        UpdateWorkspace::builder()
-            .default_data_sources(default_data_sources)
-            .build(),
-    )
-    .await?;
+    client
+        .workspace_update(
+            workspace_id,
+            UpdateWorkspace::builder()
+                .default_data_sources(default_data_sources)
+                .build(),
+        )
+        .await?;
 
     info!(
         "Successfully set {}{} to be the default data source for {} queries",
@@ -805,7 +800,8 @@ async fn handle_unset_default_data_source(args: UnsetDefaultDataSourcesArgs) -> 
     let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
-    let mut default_data_sources = workspace_get(&client, workspace_id)
+    let mut default_data_sources = client
+        .workspace_get(workspace_id)
         .await?
         .default_data_sources;
 
@@ -824,14 +820,14 @@ async fn handle_unset_default_data_source(args: UnsetDefaultDataSourcesArgs) -> 
 
     default_data_sources.remove(&provider_type);
 
-    workspace_update(
-        &client,
-        workspace_id,
-        UpdateWorkspace::builder()
-            .default_data_sources(default_data_sources)
-            .build(),
-    )
-    .await?;
+    client
+        .workspace_update(
+            workspace_id,
+            UpdateWorkspace::builder()
+                .default_data_sources(default_data_sources)
+                .build(),
+        )
+        .await?;
 
     info!("Successfully unset default data source for workspace");
     Ok(())
@@ -841,7 +837,7 @@ async fn handle_integrations_list(args: ListIntegrationsArgs) -> Result<()> {
     let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
-    let integrations = integrations_get_by_workspace(&client, workspace_id).await?;
+    let integrations = client.integrations_get_by_workspace(workspace_id).await?;
 
     match args.output {
         IntegrationOutput::Table => {
