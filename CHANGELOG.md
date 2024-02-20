@@ -7,6 +7,7 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 ## [Unreleased]
 
 ### Added
+
 - Add `integrations list` command (#267)
 - Add `front-matter-collection get` command (#271)
 - Add `front-matter-collection set` command (#271)
@@ -14,6 +15,7 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 - Add `notebook front-matter append` command (#271)
 - Add `notebook front-matter edit` command (#271)
 - Add `notebook front-matter delete` command (#271)
+- Removed pagination from the `integrations list` command (#171)
 
 ### Deprecated
 
