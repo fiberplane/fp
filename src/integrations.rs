@@ -85,8 +85,14 @@ impl From<IntegrationSummary> for IntegrationRow {
         Self {
             id: integration.id.to_string(),
             status: integration.status.to_string(),
-            created_at: integration.created_at.format(&Rfc3339).unwrap_or_default(),
-            updated_at: integration.updated_at.format(&Rfc3339).unwrap_or_default(),
+            created_at: integration.created_at.map_or_else(
+                || "n/a".to_string(),
+                |time| time.format(&Rfc3339).unwrap_or_default(),
+            ),
+            updated_at: integration.updated_at.map_or_else(
+                || "n/a".to_string(),
+                |time| time.format(&Rfc3339).unwrap_or_default(),
+            ),
         }
     }
 }
