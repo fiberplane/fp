@@ -29,14 +29,6 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 
 #[derive(Parser)]
 struct ListArgs {
-    /// Page to display
-    #[clap(long)]
-    page: Option<i32>,
-
-    /// Amount of integrations to display per page
-    #[clap(long)]
-    limit: Option<i32>,
-
     /// Output of the webhooks
     #[clap(long, short, default_value = "table", value_enum)]
     output: IntegrationOutput,
@@ -62,7 +54,7 @@ enum IntegrationOutput {
 
 async fn handle_integrations_list(args: ListArgs) -> Result<()> {
     let client = api_client_configuration(args.token, args.config, args.base_url).await?;
-    let integrations = integrations_get(&client, args.page, args.limit).await?;
+    let integrations = integrations_get(&client).await?;
 
     match args.output {
         IntegrationOutput::Table => {
@@ -93,8 +85,14 @@ impl From<IntegrationSummary> for IntegrationRow {
         Self {
             id: integration.id.to_string(),
             status: integration.status.to_string(),
-            created_at: integration.created_at.format(&Rfc3339).unwrap_or_default(),
-            updated_at: integration.updated_at.format(&Rfc3339).unwrap_or_default(),
+            created_at: integration.created_at.map_or_else(
+                || "n/a".to_string(),
+                |time| time.format(&Rfc3339).unwrap_or_default(),
+            ),
+            updated_at: integration.updated_at.map_or_else(
+                || "n/a".to_string(),
+                |time| time.format(&Rfc3339).unwrap_or_default(),
+            ),
         }
     }
 }
