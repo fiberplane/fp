@@ -935,7 +935,7 @@ async fn handle_front_matter_append_command(args: FrontMatterAppendArguments) ->
     let new_row = FrontMatterSchemaRow::builder()
         .key(args.key)
         .schema(new_schema)
-        .value(args.value)
+        .value(args.value.map(Into::into))
         .build();
 
     let notebook = notebook_get(&client, notebook_id).await?;
