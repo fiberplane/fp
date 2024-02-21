@@ -39,6 +39,7 @@ pub struct Arguments {
 }
 
 #[derive(Parser)]
+#[allow(clippy::manual_non_exhaustive)]
 enum SubCommand {
     /// Append a message to the given notebook
     Message(MessageArgs),
