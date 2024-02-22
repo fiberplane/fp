@@ -1,17 +1,13 @@
-use std::{io::stdin, path::PathBuf};
-
 use anyhow::{Context, Result};
 use clap::{Parser, ValueHint};
-use fiberplane::{
-    api_client::{
-        workspace_front_matter_schemas_create, workspace_front_matter_schemas_get_by_name,
-    },
-    base64uuid::Base64Uuid,
-    models::{
-        front_matter_schemas::FrontMatterSchema, names::Name,
-        workspaces::NewWorkspaceFrontMatterSchema,
-    },
+use fiberplane::api_client::{
+    workspace_front_matter_schema_create, workspace_front_matter_schema_get_by_name,
 };
+use fiberplane::base64uuid::Base64Uuid;
+use fiberplane::models::front_matter_schemas::FrontMatterSchema;
+use fiberplane::models::names::Name;
+use fiberplane::models::workspaces::NewWorkspaceFrontMatterSchema;
+use std::{io::stdin, path::PathBuf};
 use url::Url;
 
 use crate::{
@@ -159,7 +155,7 @@ pub async fn handle_set_command(args: SetArgs) -> Result<()> {
         serde_json::from_str(&content).with_context(|| "cannot parse content as schema")?
     };
 
-    workspace_front_matter_schemas_create(
+    workspace_front_matter_schema_create(
         &client,
         workspace_id,
         NewWorkspaceFrontMatterSchema::builder()
@@ -189,7 +185,7 @@ pub async fn handle_create_command(args: CreateArgs) -> Result<()> {
         serde_json::from_str(&content).with_context(|| "cannot parse content as schema")?
     };
 
-    workspace_front_matter_schemas_create(
+    workspace_front_matter_schema_create(
         &client,
         workspace_id,
         NewWorkspaceFrontMatterSchema::builder()
@@ -208,7 +204,7 @@ pub async fn handle_get_command(args: GetArgs) -> Result<()> {
     let (workspace_id, fmc_name) =
         front_matter_collection_picker(&client, args.workspace_id, args.name).await?;
 
-    let fmc = workspace_front_matter_schemas_get_by_name(&client, workspace_id, &fmc_name).await?;
+    let fmc = workspace_front_matter_schema_get_by_name(&client, workspace_id, &fmc_name).await?;
 
     println!(
         "{}",
@@ -225,9 +221,9 @@ pub async fn handle_delete_command(args: DeleteArgs) -> Result<()> {
         front_matter_collection_picker(&client, args.workspace_id, args.name).await?;
 
     unimplemented!(
-        "The workspace_front_matter_schemas_delete endpoint is missing from the API for now."
+        "The workspace_front_matter_schema_delete endpoint is missing from the API for now."
     );
-    // workspace_front_matter_schemas_delete(&client, workspace_id, &fmc_name).await?;
+    // workspace_front_matter_schema_delete(&client, workspace_id, &fmc_name).await?;
 
     // Ok(())
 }

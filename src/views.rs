@@ -6,7 +6,7 @@ use crate::KeyValueArgument;
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
 use cli_table::Table;
-use fiberplane::api_client::{view_delete, view_update, views_create, views_get};
+use fiberplane::api_client::{view_create, view_delete, view_list, view_update};
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::labels::Label;
 use fiberplane::models::names::Name;
@@ -133,7 +133,7 @@ async fn handle_create(args: CreateArguments) -> Result<()> {
     view.sort_by = args.sort_by;
     view.sort_direction = args.sort_direction;
 
-    let view = views_create(&client, workspace_id, view).await?;
+    let view = view_create(&client, workspace_id, view).await?;
 
     info!("Successfully created new view");
 
@@ -184,7 +184,7 @@ async fn handle_list(args: ListArguments) -> Result<()> {
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
-    let views = views_get(
+    let views = view_list(
         &client,
         workspace_id,
         args.sort_by.map(Into::<&str>::into),

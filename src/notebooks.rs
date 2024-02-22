@@ -13,7 +13,7 @@ use fiberplane::api_client::{
     front_matter_add_keys, front_matter_delete, front_matter_delete_key, front_matter_update,
     front_matter_update_key, notebook_cells_append, notebook_create, notebook_delete,
     notebook_duplicate, notebook_get, notebook_list, notebook_search, notebook_snippet_insert,
-    workspace_front_matter_schemas_get_by_name,
+    workspace_front_matter_schema_get_by_name,
 };
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::markdown::{markdown_to_notebook, notebook_to_markdown};
@@ -1112,7 +1112,7 @@ async fn handle_front_matter_add_collection_command(
         front_matter_collection_picker(&client, args.workspace_id, args.name).await?;
     let notebook_id = notebook_picker(&client, args.notebook_id, Some(workspace_id)).await?;
 
-    let fmc = workspace_front_matter_schemas_get_by_name(&client, workspace_id, &fmc_name).await?;
+    let fmc = workspace_front_matter_schema_get_by_name(&client, workspace_id, &fmc_name).await?;
 
     let insertions: Vec<FrontMatterSchemaRow> = fmc
         .iter()
