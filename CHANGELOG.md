@@ -4,7 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format of this file is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [Unreleased]
+## [2.22.0] - TBD
+
+TBD
+
+## [2.21.0] - 2024-02-26
+
+### Changed
+
+- Removed pagination from the `integrations list` command (#171)
+
+## [2.20.0]
 
 ### Added
 
@@ -15,7 +25,6 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 - Add `notebook front-matter append` command (#271)
 - Add `notebook front-matter edit` command (#271)
 - Add `notebook front-matter delete` command (#271)
-- Removed pagination from the `integrations list` command (#171)
 
 ### Deprecated
 
