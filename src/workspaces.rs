@@ -9,9 +9,9 @@ use clap::{Parser, ValueEnum};
 use cli_table::Table;
 use dialoguer::FuzzySelect;
 use fiberplane::api_client::{
-    workspace_create, workspace_delete, workspace_get, workspace_invite, workspace_invite_delete,
-    workspace_invite_get, workspace_leave, workspace_list, workspace_update, workspace_user_remove,
-    workspace_user_update, workspace_users_list,
+    workspace_create, workspace_delete, workspace_get, workspace_invite_create,
+    workspace_invite_delete, workspace_invite_get, workspace_leave, workspace_list,
+    workspace_update, workspace_user_list, workspace_user_remove, workspace_user_update,
 };
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::data_sources::{ProviderType, SelectedDataSource};
@@ -21,8 +21,8 @@ use fiberplane::models::sorting::{
     WorkspaceMembershipSortFields,
 };
 use fiberplane::models::workspaces::{
-    AuthRole, Membership, NewWorkspace, NewWorkspaceInvite, UpdateWorkspace, Workspace,
-    WorkspaceInvite, WorkspaceInviteResponse, WorkspaceUserUpdate,
+    AuthRole, Membership, NewWorkspace, NewWorkspaceInvite, UpdateWorkspace, UpdateWorkspaceUser,
+    Workspace, WorkspaceInvite, WorkspaceInviteResponse,
 };
 use std::collections::BTreeMap;
 use std::{fmt::Display, path::PathBuf};
@@ -311,7 +311,7 @@ async fn handle_invite_create(args: InviteCreateArgs) -> Result<()> {
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let email = text_req("Email", args.email, None)?;
 
-    let invite = workspace_invite(
+    let invite = workspace_invite_create(
         &client,
         workspace_id,
         NewWorkspaceInvite::new(email, args.role),
@@ -456,7 +456,7 @@ async fn handle_user_list(args: UserListArgs) -> Result<()> {
     let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
-    let users = workspace_users_list(
+    let users = workspace_user_list(
         &client,
         workspace_id,
         args.sort_by.map(Into::<&str>::into),
@@ -504,8 +504,8 @@ async fn handle_user_update(args: UserUpdateArgs) -> Result<()> {
     let user = workspace_user_picker(&client, &workspace_id, args.user_id).await?;
 
     let payload = match args.role {
-        Some(role) => WorkspaceUserUpdate::builder().role(role).build(),
-        None => WorkspaceUserUpdate::builder().build(),
+        Some(role) => UpdateWorkspaceUser::builder().role(role).build(),
+        None => UpdateWorkspaceUser::builder().build(),
     };
     workspace_user_update(&client, workspace_id, user, payload).await?;
 

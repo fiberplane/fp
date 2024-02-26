@@ -3,8 +3,8 @@ use dialoguer::{theme, Confirm, FuzzySelect, Input, MultiSelect, Select};
 use fiberplane::api_client::clients::ApiClient;
 use fiberplane::api_client::{
     data_source_get, data_source_list, notebook_search, proxy_list, snippet_list, template_list,
-    trigger_list, views_get, webhook_delivery_list, webhooks_list,
-    workspace_front_matter_schemas_get, workspace_list, workspace_users_list,
+    trigger_list, view_list, webhook_delivery_list, webhook_list,
+    workspace_front_matter_schema_get, workspace_list, workspace_user_list,
 };
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::data_sources::DataSource;
@@ -578,7 +578,7 @@ pub async fn view_picker(
     pb.set_message("Fetching views");
     pb.enable_steady_tick(Duration::from_millis(100));
 
-    let results = views_get(client, workspace_id, None, None, None, None).await?;
+    let results = view_list(client, workspace_id, None, None, None, None).await?;
 
     pb.finish_and_clear();
 
@@ -690,7 +690,7 @@ pub async fn workspace_user_picker(
     pb.set_message("Fetching workspace users");
     pb.enable_steady_tick(Duration::from_millis(100));
 
-    let results = workspace_users_list(client, *workspace, Some("name"), Some("ascending")).await?;
+    let results = workspace_user_list(client, *workspace, Some("name"), Some("ascending")).await?;
 
     pb.finish_and_clear();
 
@@ -740,7 +740,7 @@ pub async fn webhook_picker(
     pb.enable_steady_tick(Duration::from_millis(100));
 
     let max = Pagination::max();
-    let results = webhooks_list(
+    let results = webhook_list(
         client,
         workspace,
         Some(max.page as i32),
@@ -891,7 +891,7 @@ pub async fn front_matter_collection_picker(
     pb.set_message("Fetching front matter collections");
     pb.enable_steady_tick(Duration::from_millis(100));
 
-    let results = workspace_front_matter_schemas_get(config, workspace_id).await?;
+    let results = workspace_front_matter_schema_get(config, workspace_id).await?;
 
     pb.finish_and_clear();
 

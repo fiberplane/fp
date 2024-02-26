@@ -10,7 +10,7 @@ use clap::ValueEnum;
 use cli_table::Table;
 use fiberplane::api_client::{
     webhook_create, webhook_delete, webhook_delivery_get, webhook_delivery_list,
-    webhook_delivery_resend, webhook_update, webhooks_list,
+    webhook_delivery_resend, webhook_list, webhook_update,
 };
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::webhooks::{
@@ -170,7 +170,7 @@ async fn handle_webhook_list(args: ListArgs) -> Result<()> {
     let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
-    let webhooks = webhooks_list(&client, workspace_id, args.page, args.limit).await?;
+    let webhooks = webhook_list(&client, workspace_id, args.page, args.limit).await?;
 
     match args.output {
         WebhookOutput::Table => {
