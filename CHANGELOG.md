@@ -6,7 +6,10 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 
 ## [2.22.0] - TBD
 
-TBD
+### Changed
+
+- Update to latest fiberplane-client and schema. For more information see
+  fiberplane/fiberplane/174 (#278)
 
 ## [2.21.0] - 2024-02-26
 
