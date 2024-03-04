@@ -79,6 +79,11 @@ struct CreateArgs {
     #[clap(long, short)]
     incident_created_template: Option<Name>,
 
+    /// An optional secret to set on the PagerDuty receiver. If this is set,
+    /// then any incoming webhook will be verified against this secret.
+    #[clap(long)]
+    secret: Option<String>,
+
     /// Output of the webhooks
     #[clap(long, short, default_value = "table", value_enum)]
     output: PagerDutyWebhookOutput,
@@ -106,6 +111,7 @@ async fn handle_create(args: CreateArgs) -> Result<()> {
 
     let new_pagerduty_receiver = NewPagerDutyReceiver::builder()
         .incident_created_template_name(args.incident_created_template)
+        .secret(args.secret)
         .build();
     let pagerduty_receiver = client
         .pagerduty_receiver_create(workspace_id, &name, new_pagerduty_receiver)
@@ -178,8 +184,14 @@ struct UpdateArgs {
     #[clap(long, env, conflicts_with = "incident_creation_template")]
     clear_incident_creation_template: bool,
 
-    #[clap(long, short)]
-    regenerate_security_key: bool,
+    /// An optional secret to set on the PagerDuty receiver. If this is set,
+    /// then any incoming webhook will be verified against this secret
+    #[clap(long, env, conflicts_with = "clear_secret")]
+    secret: Option<String>,
+
+    /// Clear the secret on the PagerDuty receiver.
+    #[clap(long, env, conflicts_with = "secret")]
+    clear_secret: bool,
 
     /// Output of the webhooks
     #[clap(long, short, default_value = "table", value_enum)]
@@ -211,9 +223,11 @@ async fn handle_update(args: UpdateArgs) -> Result<()> {
         args.incident_creation_template,
     );
 
+    let secret = clear_or_update(args.clear_secret, args.secret);
+
     let update_pagerduty_receiver = UpdatePagerDutyReceiver::builder()
         .incident_created_template_name(incident_created_template_name)
-        .regenerate_security_key(args.regenerate_security_key)
+        .secret(secret)
         .build();
 
     let pagerduty_receiver = client
@@ -373,7 +387,7 @@ impl GenericKeyValue {
                     .map(|name| name.to_string())
                     .unwrap_or_else(|| String::from("<none>")),
             ),
-            GenericKeyValue::new("Security key:", pagerduty_receiver.security_key),
+            GenericKeyValue::new("Secret set:", pagerduty_receiver.secret_set.to_string()),
             GenericKeyValue::new(
                 "Created at:",
                 pagerduty_receiver
