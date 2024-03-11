@@ -6,6 +6,10 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 
 ## unreleased
 
+### Added
+
+- Added `workspaces integrations list` command (#284)
+
 ## [2.23.0] - 2024-03-01
 
 ### Changed
