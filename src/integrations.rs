@@ -3,8 +3,8 @@ use crate::output::{output_json, output_list};
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
 use cli_table::Table;
-use fiberplane::api_client::integrations_get;
-use fiberplane::models::integrations::IntegrationSummary;
+use fiberplane::api_client::integrations_get_by_user;
+use fiberplane::models::integrations::PersonalIntegrationSummary;
 use std::path::PathBuf;
 use time::format_description::well_known::Rfc3339;
 use url::Url;
@@ -44,7 +44,7 @@ struct ListArgs {
 }
 
 #[derive(ValueEnum, Clone)]
-enum IntegrationOutput {
+pub(crate) enum IntegrationOutput {
     /// Output the details of the integrations as a table
     Table,
 
@@ -54,7 +54,7 @@ enum IntegrationOutput {
 
 async fn handle_integrations_list(args: ListArgs) -> Result<()> {
     let client = api_client_configuration(args.token, args.config, args.base_url).await?;
-    let integrations = integrations_get(&client).await?;
+    let integrations = integrations_get_by_user(&client).await?;
 
     match args.output {
         IntegrationOutput::Table => {
@@ -66,22 +66,22 @@ async fn handle_integrations_list(args: ListArgs) -> Result<()> {
 }
 
 #[derive(Table)]
-struct IntegrationRow {
+pub(crate) struct IntegrationRow {
     #[table(title = "ID")]
-    id: String,
+    pub(crate) id: String,
 
     #[table(title = "Status")]
-    status: String,
+    pub(crate) status: String,
 
     #[table(title = "Created at")]
-    created_at: String,
+    pub(crate) created_at: String,
 
     #[table(title = "Updated at")]
-    updated_at: String,
+    pub(crate) updated_at: String,
 }
 
-impl From<IntegrationSummary> for IntegrationRow {
-    fn from(integration: IntegrationSummary) -> Self {
+impl From<PersonalIntegrationSummary> for IntegrationRow {
+    fn from(integration: PersonalIntegrationSummary) -> Self {
         Self {
             id: integration.id.to_string(),
             status: integration.status.to_string(),

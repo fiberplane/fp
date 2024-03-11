@@ -1,4 +1,5 @@
 use crate::config::api_client_configuration;
+use crate::integrations::{IntegrationOutput, IntegrationRow};
 use crate::interactive::{
     data_source_picker, default_theme, name_opt, text_opt, text_req, workspace_picker,
     workspace_user_picker,
@@ -9,12 +10,14 @@ use clap::{Parser, ValueEnum};
 use cli_table::Table;
 use dialoguer::FuzzySelect;
 use fiberplane::api_client::{
-    workspace_create, workspace_delete, workspace_get, workspace_invite_create,
-    workspace_invite_delete, workspace_invite_get, workspace_leave, workspace_list,
-    workspace_update, workspace_user_list, workspace_user_remove, workspace_user_update,
+    integrations_get_by_workspace, workspace_create, workspace_delete, workspace_get,
+    workspace_invite_create, workspace_invite_delete, workspace_invite_get, workspace_leave,
+    workspace_list, workspace_update, workspace_user_list, workspace_user_remove,
+    workspace_user_update,
 };
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::data_sources::{ProviderType, SelectedDataSource};
+use fiberplane::models::integrations::WorkspaceIntegrationSummary;
 use fiberplane::models::names::Name;
 use fiberplane::models::sorting::{
     SortDirection, WorkspaceInviteListingSortFields, WorkspaceListingSortFields,
@@ -26,6 +29,7 @@ use fiberplane::models::workspaces::{
 };
 use std::collections::BTreeMap;
 use std::{fmt::Display, path::PathBuf};
+use time::format_description::well_known::Rfc3339;
 use tracing::info;
 use url::Url;
 
@@ -60,6 +64,10 @@ enum SubCommand {
     /// List, update and remove users from a workspace
     #[clap(subcommand)]
     Users(UsersSubCommand),
+
+    /// List, update and remove integrations from a workspace
+    #[clap(subcommand)]
+    Integrations(IntegrationsSubCommand),
 }
 
 #[derive(Parser)]
@@ -89,6 +97,12 @@ enum UsersSubCommand {
     Delete(UserDeleteArgs),
 }
 
+#[derive(Parser)]
+enum IntegrationsSubCommand {
+    /// List the integrations that are connected to this workspace
+    List(ListIntegrationsArgs),
+}
+
 pub async fn handle_command(args: Arguments) -> Result<()> {
     match args.sub_command {
         SubCommand::Create(args) => handle_workspace_create(args).await,
@@ -111,6 +125,9 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
             SettingsSubCommand::DefaultDataSources(sub_command) => {
                 handle_default_data_sources_command(sub_command).await
             }
+        },
+        SubCommand::Integrations(sub_command) => match sub_command {
+            IntegrationsSubCommand::List(args) => handle_integrations_list(args).await,
         },
     }
 }
@@ -669,6 +686,25 @@ pub(crate) struct UnsetDefaultDataSourcesArgs {
     token: Option<String>,
 }
 
+#[derive(Parser)]
+pub(crate) struct ListIntegrationsArgs {
+    /// Output of the webhooks
+    #[clap(long, short, default_value = "table", value_enum)]
+    output: IntegrationOutput,
+
+    #[clap(from_global)]
+    workspace_id: Option<Base64Uuid>,
+
+    #[clap(from_global)]
+    base_url: Url,
+
+    #[clap(from_global)]
+    config: Option<PathBuf>,
+
+    #[clap(from_global)]
+    token: Option<String>,
+}
+
 async fn handle_move_owner(args: MoveOwnerArgs) -> Result<()> {
     let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
@@ -799,6 +835,21 @@ async fn handle_unset_default_data_source(args: UnsetDefaultDataSourcesArgs) -> 
 
     info!("Successfully unset default data source for workspace");
     Ok(())
+}
+
+async fn handle_integrations_list(args: ListIntegrationsArgs) -> Result<()> {
+    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let workspace_id = workspace_picker(&client, args.workspace_id).await?;
+
+    let integrations = integrations_get_by_workspace(&client, workspace_id).await?;
+
+    match args.output {
+        IntegrationOutput::Table => {
+            let rows: Vec<IntegrationRow> = integrations.into_iter().map(Into::into).collect();
+            output_list(rows)
+        }
+        IntegrationOutput::Json => output_json(&integrations),
+    }
 }
 
 #[derive(ValueEnum, Clone)]
@@ -994,6 +1045,23 @@ impl From<Membership> for MembershipRow {
             name: user.name,
             email: user.email,
             role: user.role.to_string(),
+        }
+    }
+}
+
+impl From<WorkspaceIntegrationSummary> for IntegrationRow {
+    fn from(integration: WorkspaceIntegrationSummary) -> Self {
+        Self {
+            id: integration.id.to_string(),
+            status: integration.status.to_string(),
+            created_at: integration.created_at.map_or_else(
+                || "n/a".to_string(),
+                |time| time.format(&Rfc3339).unwrap_or_default(),
+            ),
+            updated_at: integration.updated_at.map_or_else(
+                || "n/a".to_string(),
+                |time| time.format(&Rfc3339).unwrap_or_default(),
+            ),
         }
     }
 }
