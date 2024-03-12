@@ -35,7 +35,7 @@ mod events;
 mod experiments;
 mod fp_urls;
 mod front_matter;
-mod integrations;
+pub(crate) mod integrations;
 mod interactive;
 mod labels;
 mod manifest;
@@ -226,9 +226,11 @@ enum SubCommand {
     #[clap(aliases = &["webhook", "wh"])]
     Webhooks(webhooks::Arguments),
 
-    /// Interact with integrations
+    /// Interact with personal integrations.
     ///
-    /// Integrations allow you to integrate various third-party tools into Fiberplane
+    /// Integrations allow you to integrate various third-party tools into Fiberplane.
+    ///
+    /// If you wish to configure workspace level integrations, please use `fp workspaces integrations`
     #[clap(alias = "integration")]
     Integrations(integrations::Arguments),
 
