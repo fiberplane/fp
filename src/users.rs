@@ -2,7 +2,6 @@ use crate::config::api_client_configuration;
 use crate::output::{output_details, output_json, GenericKeyValue};
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
-use fiberplane::api_client::profile_get;
 use fiberplane::models::users::Profile;
 use std::path::PathBuf;
 use url::Url;
@@ -52,7 +51,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 
 async fn handle_get_profile_command(args: GetArgs) -> Result<()> {
     let client = api_client_configuration(args.token, args.config, args.base_url).await?;
-    let profile = profile_get(&client).await?;
+    let profile = client.profile_get().await?;
 
     match args.output {
         ProfileOutput::Table => output_details(GenericKeyValue::from_profile(profile)),

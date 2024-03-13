@@ -9,12 +9,6 @@ use anyhow::{anyhow, bail, Context, Result};
 use clap::{Parser, ValueEnum, ValueHint};
 use cli_table::Table;
 use dialoguer::FuzzySelect;
-use fiberplane::api_client::{
-    front_matter_add_keys, front_matter_delete, front_matter_delete_key, front_matter_update,
-    front_matter_update_key, notebook_cells_append, notebook_create, notebook_delete,
-    notebook_duplicate, notebook_get, notebook_list, notebook_search, notebook_snippet_insert,
-    workspace_front_matter_schema_get_by_name,
-};
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::markdown::{markdown_to_notebook, notebook_to_markdown};
 use fiberplane::models::front_matter_schemas::{
@@ -219,7 +213,7 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
         .front_matter(notebook.front_matter)
         .build();
 
-    let notebook = notebook_create(&client, workspace_id, notebook).await?;
+    let notebook = client.notebook_create(workspace_id, notebook).await?;
 
     match args.output {
         NotebookOutput::Table => {
@@ -275,7 +269,7 @@ async fn handle_duplicate_command(args: DuplicateArgs) -> Result<()> {
     )
     .await?;
 
-    let source_notebook = notebook_get(&client, notebook_id).await?;
+    let source_notebook = client.notebook_get(notebook_id).await?;
 
     let workspace_id =
         interactive::workspace_picker_with_prompt("Target workspace", &client, args.workspace_id)
@@ -293,15 +287,15 @@ async fn handle_duplicate_command(args: DuplicateArgs) -> Result<()> {
 
     let title = interactive::text_req("Title", args.title, Some(new_title))?;
 
-    let notebook = notebook_duplicate(
-        &client,
-        notebook_id,
-        NotebookCopyDestination::builder()
-            .title(title)
-            .workspace_id(workspace_id)
-            .build(),
-    )
-    .await?;
+    let notebook = client
+        .notebook_duplicate(
+            notebook_id,
+            NotebookCopyDestination::builder()
+                .title(title)
+                .workspace_id(workspace_id)
+                .build(),
+        )
+        .await?;
 
     match args.output {
         NotebookOutput::Table => {
@@ -343,7 +337,7 @@ async fn handle_get_command(args: GetArgs) -> Result<()> {
     let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let notebook_id = notebook_picker(&client, args.notebook_id, args.workspace_id).await?;
 
-    let notebook = notebook_get(&client, notebook_id).await?;
+    let notebook = client.notebook_get(notebook_id).await?;
 
     match args.output {
         SingleNotebookOutput::Table => output_details(GenericKeyValue::from_notebook(notebook)?),
@@ -382,7 +376,7 @@ async fn handle_list_command(args: ListArgs) -> Result<()> {
     let client = api_client_configuration(args.token, args.config, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
-    let notebooks = notebook_list(&client, workspace_id).await?;
+    let notebooks = client.notebook_list(workspace_id).await?;
 
     match args.output {
         NotebookOutput::Table => {
@@ -454,14 +448,14 @@ async fn handle_search_command(args: SearchArgs) -> Result<()> {
         search_params.view = Some(view_picker(&client, Some(workspace_id), args.view).await?);
     }
 
-    let notebooks = notebook_search(
-        &client,
-        workspace_id,
-        args.sort_by.map(Into::<&str>::into),
-        args.sort_direction.map(Into::<&str>::into),
-        search_params,
-    )
-    .await?;
+    let notebooks = client
+        .notebook_search(
+            workspace_id,
+            args.sort_by.map(Into::<&str>::into),
+            args.sort_direction.map(Into::<&str>::into),
+            search_params,
+        )
+        .await?;
 
     match args.output {
         NotebookOutput::Table => {
@@ -532,7 +526,8 @@ async fn handle_delete_command(args: DeleteArgs) -> Result<()> {
     let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let notebook_id = notebook_picker(&client, args.notebook_id, args.workspace_id).await?;
 
-    notebook_delete(&client, notebook_id)
+    client
+        .notebook_delete(notebook_id)
         .await
         .with_context(|| format!("Error deleting notebook {notebook_id}"))?;
 
@@ -590,7 +585,8 @@ async fn handle_append_cell_command(args: AppendCellArgs) -> Result<()> {
         unreachable!();
     };
 
-    let cell = notebook_cells_append(&client, notebook_id, None, None, vec![cell])
+    let cell = client
+        .notebook_cells_append(notebook_id, None, None, vec![cell])
         .await?
         .pop()
         .ok_or_else(|| anyhow!("Expected a single cell"))?;
@@ -653,9 +649,9 @@ pub(crate) async fn handle_insert_snippet_command(args: InsertSnippetArgs) -> Re
         snippet_picker(&client, args.snippet_name, Some(workspace_id)).await?;
     let notebook_id = notebook_picker(&client, args.notebook_id, Some(workspace_id)).await?;
 
-    let cells =
-        notebook_snippet_insert(&client, notebook_id, &snippet_name, args.cell_id.as_deref())
-            .await?;
+    let cells = client
+        .notebook_snippet_insert(notebook_id, &snippet_name, args.cell_id.as_deref())
+        .await?;
 
     let url = NotebookUrlBuilder::new(workspace_id, notebook_id)
         .base_url(args.base_url)
@@ -745,7 +741,9 @@ async fn handle_front_matter_update_command(args: FrontMatterUpdateArguments) ->
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let notebook_id = notebook_picker(&client, args.notebook_id, Some(workspace_id)).await?;
 
-    front_matter_update(&client, notebook_id, args.front_matter).await?;
+    client
+        .front_matter_update(notebook_id, args.front_matter)
+        .await?;
 
     info!("Successfully updated front matter");
     Ok(())
@@ -777,7 +775,7 @@ async fn handle_front_matter_clear_command(args: FrontMatterClearArguments) -> R
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let notebook_id = notebook_picker(&client, args.notebook_id, Some(workspace_id)).await?;
 
-    front_matter_delete(&client, notebook_id).await?;
+    client.front_matter_delete(notebook_id).await?;
 
     info!("Successfully cleared front matter");
     Ok(())
@@ -938,13 +936,13 @@ async fn handle_front_matter_append_command(args: FrontMatterAppendArguments) ->
         .value(args.value.map(Into::into))
         .build();
 
-    let notebook = notebook_get(&client, notebook_id).await?;
+    let notebook = client.notebook_get(notebook_id).await?;
     let additions = FrontMatterAddRows::builder()
         .to_index(notebook.front_matter_schema.len().try_into().unwrap())
         .insertions(vec![new_row])
         .build();
 
-    front_matter_add_keys(&client, notebook_id, additions).await?;
+    client.front_matter_add_keys(notebook_id, additions).await?;
 
     info!("Successfully updated front matter");
     Ok(())
@@ -955,7 +953,7 @@ async fn handle_front_matter_delete_command(args: FrontMatterDeleteArguments) ->
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let notebook_id = notebook_picker(&client, args.notebook_id, Some(workspace_id)).await?;
-    let notebook = notebook_get(&client, notebook_id).await?;
+    let notebook = client.notebook_get(notebook_id).await?;
 
     if args.all {
         for key in notebook
@@ -963,7 +961,7 @@ async fn handle_front_matter_delete_command(args: FrontMatterDeleteArguments) ->
             .iter()
             .map(|schema| schema.key.clone())
         {
-            front_matter_delete_key(&client, notebook_id, &key).await?;
+            client.front_matter_delete_key(notebook_id, &key).await?;
         }
         info!("Successfully updated front matter");
         return Ok(());
@@ -971,7 +969,7 @@ async fn handle_front_matter_delete_command(args: FrontMatterDeleteArguments) ->
 
     match args.front_matter_key {
         Some(key) => {
-            front_matter_delete_key(&client, notebook_id, &key).await?;
+            client.front_matter_delete_key(notebook_id, &key).await?;
         }
         None => {
             let keys: Vec<_> = notebook
@@ -1004,7 +1002,9 @@ async fn handle_front_matter_delete_command(args: FrontMatterDeleteArguments) ->
 
             match selection {
                 Some(selection) => {
-                    front_matter_delete_key(&client, notebook_id, &keys[selection].0).await?;
+                    client
+                        .front_matter_delete_key(notebook_id, &keys[selection].0)
+                        .await?;
                 }
                 None => bail!("No key selected"),
             }
@@ -1020,7 +1020,7 @@ async fn handle_front_matter_edit_command(args: FrontMatterEditArguments) -> Res
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let notebook_id = notebook_picker(&client, args.notebook_id, Some(workspace_id)).await?;
-    let notebook = notebook_get(&client, notebook_id).await?;
+    let notebook = client.notebook_get(notebook_id).await?;
 
     let payload = FrontMatterUpdateRow::builder()
         .new_value(Some(args.new_value))
@@ -1028,7 +1028,9 @@ async fn handle_front_matter_edit_command(args: FrontMatterEditArguments) -> Res
 
     match args.front_matter_key {
         Some(key) => {
-            front_matter_update_key(&client, notebook_id, &key, payload).await?;
+            client
+                .front_matter_update_key(notebook_id, &key, payload)
+                .await?;
         }
         None => {
             let keys: Vec<_> = notebook
@@ -1061,7 +1063,8 @@ async fn handle_front_matter_edit_command(args: FrontMatterEditArguments) -> Res
 
             match selection {
                 Some(selection) => {
-                    front_matter_update_key(&client, notebook_id, &keys[selection].0, payload)
+                    client
+                        .front_matter_update_key(notebook_id, &keys[selection].0, payload)
                         .await?;
                 }
                 None => bail!("No key selected"),
@@ -1112,7 +1115,9 @@ async fn handle_front_matter_add_collection_command(
         front_matter_collection_picker(&client, args.workspace_id, args.name).await?;
     let notebook_id = notebook_picker(&client, args.notebook_id, Some(workspace_id)).await?;
 
-    let fmc = workspace_front_matter_schema_get_by_name(&client, workspace_id, &fmc_name).await?;
+    let fmc = client
+        .workspace_front_matter_schema_get_by_name(workspace_id, &fmc_name)
+        .await?;
 
     let insertions: Vec<FrontMatterSchemaRow> = fmc
         .iter()
@@ -1127,7 +1132,7 @@ async fn handle_front_matter_add_collection_command(
     let to_index: u32 = match args.position {
         Some(index) => index,
         None => {
-            let notebook = notebook_get(&client, notebook_id).await?;
+            let notebook = client.notebook_get(notebook_id).await?;
             notebook.front_matter_schema.len().try_into()?
         }
     };
@@ -1137,7 +1142,7 @@ async fn handle_front_matter_add_collection_command(
         .insertions(insertions)
         .build();
 
-    front_matter_add_keys(&client, notebook_id, payload).await?;
+    client.front_matter_add_keys(notebook_id, payload).await?;
 
     info!("Successfully added {fmc_name} collection to front matter");
     Ok(())

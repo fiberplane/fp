@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Error, Result};
 use directories::ProjectDirs;
-use fiberplane::api_client::clients::{default_config, ApiClient};
+use fiberplane::api_client::clients::default_config;
+use fiberplane::api_client::ApiClient;
 use hyper::http::HeaderValue;
 use hyper::HeaderMap;
 use serde::{Deserialize, Serialize};

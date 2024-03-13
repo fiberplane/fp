@@ -5,9 +5,6 @@ use crate::workspaces;
 use anyhow::{anyhow, Result};
 use clap::{Parser, ValueEnum};
 use cli_table::Table;
-use fiberplane::api_client::{
-    data_source_create, data_source_delete, data_source_list, data_source_update,
-};
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::data_sources::{DataSource, NewDataSource, UpdateDataSource};
 use fiberplane::models::names::Name;
@@ -243,7 +240,7 @@ async fn handle_create(args: CreateArgs) -> Result<()> {
         .config(provider_config.0)
         .build();
     data_source.description = description;
-    let data_source = data_source_create(&client, workspace_id, data_source).await?;
+    let data_source = client.data_source_create(workspace_id, data_source).await?;
 
     match args.output {
         DataSourceOutput::Table => output_details(GenericKeyValue::from_data_source(&data_source)),
@@ -260,7 +257,9 @@ async fn handle_delete(args: DeleteArgs) -> Result<()> {
 
     let data_source = data_source_picker(&client, Some(workspace_id), args.name).await?;
 
-    data_source_delete(&client, workspace_id, &data_source.name).await?;
+    client
+        .data_source_delete(workspace_id, &data_source.name)
+        .await?;
 
     Ok(())
 }
@@ -290,7 +289,9 @@ async fn handle_update(args: UpdateArgs) -> Result<()> {
     update.description = args.description;
     update.config = args.provider_config.map(|c| c.0);
 
-    let data_source = data_source_update(&client, workspace_id, &data_source.name, update).await?;
+    let data_source = client
+        .data_source_update(workspace_id, &data_source.name, update)
+        .await?;
 
     match args.output {
         DataSourceOutput::Table => output_details(GenericKeyValue::from_data_source(&data_source)),
@@ -305,7 +306,7 @@ async fn handle_list(args: ListArgs) -> Result<()> {
     let client = api_client_configuration(args.token, args.config, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
-    let data_sources = data_source_list(&client, workspace_id).await?;
+    let data_sources = client.data_source_list(workspace_id).await?;
 
     match args.output {
         DataSourceOutput::Table => {

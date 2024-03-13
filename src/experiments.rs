@@ -6,7 +6,6 @@ use crate::templates::NOTEBOOK_ID_REGEX;
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, ValueEnum};
 use directories::ProjectDirs;
-use fiberplane::api_client::{notebook_cells_append, notebook_get, profile_get};
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::markdown::notebook_to_markdown;
 use fiberplane::models::formatting::{Annotation, AnnotationWithOffset, Mention};
@@ -149,6 +148,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 
 async fn handle_message_command(args: MessageArgs) -> Result<()> {
     let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+
     let notebook_id = interactive::notebook_picker(&client, args.notebook_id, None).await?;
     let mut cache = Cache::load().await?;
 
@@ -156,7 +156,8 @@ async fn handle_message_command(args: MessageArgs) -> Result<()> {
     let (user_id, name) = match (cache.user_id, cache.user_name) {
         (Some(user_id), Some(user_name)) => (Base64Uuid::from_str(&user_id)?, user_name),
         _ => {
-            let user = profile_get(&client)
+            let user = client
+                .profile_get()
                 .await
                 .with_context(|| "Error getting user profile")?;
             cache.user_name = Some(user.name.clone());
@@ -181,7 +182,8 @@ async fn handle_message_command(args: MessageArgs) -> Result<()> {
             )])
             .build(),
     );
-    let cell = notebook_cells_append(&client, notebook_id, None, None, vec![cell])
+    let cell = client
+        .notebook_cells_append(notebook_id, None, None, vec![cell])
         .await
         .with_context(|| "Error appending cell to notebook")?
         .pop()
@@ -239,7 +241,7 @@ async fn handle_crawl_command(args: CrawlArgs) -> Result<()> {
             continue;
         }
         crawl_index += 1;
-        let notebook = match notebook_get(&client, notebook_id).await {
+        let notebook = match client.notebook_get(notebook_id).await {
             Ok(notebook) => notebook,
             Err(err) => {
                 // TODO differentiate between 404 and other errors
@@ -429,22 +431,22 @@ async fn handle_prometheus_redirect_command(args: PrometheusGraphToNotebookArgs)
                         Some(query) => {
                             // Append cell to notebook and return the URL
                             let id = Base64Uuid::new().to_string();
-                            if let Err(err) = notebook_cells_append(
-                                &client,
-                                notebook_id,
-                                None,
-                                None,
-                                vec![Cell::Provider(
-                                    ProviderCell::builder()
-                                        .id(id.clone())
-                                        .intent("prometheus,timeseries")
-                                        .query_data(format!(
-                                            "application/x-www-form-urlencoded,query={query}"
-                                        ))
-                                        .build(),
-                                )],
-                            )
-                            .await
+                            if let Err(err) = client
+                                .notebook_cells_append(
+                                    notebook_id,
+                                    None,
+                                    None,
+                                    vec![Cell::Provider(
+                                        ProviderCell::builder()
+                                            .id(id.clone())
+                                            .intent("prometheus,timeseries")
+                                            .query_data(format!(
+                                                "application/x-www-form-urlencoded,query={query}"
+                                            ))
+                                            .build(),
+                                    )],
+                                )
+                                .await
                             {
                                 error!("Error appending cell to notebook: {:?}", err);
                                 return Ok::<_, Error>(
