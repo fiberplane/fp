@@ -387,6 +387,7 @@ impl GenericKeyValue {
                     .map(|name| name.to_string())
                     .unwrap_or_else(|| String::from("<none>")),
             ),
+            GenericKeyValue::new("Webhook URL:", pagerduty_receiver.webhook_url),
             GenericKeyValue::new("Secret set:", pagerduty_receiver.secret_set.to_string()),
             GenericKeyValue::new(
                 "Created at:",
