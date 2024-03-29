@@ -19,7 +19,7 @@ cli-table = "0.4"
 crossterm = { version = "0.27.0", features = ["event-stream"] }
 directories = "5.0.1"
 dialoguer = { version = "0.11.0", features = ["fuzzy-select"] }
-fiberplane = { version = "1.0.0-beta.11", features = [
+fiberplane = { version = "1.0.0-beta.14", features = [
     "api-client",
     "base64uuid-creation",
     "clap",
@@ -32,6 +32,7 @@ futures = "0.3"
 futures-util = "0.3.21"
 grok = "2.0.0"
 hex = "0.4.3"
+http = "1.1"
 human-panic = "1.1.3"
 hyper = { version = "0.14.13", features = [
     "http1",
@@ -86,6 +87,6 @@ vergen = { version = "8.0.0", features = [
 ] }
 
 [patch.crates-io]
-fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane.git", branch = "main" }
+fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane.git", branch = "updates_2024-03-15" }
 #fp-bindgen-support = { git = "ssh://git@github.com/fiberplane/fp-bindgen.git", branch = "release-3.0.0" }
 #fp-bindgen-macros = { git = "ssh://git@github.com/fiberplane/fp-bindgen.git", branch = "release-3.0.0" }
