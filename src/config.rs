@@ -1,17 +1,15 @@
+use crate::MANIFEST;
 use anyhow::{anyhow, Error, Result};
 use directories::ProjectDirs;
 use fiberplane::api_client::clients::default_config;
 use fiberplane::api_client::ApiClient;
-use hyper::http::HeaderValue;
-use hyper::HeaderMap;
+use http::{HeaderMap, HeaderValue};
 use serde::{Deserialize, Serialize};
 use std::io::ErrorKind;
 use std::path::PathBuf;
 use tokio::fs;
 use tracing::debug;
 use url::Url;
-
-use crate::MANIFEST;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Config {

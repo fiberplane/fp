@@ -1,5 +1,4 @@
 use crate::config::api_client_configuration;
-use crate::fp_urls::NotebookUrlBuilder;
 use crate::interactive;
 use crate::output::{output_details, output_json, GenericKeyValue};
 use crate::templates::NOTEBOOK_ID_REGEX;
@@ -9,21 +8,17 @@ use directories::ProjectDirs;
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::markdown::notebook_to_markdown;
 use fiberplane::models::formatting::{Annotation, AnnotationWithOffset, Mention};
-use fiberplane::models::notebooks::{Cell, ProviderCell, TextCell};
+use fiberplane::models::notebooks::{Cell, TextCell};
 use fiberplane::models::timestamps::Timestamp;
 use fiberplane::models::utils::char_count;
 use fiberplane::models::{formatting, notebooks};
-use hyper::service::{make_service_fn, service_fn};
-use hyper::{Body, Error, Response, Server, StatusCode};
 use lazy_static::lazy_static;
-use qstring::QString;
 use regex::{Regex, Replacer};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
-use std::{convert::Infallible, sync::Arc};
-use std::{fmt::Write, io::ErrorKind, net::IpAddr, path::PathBuf, str::FromStr};
+use std::{fmt::Write, io::ErrorKind, path::PathBuf, str::FromStr};
 use tokio::fs;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 use url::Url;
 
 lazy_static! {
@@ -46,9 +41,6 @@ enum SubCommand {
     /// Starting with the given notebook, recursively crawl all linked notebooks
     /// and save them to the given directory as Markdown
     Crawl(CrawlArgs),
-
-    /// Open Prometheus graphs in a given notebook
-    PrometheusGraphToNotebook(PrometheusGraphToNotebookArgs),
 
     /// Panics the CLI in order to test out `human-panic`
     #[clap(hide = true)]
@@ -100,32 +92,6 @@ struct CrawlArgs {
     token: Option<String>,
 }
 
-#[derive(Parser)]
-struct PrometheusGraphToNotebookArgs {
-    #[clap(long, short, env)]
-    notebook_id: Option<Base64Uuid>,
-
-    /// Server port number
-    #[clap(long, short, env, default_value = "9090")]
-    port: u16,
-
-    /// Hostname to listen on
-    #[clap(long, short = 'H', env, default_value = "127.0.0.1")]
-    listen_host: IpAddr,
-
-    #[clap(from_global)]
-    workspace_id: Option<Base64Uuid>,
-
-    #[clap(from_global)]
-    base_url: Url,
-
-    #[clap(from_global)]
-    config: Option<PathBuf>,
-
-    #[clap(from_global)]
-    token: Option<String>,
-}
-
 #[derive(ValueEnum, Clone)]
 enum MessageOutput {
     /// Output the result as a table
@@ -139,9 +105,6 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
     match args.sub_command {
         SubCommand::Message(args) => handle_message_command(args).await,
         SubCommand::Crawl(args) => handle_crawl_command(args).await,
-        SubCommand::PrometheusGraphToNotebook(args) => {
-            handle_prometheus_redirect_command(args).await
-        }
         SubCommand::Panic => panic!("manually created panic called by `fpx experiments panic`"),
     }
 }
@@ -393,104 +356,4 @@ fn cache_file_path() -> PathBuf {
         .unwrap()
         .cache_dir()
         .join("cache.toml")
-}
-
-async fn handle_prometheus_redirect_command(args: PrometheusGraphToNotebookArgs) -> Result<()> {
-    let client = Arc::new(api_client_configuration(args.token, args.config, args.base_url).await?);
-    let workspace_id = interactive::workspace_picker(&client, args.workspace_id).await?;
-    let notebook_id =
-        interactive::notebook_picker(&client, args.notebook_id, Some(workspace_id)).await?;
-    let notebook_url = NotebookUrlBuilder::new(workspace_id, notebook_id)
-        .base_url(client.server.clone())
-        .url()
-        .expect("Error building URL");
-
-    let listen_addr = (args.listen_host, args.port).into();
-    let make_service = make_service_fn(move |_| {
-        let client = client.clone();
-        async move {
-            Ok::<_, Infallible>(service_fn(move |req| {
-                let client = client.clone();
-                async move {
-                    if !req.uri().path().starts_with("/graph") {
-                        return Ok::<_, Error>(
-                            Response::builder()
-                                .status(StatusCode::NOT_FOUND)
-                                .body(Body::from(
-                                    "Prometheus-to-notebook can only be used for graph URLs",
-                                ))
-                                .expect("Error creating response"),
-                        );
-                    }
-                    let query = req
-                        .uri()
-                        .query()
-                        .and_then(|query| QString::from(query).get("g0.expr").map(String::from));
-
-                    match query {
-                        Some(query) => {
-                            // Append cell to notebook and return the URL
-                            let id = Base64Uuid::new().to_string();
-                            if let Err(err) = client
-                                .notebook_cells_append(
-                                    notebook_id,
-                                    None,
-                                    None,
-                                    vec![Cell::Provider(
-                                        ProviderCell::builder()
-                                            .id(id.clone())
-                                            .intent("prometheus,timeseries")
-                                            .query_data(format!(
-                                                "application/x-www-form-urlencoded,query={query}"
-                                            ))
-                                            .build(),
-                                    )],
-                                )
-                                .await
-                            {
-                                error!("Error appending cell to notebook: {:?}", err);
-                                return Ok::<_, Error>(
-                                    Response::builder()
-                                        .status(StatusCode::INTERNAL_SERVER_ERROR)
-                                        .body(Body::from("Error appending cell to notebook"))
-                                        .unwrap(),
-                                );
-                            };
-
-                            let url = NotebookUrlBuilder::new(workspace_id, notebook_id)
-                                .base_url(client.server.clone())
-                                .cell_id(id)
-                                .url()
-                                .expect("Error building URL");
-
-                            debug!("Redirecting to: {}", url.as_str());
-
-                            Ok::<_, Error>(
-                                Response::builder()
-                                    .status(StatusCode::TEMPORARY_REDIRECT)
-                                    .header("Location", url.as_str())
-                                    .body(Body::empty())
-                                    .unwrap(),
-                            )
-                        }
-                        None => Ok::<_, Error>(
-                            Response::builder()
-                                .status(StatusCode::BAD_REQUEST)
-                                .body(Body::from("Expected `g0.expr` query string parameter"))
-                                .unwrap(),
-                        ),
-                    }
-                }
-            }))
-        }
-    });
-    let server = Server::bind(&listen_addr).serve(make_service);
-
-    info!(
-        "Opening Prometheus graph URLs that start with: http://{listen_addr}/graph will now add them to the notebook: {notebook_url} ",
-    );
-
-    server.await?;
-
-    Ok(())
 }
