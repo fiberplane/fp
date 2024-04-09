@@ -9,6 +9,7 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 ### Added
 
 - Added `workspaces integrations list` command (#284)
+- Allow user to specify the secret instead of receiving it from the api (#288)
 
 ## [2.23.0] - 2024-03-01
 
