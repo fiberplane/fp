@@ -87,6 +87,6 @@ vergen = { version = "8.0.0", features = [
 ] }
 
 [patch.crates-io]
-fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane.git", branch = "main" }
+fiberplane = { git = "ssh://git@github.com/fiberplane/fiberplane.git", branch = "updates_2024-04-16" }
 #fp-bindgen-support = { git = "ssh://git@github.com/fiberplane/fp-bindgen.git", branch = "release-3.0.0" }
 #fp-bindgen-macros = { git = "ssh://git@github.com/fiberplane/fp-bindgen.git", branch = "release-3.0.0" }
