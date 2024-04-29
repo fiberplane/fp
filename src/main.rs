@@ -26,6 +26,8 @@ use tracing_subscriber::fmt::format;
 use update::retrieve_latest_version;
 use url::Url;
 
+mod runtime;
+
 mod auth;
 mod config;
 mod daemons;

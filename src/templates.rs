@@ -1,5 +1,6 @@
 use crate::interactive::{self, workspace_picker};
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
+use crate::runtime::EvalRuntime;
 use crate::{config::api_client_configuration, fp_urls::NotebookUrlBuilder};
 use anyhow::{anyhow, bail, Context, Error, Result};
 use clap::{Parser, ValueEnum, ValueHint};
@@ -8,8 +9,7 @@ use fiberplane::api_client::ApiClient;
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::names::Name;
 use fiberplane::models::notebooks::{
-    self, Cell, HeadingCell, HeadingType, NewTemplate, NewTrigger, Notebook, TemplateExpandPayload,
-    TemplateSummary, TextCell, UpdateTemplate,
+    self, Cell, HeadingCell, HeadingType, NewNotebook, NewTemplate, NewTrigger, Notebook, TemplateExpandPayload, TemplateSummary, TextCell, UpdateTemplate
 };
 use fiberplane::models::sorting::{SortDirection, TemplateListSortFields};
 use fiberplane::models::templates::{Template, TemplateParameter, TemplateParameterType};
@@ -18,7 +18,7 @@ use fiberplane::templates::{expand_template, notebook_to_template, Error as Temp
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value};
+use serde_json::{json, Map, Value};
 use std::iter::FromIterator;
 use std::{collections::HashMap, ffi::OsStr, path::PathBuf, str::FromStr};
 use time::format_description::well_known::Rfc3339;
@@ -424,9 +424,34 @@ async fn handle_init_command(args: InitArguments) -> Result<()> {
     Ok(())
 }
 
+async fn load_template(template_path: &str) -> Result<String> {
+    if template_path.starts_with("https://") || template_path.starts_with("http://") {
+        if template_path.starts_with("http://") {
+            warn!("Templates can be manually expanded from HTTP URLs but triggers must use HTTPS URLs");
+        }
+        reqwest::get(template_path)
+            .await
+            .with_context(|| format!("loading template from URL: {template_path}"))?
+            .error_for_status()
+            .with_context(|| format!("loading template from URL: {template_path}"))?
+            .text()
+            .await
+            .with_context(|| format!("reading remote file as text: {template_path}"))
+    } else {
+        let path = PathBuf::from(template_path);
+        if path.extension() == Some(OsStr::new("ts")) {
+            fs::read_to_string(path)
+                .await
+                .with_context(|| "reading typescript file")
+        } else {
+            Err(anyhow!("Template must be a .ts file"))
+        }
+    }
+}
+
 /// Load the template file, either from a server if the
 /// template_path is an HTTPS URL, or from a local file
-async fn load_template(template_path: &str) -> Result<String> {
+/* async fn load_template(template_path: &str) -> Result<String> {
     if template_path.starts_with("https://") || template_path.starts_with("http://") {
         if template_path.starts_with("http://") {
             warn!("Templates can be manually expanded from HTTP URLs but triggers must use HTTPS URLs");
@@ -449,7 +474,7 @@ async fn load_template(template_path: &str) -> Result<String> {
             Err(anyhow!("Template must be a .jsonnet file"))
         }
     }
-}
+} */
 
 async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
     let base_url = args.base_url.clone();
@@ -534,7 +559,9 @@ async fn expand_template_file(
         HashMap::new()
     };
 
-    let notebook = expand_template(template, template_args).context("expanding template")?;
+    let template_args = json!(template_args);
+
+    let notebook = expand_template2(template, template_args).await?;
 
     let notebook = client
         .notebook_create(workspace_id, notebook)
@@ -543,6 +570,12 @@ async fn expand_template_file(
 
     Ok(notebook)
 }
+
+async fn expand_template2(template: String, args: serde_json::Value) -> Result<NewNotebook, anyhow::Error> {
+    let mut runtime = EvalRuntime::new();
+    runtime.evaluate(template, Some(args)).await
+}
+
 
 async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
     // Load the notebook
