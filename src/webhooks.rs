@@ -269,7 +269,7 @@ async fn handle_webhook_update(args: UpdateArgs) -> Result<()> {
         .regenerate_shared_secret(args.regenerate_shared_secret)
         .build();
 
-    payload.endpoint = args.endpoint.clone();
+    payload.endpoint.clone_from(&args.endpoint);
     payload.events = args.categories;
     payload.enabled = args.enabled;
 
