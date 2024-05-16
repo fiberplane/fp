@@ -9,7 +9,7 @@ use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::events::{Event, NewEvent};
 use fiberplane::models::sorting::{EventSortFields, SortDirection};
 use fiberplane::models::timestamps::Timestamp;
-use std::{collections::HashMap, fmt::Display, path::PathBuf};
+use std::{collections::HashMap, fmt::Display};
 use tracing::info;
 use url::Url;
 
@@ -74,10 +74,10 @@ struct CreateArguments {
     workspace_id: Option<Base64Uuid>,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -122,17 +122,17 @@ pub struct SearchArguments {
     limit: Option<i32>,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
 }
 
 async fn handle_event_create_command(args: CreateArguments) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
 
     let key_values: HashMap<_, _> = args
         .labels
@@ -164,7 +164,7 @@ async fn handle_event_create_command(args: CreateArguments) -> Result<()> {
 }
 
 async fn handle_event_search_command(args: SearchArguments) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
@@ -197,17 +197,17 @@ pub struct DeleteArguments {
     id: Base64Uuid,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
 }
 
 async fn handle_event_delete_command(args: DeleteArguments) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
 
     client.event_delete(args.id).await?;
 

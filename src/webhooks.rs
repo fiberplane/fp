@@ -12,7 +12,6 @@ use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::webhooks::{
     NewWebhook, UpdateWebhook, Webhook, WebhookCategory, WebhookDelivery, WebhookDeliverySummary,
 };
-use std::path::PathBuf;
 use time::format_description::well_known::Rfc3339;
 use tracing::{info, warn};
 use url::Url;
@@ -92,17 +91,17 @@ struct CreateArgs {
     output: WebhookOutput,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
 }
 
 async fn handle_webhook_create(args: CreateArgs) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let categories = webhook_category_picker(args.categories)?;
@@ -153,17 +152,17 @@ struct ListArgs {
     output: WebhookOutput,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
 }
 
 async fn handle_webhook_list(args: ListArgs) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     let webhooks = client
@@ -190,17 +189,17 @@ struct DeleteArgs {
     workspace_id: Option<Base64Uuid>,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
 }
 
 async fn handle_webhook_delete(args: DeleteArgs) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let webhook_id = webhook_picker(&client, workspace_id, args.webhook_id).await?;
@@ -250,17 +249,17 @@ struct UpdateArgs {
     output: WebhookOutput,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
 }
 
 async fn handle_webhook_update(args: UpdateArgs) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let webhook_id = webhook_picker(&client, workspace_id, args.webhook_id).await?;
@@ -321,17 +320,17 @@ struct WebhookDeliveryListArgs {
     output: WebhookOutput,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
 }
 
 async fn handle_webhook_delivery_list(args: WebhookDeliveryListArgs) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let webhook_id = webhook_picker(&client, workspace_id, args.webhook_id).await?;
@@ -369,17 +368,17 @@ struct WebhookDeliveryInfoArgs {
     output: WebhookDeliveryOutput,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
 }
 
 async fn handle_webhook_delivery_info(args: WebhookDeliveryInfoArgs) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let webhook_id = webhook_picker(&client, workspace_id, args.webhook_id).await?;
@@ -429,16 +428,16 @@ struct WebhookDeliveryResendArgs {
     workspace_id: Option<Base64Uuid>,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
 }
 async fn handle_webhook_delivery_resend(args: WebhookDeliveryResendArgs) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let webhook_id = webhook_picker(&client, workspace_id, args.webhook_id).await?;

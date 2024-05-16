@@ -1,5 +1,7 @@
+use crate::config::Config;
 use crate::fp_urls::NotebookUrlBuilder;
 use anyhow::{anyhow, Context, Error, Result};
+use clap::error::ErrorKind;
 use clap::{CommandFactory, Parser, ValueHint};
 use clap_complete::{generate, Shell};
 use config::api_client_configuration;
@@ -40,6 +42,7 @@ mod labels;
 mod manifest;
 mod notebooks;
 mod output;
+mod profiles;
 mod providers;
 mod run;
 mod shell;
@@ -69,22 +72,16 @@ pub struct Arguments {
     sub_command: SubCommand,
 
     /// Base URL to the Fiberplane API
-    #[clap(
-        long,
-        default_value = "https://studio.fiberplane.com",
-        env = "API_BASE",
-        global = true,
-        help_heading = "Global options"
-    )]
-    base_url: Url,
+    #[clap(long, env = "API_BASE", global = true, help_heading = "Global options")]
+    base_url: Option<Url>,
 
-    /// Path to Fiberplane config file
+    /// Name of the profile to use
     #[clap(long, global = true, env, help_heading = "Global options")]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     /// Override the API token used
     ///
-    /// If nothing is specified then it will use the token from the config file.
+    /// If nothing is specified then it will use the token from the profile file.
     #[clap(long, global = true, env = "FP_TOKEN", help_heading = "Global options")]
     token: Option<String>,
 
@@ -233,6 +230,11 @@ enum SubCommand {
     #[clap(alias = "integration")]
     Integrations(integrations::Arguments),
 
+    /// Profiles allow you to manage different `fp` values such as `base_url` and `token`
+    /// and switch between them on demand
+    #[clap(alias = "profile")]
+    Profiles(profiles::Arguments),
+
     /// Display extra version information
     Version(version::Arguments),
 
@@ -259,29 +261,56 @@ async fn main() {
         homepage: "https://fiberplane.com".into(),
     });
 
+    let mut cli_args = env::args();
+
+    // skip program name
+    let _ = cli_args.next();
+
+    // check if the second argument specifies a profile
+    let maybe_profile = cli_args.next();
+    let profile = maybe_profile
+        .as_ref()
+        .and_then(|input| input.strip_prefix('+'));
+
+    let clap_args = if let Some(profile) = profile {
+        let mut vec: Vec<_> = env::args_os()
+            .take(1)
+            .chain(env::args_os().skip(2))
+            .collect();
+
+        vec.push(format!("--profile={profile}").into());
+        vec
+    } else {
+        env::args_os().collect()
+    };
+
     // We would like to override the builtin version display behavior, so we
     // will try to parse the arguments. If it failed, we will check if it was
     // the DisplayVersion error and show our version, otherwise just fallback to
     // clap's handling.
-    let args = {
-        match Arguments::try_parse() {
-            Ok(arguments) => arguments,
-            Err(err) => match err.kind() {
-                clap::error::ErrorKind::DisplayVersion => {
-                    version::output_version().await;
-                    process::exit(0);
-                }
-                _ => {
-                    err.exit();
-                }
-            },
-        }
+    let args = match Parser::try_parse_from(clap_args) {
+        Ok(args) => args,
+        Err(err) => match err.kind() {
+            ErrorKind::DisplayVersion => {
+                version::output_version().await;
+                process::exit(0);
+            }
+            _ => {
+                err.exit();
+            }
+        },
     };
+
+    // load the config and or migrate from previous version
+    if let Err(err) = config::migrate().await {
+        eprintln!("failed to load migrate config into profile: {err:?}");
+        process::exit(1);
+    }
 
     if let Err(err) = initialize_logger(&args) {
         eprintln!("unable to initialize logging: {err:?}");
         process::exit(1);
-    };
+    }
 
     // Start the background version check, but skip it when running the `Update`
     // or `Version` command, or if the disable_version_check is set to true.
@@ -330,6 +359,7 @@ async fn main() {
         Workspaces(args) => workspaces::handle_command(args).await,
         Webhooks(args) => webhooks::handle_command(args).await,
         Integrations(args) => integrations::handle_command(args).await,
+        Profiles(args) => profiles::handle_command(args).await,
         Version(args) => version::handle_command(args).await,
         Completions { shell } => {
             let output = generate_completions(shell);
@@ -559,17 +589,18 @@ struct NewArguments {
     title: Vec<String>,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
 }
 
 async fn handle_new_command(args: NewArguments) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url.clone()).await?;
+    let config = Config::load(args.profile.clone()).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url.clone()).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let title = if args.title.is_empty() {
@@ -587,7 +618,7 @@ async fn handle_new_command(args: NewArguments) -> Result<()> {
     let notebook_id = Base64Uuid::parse_str(&notebook.id)?;
 
     let notebook_url = NotebookUrlBuilder::new(workspace_id, notebook_id)
-        .base_url(args.base_url)
+        .base_url(config.base_url(args.base_url)?)
         .url()?;
 
     // Open the user's web browser

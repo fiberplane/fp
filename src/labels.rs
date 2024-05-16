@@ -4,7 +4,6 @@ use crate::output::{output_json, output_string_list};
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
 use fiberplane::base64uuid::Base64Uuid;
-use std::path::PathBuf;
 use url::Url;
 
 #[derive(Parser)]
@@ -45,10 +44,10 @@ pub struct ListKeysArgs {
     /// Workspace to use
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -64,7 +63,7 @@ enum ListKeysOutput {
 }
 
 async fn handle_list_keys_command(args: ListKeysArgs) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let prefix = interactive::text_opt("Prefix", args.prefix, None);
@@ -95,10 +94,10 @@ pub struct ListValuesArgs {
     output: ListValuesOutput,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -114,7 +113,7 @@ enum ListValuesOutput {
 }
 
 async fn handle_list_values_command(args: ListValuesArgs) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let label_key = interactive::text_req("Label key", args.label_key, None)?;

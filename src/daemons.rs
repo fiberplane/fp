@@ -10,7 +10,7 @@ use fiberplane::models::names::Name;
 use fiberplane::models::proxies::{NewProxy, Proxy, ProxySummary};
 use petname::petname;
 use serde::Serialize;
-use std::{cmp::Ordering, collections::BTreeMap, path::PathBuf};
+use std::{cmp::Ordering, collections::BTreeMap};
 use tracing::info;
 use url::Url;
 
@@ -57,10 +57,10 @@ pub struct CreateArgs {
     output: ProxyOutput,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -77,10 +77,10 @@ pub struct ListArgs {
     output: ProxyOutput,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -97,10 +97,10 @@ pub struct DataSourcesArgs {
     output: ProxyOutput,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -120,10 +120,10 @@ pub struct GetArgs {
     output: ProxyOutput,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -139,10 +139,10 @@ pub struct DeleteArgs {
     daemon_name: Option<Name>,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -172,7 +172,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 async fn handle_create_command(args: CreateArgs) -> Result<()> {
     let default_name = Name::new(petname(2, "-")).expect("petname should be valid name");
     let name = name_req("Daemon name", args.name, Some(default_name))?;
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     let mut new_proxy = NewProxy::builder().name(name).build();
@@ -204,7 +204,7 @@ struct ProxySummaryWithConnectedDataSources {
 }
 
 async fn handle_list_command(args: ListArgs) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let proxies = client.proxy_list(workspace_id).await?;
     let data_sources = client.data_source_list(workspace_id).await?;
@@ -264,7 +264,7 @@ async fn handle_list_command(args: ListArgs) -> Result<()> {
 }
 
 async fn handle_get_command(args: GetArgs) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let proxy_name = interactive::proxy_picker(
         &client,
@@ -285,7 +285,7 @@ async fn handle_get_command(args: GetArgs) -> Result<()> {
 }
 
 async fn handle_data_sources_command(args: DataSourcesArgs) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let data_sources = client.data_source_list(workspace_id).await?;
 
@@ -301,7 +301,7 @@ async fn handle_data_sources_command(args: DataSourcesArgs) -> Result<()> {
 }
 
 async fn handle_delete_command(args: DeleteArgs) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let proxy_name = interactive::proxy_picker(
         &client,

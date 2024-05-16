@@ -1,4 +1,4 @@
-use crate::config::api_client_configuration;
+use crate::config::{api_client_configuration, Config};
 use crate::interactive;
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use crate::templates::TemplateArguments;
@@ -14,7 +14,6 @@ use fiberplane::models::notebooks::{
 };
 use serde_json::Map;
 use std::iter::FromIterator;
-use std::path::PathBuf;
 use tracing::info;
 use url::Url;
 
@@ -79,10 +78,10 @@ struct CreateArguments {
     output: TriggerOutput,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -98,10 +97,10 @@ struct GetArguments {
     output: TriggerOutput,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -113,10 +112,10 @@ struct DeleteArguments {
     trigger_id: Option<Base64Uuid>,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -133,10 +132,10 @@ struct ListArguments {
     output: TriggerOutput,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -162,10 +161,10 @@ struct InvokeArguments {
     template_arguments: Option<TemplateArguments>,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -182,7 +181,8 @@ enum TriggerOutput {
 }
 
 async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url.clone()).await?;
+    let config = Config::load(args.profile.clone()).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url.clone()).await?;
 
     let workspace_id = interactive::workspace_picker(&client, args.workspace_id).await?;
     let (_, template_name) =
@@ -205,7 +205,7 @@ async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {
 
     match args.output {
         TriggerOutput::Table => {
-            let trigger = GenericKeyValue::from_trigger(trigger, args.base_url);
+            let trigger = GenericKeyValue::from_trigger(trigger, config.base_url(args.base_url)?);
             output_details(trigger)
         }
         TriggerOutput::Json => output_json(&trigger),
@@ -213,7 +213,9 @@ async fn handle_trigger_create_command(args: CreateArguments) -> Result<()> {
 }
 
 async fn handle_trigger_get_command(args: GetArguments) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url.clone()).await?;
+    let config = Config::load(args.profile.clone()).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url.clone()).await?;
+
     let trigger_id = interactive::trigger_picker(&client, args.trigger_id, None).await?;
 
     let trigger = client
@@ -222,15 +224,16 @@ async fn handle_trigger_get_command(args: GetArguments) -> Result<()> {
         .with_context(|| "Error getting trigger details")?;
 
     match args.output {
-        TriggerOutput::Table => {
-            output_details(GenericKeyValue::from_trigger(trigger, args.base_url))
-        }
+        TriggerOutput::Table => output_details(GenericKeyValue::from_trigger(
+            trigger,
+            config.base_url(args.base_url)?,
+        )),
         TriggerOutput::Json => output_json(&trigger),
     }
 }
 
 async fn handle_trigger_delete_command(args: DeleteArguments) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
     let trigger_id = interactive::trigger_picker(&client, args.trigger_id, None).await?;
 
     client
@@ -244,7 +247,7 @@ async fn handle_trigger_delete_command(args: DeleteArguments) -> Result<()> {
 }
 
 async fn handle_trigger_list_command(args: ListArguments) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
     let workspace_id = interactive::workspace_picker(&client, args.workspace_id).await?;
     let mut triggers = client
         .trigger_list(workspace_id)
@@ -264,13 +267,15 @@ async fn handle_trigger_list_command(args: ListArguments) -> Result<()> {
 }
 
 async fn handle_trigger_invoke_command(args: InvokeArguments) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url.clone()).await?;
+    let config = Config::load(args.profile.clone()).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url.clone()).await?;
+
     let trigger_id = interactive::trigger_picker(&client, args.trigger_id, None).await?;
     let secret_key = interactive::text_req("Secret Key", args.secret_key, None)?;
 
     let anon_client = ApiClient {
         client: default_config(None, None, None)?,
-        server: args.base_url,
+        server: config.base_url(args.base_url)?,
     };
 
     let response = anon_client

@@ -47,10 +47,10 @@ pub struct SetArgs {
     json_path: PathBuf,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -73,10 +73,10 @@ pub struct CreateArgs {
     json_path: PathBuf,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -93,10 +93,10 @@ pub struct GetArgs {
     name: Option<Name>,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -113,10 +113,10 @@ pub struct DeleteArgs {
     name: Option<Name>,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -132,7 +132,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 }
 
 pub async fn handle_set_command(args: SetArgs) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url.clone()).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url.clone()).await?;
 
     let (workspace_id, fmc_name) =
         front_matter_collection_picker(&client, args.workspace_id, args.name).await?;
@@ -163,7 +163,7 @@ pub async fn handle_set_command(args: SetArgs) -> Result<()> {
 }
 
 pub async fn handle_create_command(args: CreateArgs) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url.clone()).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url.clone()).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
@@ -193,7 +193,7 @@ pub async fn handle_create_command(args: CreateArgs) -> Result<()> {
 }
 
 pub async fn handle_get_command(args: GetArgs) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url.clone()).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url.clone()).await?;
 
     let (workspace_id, fmc_name) =
         front_matter_collection_picker(&client, args.workspace_id, args.name).await?;
@@ -211,7 +211,7 @@ pub async fn handle_get_command(args: GetArgs) -> Result<()> {
 }
 
 pub async fn handle_delete_command(args: DeleteArgs) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url.clone()).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url.clone()).await?;
 
     let (_workspace_id, _fmc_name) =
         front_matter_collection_picker(&client, args.workspace_id, args.name).await?;

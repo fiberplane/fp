@@ -1,3 +1,4 @@
+use crate::config::Config;
 use crate::interactive::{
     self, default_theme, front_matter_collection_picker, notebook_picker, snippet_picker,
     view_picker, workspace_picker, workspace_picker_with_prompt,
@@ -25,7 +26,7 @@ use fiberplane::models::notebooks::{
 use fiberplane::models::sorting::{NotebookSortFields, SortDirection};
 use fiberplane::models::timestamps::{NewTimeRange, TimeRange, Timestamp};
 use serde_json::Value;
-use std::{convert::TryInto, path::PathBuf};
+use std::convert::TryInto;
 use time::ext::NumericalDuration;
 use tracing::info;
 use url::Url;
@@ -164,17 +165,18 @@ pub struct CreateArgs {
     output: NotebookOutput,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
 }
 
 async fn handle_create_command(args: CreateArgs) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url.clone()).await?;
+    let config = Config::load(args.profile.clone()).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url.clone()).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let labels = args.labels.into_iter().map(Into::into).collect();
@@ -220,7 +222,7 @@ async fn handle_create_command(args: CreateArgs) -> Result<()> {
             info!("Successfully created new notebook");
             let notebook_id = Base64Uuid::parse_str(&notebook.id)?;
             let url = NotebookUrlBuilder::new(workspace_id, notebook_id)
-                .base_url(args.base_url)
+                .base_url(config.base_url(args.base_url)?)
                 .url()?;
             println!("{url}");
             Ok(())
@@ -249,17 +251,18 @@ pub struct DuplicateArgs {
     output: NotebookOutput,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
 }
 
 async fn handle_duplicate_command(args: DuplicateArgs) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url.clone()).await?;
+    let config = Config::load(args.profile.clone()).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url.clone()).await?;
 
     let notebook_id = interactive::notebook_picker_with_prompt(
         "Source Notebook",
@@ -302,7 +305,7 @@ async fn handle_duplicate_command(args: DuplicateArgs) -> Result<()> {
             info!("Successfully created new notebook");
             let notebook_id = Base64Uuid::parse_str(&notebook.id)?;
             let url = NotebookUrlBuilder::new(workspace_id, notebook_id)
-                .base_url(args.base_url)
+                .base_url(config.base_url(args.base_url)?)
                 .url()?;
             println!("{url}");
             Ok(())
@@ -324,17 +327,17 @@ pub struct GetArgs {
     workspace_id: Option<Base64Uuid>,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
 }
 
 async fn handle_get_command(args: GetArgs) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
     let notebook_id = notebook_picker(&client, args.notebook_id, args.workspace_id).await?;
 
     let notebook = client.notebook_get(notebook_id).await?;
@@ -363,17 +366,17 @@ pub struct ListArgs {
     output: NotebookOutput,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
 }
 
 async fn handle_list_command(args: ListArgs) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let notebooks = client.notebook_list(workspace_id).await?;
@@ -418,17 +421,17 @@ pub struct SearchArgs {
     output: NotebookOutput,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
 }
 
 async fn handle_search_command(args: SearchArgs) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let mut search_params = NotebookSearch::default();
@@ -478,22 +481,24 @@ pub struct OpenArgs {
     workspace_id: Option<Base64Uuid>,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
 }
 
 async fn handle_open_command(args: OpenArgs) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url.clone()).await?;
+    let config = Config::load(args.profile.clone()).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url.clone()).await?;
+
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let notebook_id = notebook_picker(&client, args.notebook_id, None).await?;
 
     let url = NotebookUrlBuilder::new(workspace_id, notebook_id)
-        .base_url(args.base_url)
+        .base_url(config.base_url(args.base_url)?)
         .url()?;
 
     if open(url.as_str()).is_err() {
@@ -513,17 +518,17 @@ pub struct DeleteArgs {
     workspace_id: Option<Base64Uuid>,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
 }
 
 async fn handle_delete_command(args: DeleteArgs) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
     let notebook_id = notebook_picker(&client, args.notebook_id, args.workspace_id).await?;
 
     client
@@ -550,21 +555,21 @@ pub struct AppendCellArgs {
     code: Option<String>,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     /// Output type to display
     #[clap(long, short, default_value = "table", value_enum)]
     output: CellOutput,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
 }
 
 async fn handle_append_cell_command(args: AppendCellArgs) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
     let notebook_id = notebook_picker(&client, args.notebook_id, None).await?;
 
     let cell = if let Some(content) = args.text {
@@ -627,17 +632,18 @@ pub struct InsertSnippetArgs {
     cell_id: Option<String>,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
 }
 
 pub(crate) async fn handle_insert_snippet_command(args: InsertSnippetArgs) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url.clone()).await?;
+    let config = Config::load(args.profile.clone()).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url.clone()).await?;
 
     let workspace_id = workspace_picker_with_prompt(
         "Workspace of the snippet and notebook",
@@ -654,7 +660,7 @@ pub(crate) async fn handle_insert_snippet_command(args: InsertSnippetArgs) -> Re
         .await?;
 
     let url = NotebookUrlBuilder::new(workspace_id, notebook_id)
-        .base_url(args.base_url)
+        .base_url(config.base_url(args.base_url)?)
         .cell_id(cells[0].id())
         .url()
         .context("Error constructing notebook URL")?;
@@ -726,17 +732,17 @@ struct FrontMatterUpdateArguments {
     workspace_id: Option<Base64Uuid>,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
 }
 
 async fn handle_front_matter_update_command(args: FrontMatterUpdateArguments) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let notebook_id = notebook_picker(&client, args.notebook_id, Some(workspace_id)).await?;
@@ -760,17 +766,17 @@ struct FrontMatterClearArguments {
     workspace_id: Option<Base64Uuid>,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
 }
 
 async fn handle_front_matter_clear_command(args: FrontMatterClearArguments) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let notebook_id = notebook_picker(&client, args.notebook_id, Some(workspace_id)).await?;
@@ -816,10 +822,10 @@ struct FrontMatterAppendArguments {
     workspace_id: Option<Base64Uuid>,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -860,10 +866,10 @@ struct FrontMatterDeleteArguments {
     workspace_id: Option<Base64Uuid>,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -891,17 +897,17 @@ struct FrontMatterEditArguments {
     workspace_id: Option<Base64Uuid>,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
 }
 
 async fn handle_front_matter_append_command(args: FrontMatterAppendArguments) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let notebook_id = notebook_picker(&client, args.notebook_id, Some(workspace_id)).await?;
@@ -949,7 +955,7 @@ async fn handle_front_matter_append_command(args: FrontMatterAppendArguments) ->
 }
 
 async fn handle_front_matter_delete_command(args: FrontMatterDeleteArguments) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let notebook_id = notebook_picker(&client, args.notebook_id, Some(workspace_id)).await?;
@@ -1016,7 +1022,7 @@ async fn handle_front_matter_delete_command(args: FrontMatterDeleteArguments) ->
 }
 
 async fn handle_front_matter_edit_command(args: FrontMatterEditArguments) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let notebook_id = notebook_picker(&client, args.notebook_id, Some(workspace_id)).await?;
@@ -1097,10 +1103,10 @@ struct FrontMatterAddCollectionArguments {
     workspace_id: Option<Base64Uuid>,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -1109,7 +1115,7 @@ struct FrontMatterAddCollectionArguments {
 async fn handle_front_matter_add_collection_command(
     args: FrontMatterAddCollectionArguments,
 ) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
 
     let (workspace_id, fmc_name) =
         front_matter_collection_picker(&client, args.workspace_id, args.name).await?;

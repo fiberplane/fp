@@ -3,7 +3,6 @@ use crate::output::{output_details, output_json, GenericKeyValue};
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
 use fiberplane::models::users::Profile;
-use std::path::PathBuf;
 use url::Url;
 
 #[derive(Parser)]
@@ -34,10 +33,10 @@ struct GetArgs {
     output: ProfileOutput,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -50,7 +49,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 }
 
 async fn handle_get_profile_command(args: GetArgs) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
     let profile = client.profile_get().await?;
 
     match args.output {
