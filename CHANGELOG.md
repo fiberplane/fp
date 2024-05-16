@@ -10,6 +10,7 @@ The format of this file is based on [Keep a Changelog](https://keepachangelog.co
 
 - Added `workspaces integrations list` command (#284)
 - Allow user to specify the secret instead of receiving it from the api (#288)
+- `fp profiles` has been added, allowing you to manage multiple auth tokens as well as environments for `fp` (#294)
 
 ## [2.23.0] - 2024-03-01
 
