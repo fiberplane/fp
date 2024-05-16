@@ -142,7 +142,7 @@ pub async fn handle_logout_command(args: Arguments) -> Result<()> {
         match &config.api_token {
             Some(token) => {
                 let client =
-                    api_client_configuration_from_token(&token, config.base_url(args.base_url)?)?;
+                    api_client_configuration_from_token(token, config.base_url(args.base_url)?)?;
 
                 client.logout().await?;
 
