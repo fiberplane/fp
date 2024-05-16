@@ -84,7 +84,13 @@ async fn handle_profile_list() -> Result<()> {
             continue;
         }
 
-        info!("- {}", file_name.replace(".toml", ""));
+        let suffix = if config::is_default(&file_name).await? {
+            "(default)"
+        } else {
+            ""
+        };
+
+        info!("- {} {suffix}", file_name.replace(".toml", ""));
     }
 
     Ok(())
@@ -93,7 +99,7 @@ async fn handle_profile_list() -> Result<()> {
 #[derive(Parser)]
 struct DeleteArgs {
     /// Name of the profile to delete
-    #[clap(long)]
+    #[clap()]
     name: Option<String>,
 }
 
@@ -113,7 +119,7 @@ async fn handle_profile_delete(args: DeleteArgs) -> Result<()> {
 #[derive(Parser)]
 struct SetDefaultArgs {
     /// Name of the profile to make default
-    #[clap(long)]
+    #[clap()]
     name: Option<String>,
 }
 

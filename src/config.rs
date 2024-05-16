@@ -135,6 +135,8 @@ pub(crate) async fn make_default(profile: &str) -> Result<()> {
 
     let default_path = FP_PROFILES_DIR.join("default");
 
+    tokio::fs::remove_file(&default_path).await?;
+
     #[cfg(any(target_os = "macos", target_os = "linux"))]
     tokio::fs::symlink(path, default_path)
         .await
