@@ -1,3 +1,4 @@
+use crate::config::Config;
 use crate::interactive::{self, workspace_picker};
 use crate::output::{output_details, output_json, output_list, GenericKeyValue};
 use crate::{config::api_client_configuration, fp_urls::NotebookUrlBuilder};
@@ -136,10 +137,10 @@ struct ExpandArguments {
     template_arguments: Option<TemplateArguments>,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -185,10 +186,10 @@ struct ConvertArguments {
     output: TemplateOutput,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -231,10 +232,10 @@ struct CreateArguments {
     output: TemplateOutput,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -261,10 +262,10 @@ struct GetArguments {
     output: TemplateOutput,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -280,10 +281,10 @@ struct DeleteArguments {
     template_name: Option<Name>,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -308,10 +309,10 @@ struct ListArguments {
     sort_direction: Option<SortDirection>,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -343,10 +344,10 @@ struct UpdateArguments {
     output: TemplateOutput,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -452,9 +453,10 @@ async fn load_template(template_path: &str) -> Result<String> {
 }
 
 async fn handle_expand_command(args: ExpandArguments) -> Result<()> {
-    let base_url = args.base_url.clone();
+    let config = Config::load(args.profile.clone()).await?;
+    let base_url = config.base_url(args.base_url.clone())?;
 
-    let client = api_client_configuration(args.token, args.config, base_url.clone()).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let template_url_base = base_url.join(&format!("workspaces/{workspace_id}/templates/"))?;
 
@@ -546,8 +548,9 @@ async fn expand_template_file(
 
 async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
     // Load the notebook
+    let config = Config::load(args.profile.clone()).await?;
     let client =
-        api_client_configuration(args.token, args.config.clone(), args.base_url.clone()).await?;
+        api_client_configuration(args.token, args.profile.clone(), args.base_url.clone()).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let notebook_id =
         interactive::notebook_picker(&client, args.notebook_id, Some(workspace_id)).await?;
@@ -569,7 +572,9 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
             if let (None, Some(file_id)) = (&cell.url, &cell.file_id) {
                 cell.url = Some(format!(
                     "{}api/notebooks/{}/files/{}",
-                    args.base_url, notebook_id, file_id
+                    config.base_url(args.base_url.clone())?,
+                    notebook_id,
+                    file_id
                 ));
                 cell.file_id = None;
             }
@@ -647,7 +652,7 @@ async fn handle_convert_command(args: ConvertArguments) -> Result<()> {
 }
 
 async fn handle_create_command(args: CreateArguments) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let name = interactive::name_opt(
@@ -683,7 +688,7 @@ async fn handle_create_command(args: CreateArguments) -> Result<()> {
 }
 
 async fn handle_get_command(args: GetArguments) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
     let (workspace_id, template_name) =
         interactive::template_picker(&client, args.template_name, None).await?;
 
@@ -700,7 +705,7 @@ async fn handle_get_command(args: GetArguments) -> Result<()> {
 }
 
 async fn handle_delete_command(args: DeleteArguments) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
     let (workspace_id, template_name) =
         interactive::template_picker(&client, args.template_name, None).await?;
 
@@ -716,7 +721,7 @@ async fn handle_delete_command(args: DeleteArguments) -> Result<()> {
 async fn handle_list_command(args: ListArguments) -> Result<()> {
     debug!("handle list command");
 
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
     let templates = client
@@ -737,7 +742,7 @@ async fn handle_list_command(args: ListArguments) -> Result<()> {
 }
 
 async fn handle_update_command(args: UpdateArguments) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
     let (workspace_id, template_name) =
         interactive::template_picker(&client, args.template_name, args.workspace_id).await?;
 

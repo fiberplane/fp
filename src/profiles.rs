@@ -1,9 +1,9 @@
+use crate::config;
 use crate::config::{Config, FP_PROFILES_DIR};
 use crate::interactive::{text_opt, text_req};
 use anyhow::{anyhow, bail, Result};
 use clap::Parser;
 use tracing::info;
-use crate::config;
 
 #[derive(Parser)]
 pub struct Arguments {
@@ -64,7 +64,7 @@ async fn handle_profile_create(args: CreateArgs) -> Result<()> {
         endpoint,
     };
 
-    config.save(&name).await?;
+    config.save(Some(&name)).await?;
 
     info!("Successfully created new profile. Login on that profile with `fp +{name} login`");
     Ok(())

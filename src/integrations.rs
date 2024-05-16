@@ -4,7 +4,6 @@ use anyhow::Result;
 use clap::{Parser, ValueEnum};
 use cli_table::Table;
 use fiberplane::models::integrations::PersonalIntegrationSummary;
-use std::path::PathBuf;
 use time::format_description::well_known::Rfc3339;
 use url::Url;
 
@@ -41,10 +40,10 @@ struct ListArgs {
     output: IntegrationOutput,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -60,7 +59,7 @@ pub(crate) enum IntegrationOutput {
 }
 
 async fn handle_integrations_list(args: ListArgs) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
     let integrations = client.integrations_get_by_user().await?;
 
     match args.output {

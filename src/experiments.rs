@@ -1,4 +1,4 @@
-use crate::config::api_client_configuration;
+use crate::config::{api_client_configuration, Config};
 use crate::interactive;
 use crate::output::{output_details, output_json, GenericKeyValue};
 use crate::templates::NOTEBOOK_ID_REGEX;
@@ -58,14 +58,14 @@ struct MessageArgs {
     message: Vec<String>,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     /// Output type to display
     #[clap(long, short, default_value = "table", value_enum)]
     output: MessageOutput,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -83,10 +83,10 @@ struct CrawlArgs {
     out_dir: PathBuf,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -110,7 +110,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 }
 
 async fn handle_message_command(args: MessageArgs) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
 
     let notebook_id = interactive::notebook_picker(&client, args.notebook_id, None).await?;
     let mut cache = Cache::load().await?;
@@ -189,7 +189,9 @@ async fn handle_crawl_command(args: CrawlArgs) -> Result<()> {
     let mut notebook_titles: HashMap<String, usize> = HashMap::new();
     let mut notebooks_to_crawl = VecDeque::new();
 
-    let client = api_client_configuration(args.token, args.config, args.base_url.clone()).await?;
+    let config = Config::load(args.profile.clone()).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url.clone()).await?;
+
     let starting_notebook_id =
         interactive::notebook_picker(&client, args.notebook_id, None).await?;
 
@@ -219,7 +221,7 @@ async fn handle_crawl_command(args: CrawlArgs) -> Result<()> {
             if let Some(formatting) = cell.formatting_mut() {
                 for annotation in formatting {
                     if let formatting::Annotation::StartLink { url } = &mut annotation.annotation {
-                        if url.starts_with(args.base_url.as_str()) {
+                        if url.starts_with(config.base_url(args.base_url.clone())?.as_str()) {
                             if let Some(captures) = NOTEBOOK_ID_REGEX.captures(url) {
                                 if let Some(notebook_id) = captures.get(1) {
                                     notebooks_to_crawl

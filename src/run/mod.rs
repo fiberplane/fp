@@ -1,4 +1,5 @@
 use self::cell_writer::CellWriter;
+use crate::config::Config;
 use crate::output::{output_details, output_json, GenericKeyValue};
 use crate::shell::shell_type::ShellType;
 use crate::{config::api_client_configuration, fp_urls::NotebookUrlBuilder, interactive};
@@ -8,7 +9,7 @@ use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::notebooks::Cell;
 use futures::StreamExt;
 use std::io::ErrorKind;
-use std::{env, path::PathBuf, process::Stdio};
+use std::{env, process::Stdio};
 use tokio::io::{self, AsyncWriteExt};
 use tokio::{process::Command, signal};
 use tokio_util::io::ReaderStream;
@@ -33,14 +34,14 @@ pub struct Arguments {
     workspace_id: Option<Base64Uuid>,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     /// Output type to display
     #[clap(long, short, default_value = "command", value_enum)]
     output: ExecOutput,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -59,9 +60,10 @@ enum ExecOutput {
 }
 
 pub async fn handle_command(args: Arguments) -> Result<()> {
+    let config = Config::load(args.profile.clone()).await?;
     let client = api_client_configuration(
         args.token.clone(),
-        args.config.clone(),
+        args.profile.clone(),
         args.base_url.clone(),
     )
     .await?;
@@ -132,7 +134,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 
     if let Some(cell) = cell_writer.into_output_cell() {
         let url = NotebookUrlBuilder::new(workspace_id, notebook_id)
-            .base_url(args.base_url)
+            .base_url(config.base_url(args.base_url)?)
             .cell_id(cell.id())
             .url()?;
 

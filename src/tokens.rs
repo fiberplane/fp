@@ -6,7 +6,6 @@ use cli_table::Table;
 use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::sorting::{SortDirection, TokenListSortFields};
 use fiberplane::models::tokens::{NewToken, Token, TokenSummary};
-use std::path::PathBuf;
 use time::format_description::well_known::Rfc3339;
 use tracing::info;
 use url::Url;
@@ -72,10 +71,10 @@ struct CreateArguments {
     output: TokenCreateOutput,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -104,10 +103,10 @@ pub struct ListArguments {
     limit: Option<i32>,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -119,17 +118,17 @@ pub struct DeleteArguments {
     id: Base64Uuid,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
 }
 
 async fn handle_token_create_command(args: CreateArguments) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
 
     let token = client.token_create(NewToken::new(args.name)).await?;
 
@@ -148,7 +147,7 @@ async fn handle_token_create_command(args: CreateArguments) -> Result<()> {
 }
 
 async fn handle_token_list_command(args: ListArguments) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
 
     let tokens = client
         .token_list(
@@ -169,7 +168,7 @@ async fn handle_token_list_command(args: ListArguments) -> Result<()> {
 }
 
 async fn handle_token_delete_command(args: DeleteArguments) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
 
     client.token_delete(args.id).await?;
 

@@ -97,10 +97,10 @@ struct ConvertArguments {
     output: SnippetOutput,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -136,10 +136,10 @@ struct CreateArguments {
     output: SnippetOutput,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -166,10 +166,10 @@ struct GetArguments {
     output: SnippetOutput,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -185,10 +185,10 @@ struct DeleteArguments {
     snippet_name: Option<Name>,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -213,10 +213,10 @@ struct ListArguments {
     sort_direction: Option<SortDirection>,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -248,10 +248,10 @@ struct UpdateArguments {
     output: SnippetOutput,
 
     #[clap(from_global)]
-    base_url: Url,
+    base_url: Option<Url>,
 
     #[clap(from_global)]
-    config: Option<PathBuf>,
+    profile: Option<String>,
 
     #[clap(from_global)]
     token: Option<String>,
@@ -299,7 +299,7 @@ pub async fn handle_command(args: Arguments) -> Result<()> {
 }
 
 async fn handle_convert(args: ConvertArguments) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let notebook_id = notebook_picker(&client, args.notebook_id, Some(workspace_id)).await?;
     let notebook = client.notebook_get(notebook_id).await?;
@@ -384,7 +384,7 @@ async fn handle_convert(args: ConvertArguments) -> Result<()> {
 }
 
 async fn handle_create(args: CreateArguments) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
     let name = name_opt(
@@ -416,7 +416,7 @@ async fn handle_create(args: CreateArguments) -> Result<()> {
 }
 
 async fn handle_delete(args: DeleteArguments) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
 
     let (workspace_id, snippet_name) = snippet_picker(&client, args.snippet_name, None).await?;
 
@@ -430,7 +430,7 @@ async fn handle_delete(args: DeleteArguments) -> Result<()> {
 }
 
 async fn handle_list(args: ListArguments) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
 
     let workspace_id = workspace_picker(&client, args.workspace_id).await?;
 
@@ -452,7 +452,7 @@ async fn handle_list(args: ListArguments) -> Result<()> {
 }
 
 async fn handle_get(args: GetArguments) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
 
     let (workspace_id, snippet_name) = snippet_picker(&client, args.snippet_name, None).await?;
     let snippet = client.snippet_get(workspace_id, &snippet_name).await?;
@@ -468,7 +468,7 @@ async fn handle_get(args: GetArguments) -> Result<()> {
 }
 
 async fn handle_update(args: UpdateArguments) -> Result<()> {
-    let client = api_client_configuration(args.token, args.config, args.base_url).await?;
+    let client = api_client_configuration(args.token, args.profile, args.base_url).await?;
 
     let (workspace_id, snippet_name) =
         snippet_picker(&client, args.snippet_name, args.workspace_id).await?;
