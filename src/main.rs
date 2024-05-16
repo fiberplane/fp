@@ -40,6 +40,7 @@ mod labels;
 mod manifest;
 mod notebooks;
 mod output;
+mod profiles;
 mod providers;
 mod run;
 mod shell;
@@ -232,6 +233,11 @@ enum SubCommand {
     /// If you wish to configure workspace level integrations, please use `fp workspaces integrations`
     #[clap(alias = "integration")]
     Integrations(integrations::Arguments),
+
+    /// Profiles allow you to manage different `fp` values such as `base_url` and `token`
+    /// and switch between them on demand
+    #[clap(alias = "profile")]
+    Profiles(profiles::Arguments),
 
     /// Display extra version information
     Version(version::Arguments),
