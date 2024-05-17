@@ -14,7 +14,7 @@ jobs:
     name: Validate release (${{ github.event.release.tag_name }})
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: validate version
         if: github.event_name == 'release'
@@ -30,7 +30,7 @@ jobs:
     needs: validate-version
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: de-vri-es/setup-git-credentials@v2
         with:
@@ -72,7 +72,7 @@ jobs:
             target: aarch64-apple-darwin
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: de-vri-es/setup-git-credentials@v2
         with:
@@ -146,7 +146,7 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: actions/download-artifact@v4
         with:
@@ -167,7 +167,7 @@ jobs:
 
       - name: Configure AWS Credentials
         if: github.event_name == 'release'
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: eu-central-1
           role-to-assume: arn:aws:iam::901443922744:role/github_actions
