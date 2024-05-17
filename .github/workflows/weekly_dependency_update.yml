@@ -1,8 +1,6 @@
 name: Assign weekly release dependabot reviewer
 on:
   pull_request:
-    branches:
-      - "dependabot/*"
     types:
       - opened
       - ready_for_review
@@ -13,6 +11,7 @@ permissions:
 jobs:
   assign:
     runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]'
     steps:
       - name: assign dependency updates team to pull request
         env:
