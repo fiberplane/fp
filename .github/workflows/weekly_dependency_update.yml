@@ -5,13 +5,11 @@ on:
       - opened
       - ready_for_review
 
-permissions:
-  pull-requests: write
-
 jobs:
   assign:
     runs-on: ubuntu-latest
     if: github.actor == 'dependabot[bot]'
+    permissions: write-all
     steps:
       - name: assign dependency updates team to pull request
         env:
