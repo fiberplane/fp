@@ -9,7 +9,7 @@ build = "build.rs"
 [dependencies]
 abort-on-drop = "0.2.1"
 anyhow = "1.0"
-base64 = "0.22.0"
+base64 = "0.22.1"
 blocking = "1.6.1"
 bytes = "1.1.0"
 clap = { version = "4.0.17", features = ["derive", "env", "wrap_help"] }
@@ -62,12 +62,12 @@ serde = { version = "1.0.203", features = ["derive"] }
 serde_json = "1.0"
 sha2 = "0.10.2"
 strum = "=0.24.1" # match what fiberplane-models uses
-sysinfo = "0.30.11"
+sysinfo = "0.30.12"
 termwiz = "0.22.0"
 time = { version = "0.3.11", features = ["macros"] }
 tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7.11", features = ["io", "compat"] }
-toml = "0.8.13"
+toml = "0.8.14"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 url = "2.2"
