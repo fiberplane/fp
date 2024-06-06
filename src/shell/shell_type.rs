@@ -1,5 +1,5 @@
 use std::{ffi::OsStr, path::PathBuf};
-use sysinfo::{ProcessExt, ProcessRefreshKind, RefreshKind, SystemExt};
+use sysinfo::{ProcessRefreshKind, RefreshKind};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum ShellType {
@@ -27,9 +27,9 @@ impl ShellType {
 
         let path = sys
             .process(sysinfo::get_current_pid().unwrap())
-            .and_then(ProcessExt::parent)
+            .and_then(|process| process.parent())
             .and_then(|pid| sys.process(pid))
-            .map(ProcessExt::exe)
+            .and_then(|process| process.exe())
             .unwrap();
 
         let exe = path
