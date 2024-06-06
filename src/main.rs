@@ -10,7 +10,7 @@ use fiberplane::base64uuid::Base64Uuid;
 use fiberplane::models::labels::Label;
 use fiberplane::models::notebooks::NewNotebook;
 use fiberplane::models::timestamps::{NewTimeRange, RelativeTimeRange};
-use human_panic::setup_panic;
+use human_panic::{setup_panic, Metadata};
 use interactive::workspace_picker;
 use manifest::Manifest;
 use once_cell::sync::Lazy;
@@ -254,12 +254,9 @@ enum SubCommand {
 async fn main() {
     // Set the human panic handler first thing first so in case we have a panic when setting
     // up the CLI, it also gets caught
-    setup_panic!(Metadata {
-        name: "fp".into(),
-        version: env!("CARGO_PKG_VERSION").into(),
-        authors: "issues@fiberplane.com".into(),
-        homepage: "https://fiberplane.com".into(),
-    });
+    setup_panic!(Metadata::new("fp", env!("CARGO_PKG_VERSION"))
+        .authors("issues@fiberplane.com")
+        .homepage("https://fiberplane.com"));
 
     let mut cli_args = env::args();
 
