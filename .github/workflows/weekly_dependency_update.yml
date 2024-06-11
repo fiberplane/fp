@@ -13,7 +13,7 @@ jobs:
     steps:
       - name: assign dependency updates team to pull request
         env:
-          GITHUB_TOKEN: ${{ secrets.PRIVATE_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PRIVATE_GITHUB_TOKEN }}
           url: ${{ github.event.pull_request.html_url }}
         run: |
           gh pr edit "$url" --add-reviewer fiberplane/cli-devs-dependency-updates
