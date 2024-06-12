@@ -12,8 +12,8 @@ anyhow = "1.0"
 base64 = "0.22.1"
 blocking = "1.6.1"
 bytes = "1.1.0"
-clap = { version = "4.0.17", features = ["derive", "env", "wrap_help"] }
-clap_complete = "4.0.3"
+clap = { version = "4.5.7", features = ["derive", "env", "wrap_help"] }
+clap_complete = "4.5.5"
 clap-markdown = "0.1.3"
 cli-table = "0.4"
 crossterm = { version = "0.27.0", features = ["event-stream"] }
@@ -33,7 +33,7 @@ futures-util = "0.3.21"
 grok = "2.0.0"
 hex = "0.4.3"
 http = "1.1"
-http-body-util = "0.1.1"
+http-body-util = "0.1.2"
 human-panic = "2.0.0"
 hyper = { version = "1.2.0", features = [
     "http1",
@@ -51,7 +51,7 @@ petname = { version = "1.1.1", default-features = false, features = [
 portable-pty = "0.8.0"
 qstring = "0.7.2"
 rand = "0.8.5"
-regex = "1.5.5"
+regex = "1.10.5"
 reqwest = { version = "0.12", default-features = false, features = [
     "rustls-tls",
     "json",
@@ -70,7 +70,7 @@ tokio-util = { version = "0.7.11", features = ["io", "compat"] }
 toml = "0.8.14"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-url = "2.2"
+url = "2.5"
 uuid = { version = "1", features = ["serde", "v4"] }
 vmap = "0.6.3"
 webbrowser = "1.0.1"
