@@ -67,7 +67,7 @@ termwiz = "0.22.0"
 time = { version = "0.3.11", features = ["macros"] }
 tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7.11", features = ["io", "compat"] }
-toml = "0.8.14"
+toml = "0.8.15"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 url = "2.5"
