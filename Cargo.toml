@@ -12,8 +12,8 @@ anyhow = "1.0"
 base64 = "0.22.1"
 blocking = "1.6.1"
 bytes = "1.1.0"
-clap = { version = "4.5.8", features = ["derive", "env", "wrap_help"] }
-clap_complete = "4.5.7"
+clap = { version = "4.5.11", features = ["derive", "env", "wrap_help"] }
+clap_complete = "4.5.11"
 clap-markdown = "0.1.4"
 cli-table = "0.4"
 crossterm = { version = "0.27.0", features = ["event-stream"] }
@@ -34,7 +34,7 @@ grok = "2.0.0"
 hex = "0.4.3"
 http = "1.1"
 http-body-util = "0.1.2"
-human-panic = "2.0.0"
+human-panic = "2.0.1"
 hyper = { version = "1.2.0", features = [
     "http1",
     "server",
@@ -67,7 +67,7 @@ termwiz = "0.22.0"
 time = { version = "0.3.11", features = ["macros"] }
 tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7.11", features = ["io", "compat"] }
-toml = "0.8.15"
+toml = "0.8.16"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 url = "2.5"
