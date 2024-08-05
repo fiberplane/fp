@@ -21,6 +21,6 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      - uses: EmbarkStudios/cargo-deny-action@v1
+      - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           credentials: https://fiberplanebot:${{ secrets.PRIVATE_GITHUB_TOKEN }}@github.com/
