@@ -16,7 +16,7 @@ clap = { version = "4.5.11", features = ["derive", "env", "wrap_help"] }
 clap_complete = "4.5.11"
 clap-markdown = "0.1.4"
 cli-table = "0.4"
-crossterm = { version = "0.27.0", features = ["event-stream"] }
+crossterm = { version = "0.28.1", features = ["event-stream"] }
 directories = "5.0.1"
 dialoguer = { version = "0.11.0", features = ["fuzzy-select"] }
 fiberplane = { version = "1.0.0-beta.14", features = [
@@ -62,7 +62,7 @@ serde = { version = "1.0.203", features = ["derive"] }
 serde_json = "1.0"
 sha2 = "0.10.2"
 strum = "=0.24.1" # match what fiberplane-models uses
-sysinfo = "0.30.12"
+sysinfo = "0.31.2"
 termwiz = "0.22.0"
 time = { version = "0.3.11", features = ["macros"] }
 tokio = { version = "1", features = ["full"] }
