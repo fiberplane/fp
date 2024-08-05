@@ -85,26 +85,17 @@ impl<W: AsyncWriteExt + Unpin> TextRenderer<W> {
                 // https://superuser.com/a/321233
                 // Since that mode is generally used for interactive programs like htop and vim we don't want
                 // to render them to text since that'd look really weird
-                Action::CSI(CSI::Mode(Mode::SetDecPrivateMode(DecPrivateMode::Code(code)))) => {
-                    match code {
-                        DecPrivateModeCode::ClearAndEnableAlternateScreen
-                        | DecPrivateModeCode::EnableAlternateScreen
-                        | DecPrivateModeCode::OptEnableAlternateScreen => {
-                            self.alternate_mode = true
-                        }
-                        _ => {}
-                    }
-                }
-                Action::CSI(CSI::Mode(Mode::ResetDecPrivateMode(DecPrivateMode::Code(code)))) => {
-                    match code {
-                        DecPrivateModeCode::ClearAndEnableAlternateScreen
-                        | DecPrivateModeCode::EnableAlternateScreen
-                        | DecPrivateModeCode::OptEnableAlternateScreen => {
-                            self.alternate_mode = false
-                        }
-                        _ => {}
-                    }
-                }
+                Action::CSI(CSI::Mode(Mode::SetDecPrivateMode(DecPrivateMode::Code(
+                    DecPrivateModeCode::ClearAndEnableAlternateScreen
+                    | DecPrivateModeCode::EnableAlternateScreen
+                    | DecPrivateModeCode::OptEnableAlternateScreen,
+                )))) => self.alternate_mode = true,
+
+                Action::CSI(CSI::Mode(Mode::ResetDecPrivateMode(DecPrivateMode::Code(
+                    DecPrivateModeCode::ClearAndEnableAlternateScreen
+                    | DecPrivateModeCode::EnableAlternateScreen
+                    | DecPrivateModeCode::OptEnableAlternateScreen,
+                )))) => self.alternate_mode = false,
                 _ => {}
             }
         }

@@ -1,5 +1,7 @@
 [advisories]
-ignore = []
+ignore = [
+        "RUSTSEC-2020-0168", # mach crate; only used by wasmer and only provides bindings
+]
 yanked = "deny"
 
 [licenses]
@@ -18,7 +20,6 @@ allow = [
     "Unlicense",
     "WTFPL",
     "Zlib",
-    "Unicode-3.0",
 ]
 confidence-threshold = 0.8
 exceptions = []
@@ -47,4 +48,4 @@ allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 allow-git = []
 
 [sources.allow-org]
-github = ["fiberplane", "autometrics-dev"]
+github = ["fiberplane"]
