@@ -1,0 +1,8 @@
+project_id = "proj_replace_me"
+prefix = "AUTO"
+
+[extensions.post-create-automation]
+trigger_statuses = "backlog,todo"
+welcome_comment = "Thanks for opening this issue. Add context, acceptance criteria, and links."
+create_followup = "false"
+followup_title_prefix = "Research: "

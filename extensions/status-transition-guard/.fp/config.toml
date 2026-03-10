@@ -1,0 +1,8 @@
+project_id = "proj_replace_me"
+prefix = "FLOW"
+
+[extensions.status-transition-guard]
+allow_backlog = "todo"
+allow_todo = "in-progress,backlog"
+allow_in_progress = "done,todo"
+allow_done = "todo"

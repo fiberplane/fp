@@ -1,0 +1,7 @@
+# FP CLI Configuration
+
+project_id = "proj_replace_me"
+prefix = "JJ"
+
+[extensions.jj-lifecycle]
+install_cmd = "bun install"

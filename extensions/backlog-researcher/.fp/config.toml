@@ -1,0 +1,14 @@
+# FP CLI Configuration
+
+project_id = "proj_replace_me"
+prefix = "BR"
+
+[extensions.backlog-researcher]
+# Claude model to use (default: "sonnet")
+model = "sonnet"
+
+# Timeout in seconds per research run (default: "120")
+timeout_seconds = "120"
+
+# Only research issues created in these statuses (default: "backlog,todo")
+trigger_statuses = "backlog,todo"

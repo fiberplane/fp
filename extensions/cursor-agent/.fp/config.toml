@@ -1,0 +1,11 @@
+# FP CLI Configuration
+
+project_id = "proj_cursor_example"
+prefix = "CA"
+
+[extensions.cursor-agent]
+# API key stored in OS keychain (macOS Keychain / Linux secret-tool)
+api-key = "secret:api-key"
+
+# Automatically mark issues as done when agent finishes
+auto-complete = false

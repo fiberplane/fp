@@ -1,0 +1,7 @@
+# FP CLI Configuration
+
+project_id = "proj_replace_me"
+prefix = "QA"
+
+[extensions.quality-gate]
+checks = "test,typecheck,lint"

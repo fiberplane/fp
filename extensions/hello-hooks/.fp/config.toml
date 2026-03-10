@@ -1,0 +1,5 @@
+project_id = "proj_replace_me"
+prefix = "HELLO"
+
+[extensions.hello-hooks]
+greeting_prefix = "👋"

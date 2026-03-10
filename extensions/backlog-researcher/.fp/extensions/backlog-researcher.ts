@@ -1,0 +1,156 @@
+/**
+ * Backlog Researcher Extension
+ *
+ * Automatically researches new issues by spawning Claude Code.
+ * When an issue is created with status "todo" or "backlog", this extension:
+ * 1. Posts a "researching..." comment
+ * 2. Spawns `claude -p` with a read-only research prompt
+ * 3. Posts the research findings as a follow-up comment
+ */
+
+import { spawn } from "node:child_process";
+
+import type { FpExtensionContext, HookIssueContext } from "@fiberplane/extensions";
+
+export default function backlogResearcher(fp: FpExtensionContext) {
+  const triggerStatusesRaw = fp.config.get("trigger_statuses", "backlog,todo");
+  const triggerStatuses = new Set(triggerStatusesRaw.split(",").map((s) => s.trim()));
+  const timeoutSeconds = Number.parseInt(fp.config.get("timeout_seconds", "120"), 10);
+  const model = fp.config.get("model", "sonnet");
+
+  fp.log.info(`Backlog Researcher active — triggers on: ${[...triggerStatuses].join(", ")}`);
+
+  fp.on("issue:created", async (ctx: HookIssueContext) => {
+    const { issue } = ctx;
+
+    if (!triggerStatuses.has(issue.status)) {
+      fp.log.debug(`Skipping issue ${issue.id} — status "${issue.status}" not in trigger list`);
+      return;
+    }
+
+    // Skip issues with substantial descriptions (already well-defined)
+    if (issue.description && issue.description.length > 200) {
+      fp.log.debug(
+        `Skipping issue ${issue.id} — description already detailed (${issue.description.length} chars)`,
+      );
+      return;
+    }
+
+    fp.log.info(`Researching issue ${issue.id}: "${issue.title}"`);
+
+    // Post initial comment
+    try {
+      await fp.comments.create(issue.id, "🔍 Backlog Researcher is looking into this issue...");
+    } catch (err) {
+      fp.log.warn(`Failed to post initial comment: ${err}`);
+    }
+
+    const prompt = buildResearchPrompt(issue.title, issue.description ?? "");
+
+    try {
+      fp.log.info(
+        `Running: claude -p --model ${model} (timeout: ${timeoutSeconds}s, cwd: ${fp.projectDir})`,
+      );
+
+      const proc = spawn("claude", ["-p", prompt, "--model", model, "--max-turns", "3"], {
+        cwd: fp.projectDir,
+        stdio: ["ignore", "pipe", "pipe"],
+        env: { ...process.env },
+      });
+
+      let stdout = "";
+      let stderr = "";
+
+      if (proc.stdout) {
+        proc.stdout.setEncoding("utf8");
+        proc.stdout.on("data", (chunk) => {
+          stdout += chunk;
+        });
+      }
+
+      if (proc.stderr) {
+        proc.stderr.setEncoding("utf8");
+        proc.stderr.on("data", (chunk) => {
+          stderr += chunk;
+        });
+      }
+
+      const exitCode = await new Promise<number>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          proc.kill("SIGTERM");
+          reject(new Error(`claude timed out after ${timeoutSeconds}s`));
+        }, timeoutSeconds * 1000);
+
+        proc.once("error", (err) => {
+          clearTimeout(timeout);
+          reject(err);
+        });
+
+        proc.once("close", (code, signal) => {
+          clearTimeout(timeout);
+
+          if (code === null) {
+            reject(new Error(`claude exited due to signal ${signal ?? "unknown"}`));
+            return;
+          }
+
+          resolve(code);
+        });
+      });
+
+      if (exitCode !== 0) {
+        throw new Error(`claude exited with code ${exitCode}: ${stderr.slice(0, 200)}`);
+      }
+
+      const research = stdout.trim();
+
+      if (research.length > 0) {
+        const comment = formatResearchComment(research);
+        await fp.comments.create(issue.id, comment);
+        fp.log.info(`Posted research for issue ${issue.id} (${research.length} chars)`);
+      } else {
+        await fp.comments.create(issue.id, "⚠️ Backlog Researcher returned empty results.");
+        fp.log.warn(`Empty research result for issue ${issue.id}`);
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      fp.log.error(`Research failed for issue ${issue.id}: ${message}`);
+
+      try {
+        await fp.comments.create(
+          issue.id,
+          `⚠️ Backlog Researcher encountered an error: ${message.slice(0, 200)}`,
+        );
+      } catch {
+        // Give up silently
+      }
+    }
+  });
+}
+
+function buildResearchPrompt(title: string, description: string): string {
+  const descPart = description ? `\n\nDescription: ${description}` : "";
+
+  return `You are a codebase researcher. Analyze this project and provide helpful context for the following issue.
+
+Issue: ${title}${descPart}
+
+Instructions:
+- Identify relevant files, functions, and patterns in the codebase
+- Note any existing implementations that relate to this issue
+- Highlight potential risks or complications
+- Suggest an approach if appropriate
+- Keep your response concise (under 500 words)
+- Format as markdown with sections
+
+Only read files — do NOT make any changes.`;
+}
+
+function formatResearchComment(research: string): string {
+  return `📋 **Backlog Research**
+
+${research}
+
+---
+*Generated by Backlog Researcher extension*`;
+}
