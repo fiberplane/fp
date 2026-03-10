@@ -6,6 +6,7 @@ This directory is a teaching ladder for FP extensions, from logging-only hooks t
 |---|---|---|---|---|
 | `hello-hooks` | Beginner | `issue:created`, `issue:status:changed`, `comment:created` | Logs only | Node-compatible APIs only |
 | `status-transition-guard` | Beginner | `issue:status:changing` | Blocks invalid transitions | Node-compatible APIs only |
+| `issue-template-enforcer` | Beginner | `issue:creating` | Blocks issues missing required sections | Node-compatible APIs only |
 | `post-create-automation` | Beginner | `issue:created` | Creates comments, optional child issues | Node-compatible APIs only |
 | `custom-properties` | Beginner | `registerProperty` | None (registration only) | Node-compatible APIs only |
 | `quality-gate` | Intermediate | `issue:status:changing` | Runs local checks; blocks transition on failure | Requires `bun` commands in project |
@@ -17,9 +18,10 @@ This directory is a teaching ladder for FP extensions, from logging-only hooks t
 
 1. `hello-hooks`
 2. `status-transition-guard`
-3. `post-create-automation`
-4. `custom-properties`
-5. `quality-gate`
-6. `backlog-researcher`
-7. `jj-workspace`
-8. `cursor-agent`
+3. `issue-template-enforcer`
+4. `post-create-automation`
+5. `custom-properties`
+6. `quality-gate`
+7. `backlog-researcher`
+8. `jj-workspace`
+9. `cursor-agent`

@@ -38,6 +38,7 @@ fp supports extensions that hook into issue lifecycle events. The [`extensions/`
 |---|---|---|
 | [`hello-hooks`](extensions/hello-hooks) | Beginner | Logs issue events — the smallest useful extension |
 | [`status-transition-guard`](extensions/status-transition-guard) | Beginner | Blocks invalid status transitions |
+| [`issue-template-enforcer`](extensions/issue-template-enforcer) | Beginner | Blocks issues missing required sections |
 | [`post-create-automation`](extensions/post-create-automation) | Beginner | Posts welcome comments, creates follow-up issues |
 | [`custom-properties`](extensions/custom-properties) | Beginner | Registers custom issue properties (select, text, etc.) |
 | [`quality-gate`](extensions/quality-gate) | Intermediate | Runs tests/lint before allowing "done" transition |

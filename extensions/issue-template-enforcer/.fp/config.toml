@@ -1,0 +1,7 @@
+project_id = "proj_replace_me"
+prefix = "TPL"
+
+[extensions.issue-template-enforcer]
+required_sections = "Context,Acceptance Criteria"
+min_description_length = "30"
+skip_statuses = ""
