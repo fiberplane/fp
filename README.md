@@ -23,14 +23,12 @@ This is the public repository for fp. The source code is proprietary; this repo 
 ## Get started
 
 ```bash
-# macOS
-brew install nickcdryan/tap/fp
-
-# npm
-npm install -g @nickcdryan/fp
+curl -fsSL https://setup.fp.dev/install.sh | sh -s
+cd your-project
+fp init
 ```
 
-See the [docs](https://fp.dev/docs) for setup and usage.
+See the [docs](https://fp.dev/docs) for full setup and usage.
 
 ## Extensions
 
