@@ -14,7 +14,7 @@
 
 fp is a CLI-first issue tracker designed for AI agents. It lives in your terminal, stores everything locally, and gives agents the focused context they need to ship code across sessions.
 
-This is the public repository for fp. The source code is proprietary; this repo is for:
+This is the public repository for fp. The source code is private (for now). This repo is for:
 
 - **Filing issues** — bug reports, feature requests, and feedback
 - **Extension examples** — reference implementations for fp's extension system
