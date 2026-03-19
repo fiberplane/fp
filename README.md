@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/fp-icon.svg" alt="fp" width="80" height="80" />
+  <img src="assets/fp-logo.png" alt="fp" width="80" height="80" />
 </p>
 
 <h3 align="center">fp</h3>
