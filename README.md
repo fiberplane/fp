@@ -45,6 +45,7 @@ fp supports extensions that hook into issue lifecycle events. The [`extensions/`
 | [`backlog-researcher`](extensions/backlog-researcher) | Intermediate | Spawns Claude to research new issues |
 | [`jj-workspace`](extensions/jj-workspace) | Advanced | Manages jj workspaces tied to issue lifecycle |
 | [`cursor-agent`](extensions/cursor-agent) | Advanced | Dispatches issues to a Cursor agent with polling |
+| [`claude-role-pool`](extensions/claude-role-pool) | Advanced | Maintains a pool of Docker sandboxes per role and dispatches issues to them |
 
 Start with `hello-hooks` and work your way up. Each example has its own README.
 

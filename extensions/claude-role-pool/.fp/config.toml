@@ -1,0 +1,16 @@
+# FP CLI Configuration
+
+project_id = "proj_claude_role_pool_example"
+prefix = "CRP"
+
+[extensions.claude-role-pool]
+# Docker sandbox template used as the base for each role sandbox.
+# Override with FP_SANDBOX_TEMPLATE env var or leave unset to use the default.
+template = "docker/sandbox-templates:claude-code-docker"
+
+# Repositories available for provisioning inside sandboxes. Each entry is
+# shown as a multi-select option on the issue's "Repositories" property.
+repository_catalog = [
+  { id = "nocturne", label = "nocturne", url = "git@github.com:fiberplane/nocturne.git" },
+  { id = "fp", label = "fp", url = "git@github.com:fiberplane/fp.git" },
+]

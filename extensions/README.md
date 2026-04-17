@@ -13,6 +13,7 @@ This directory is a teaching ladder for FP extensions, from logging-only hooks t
 | `backlog-researcher` | Intermediate | `issue:created` | Runs `claude`, posts comments | Requires `claude` CLI |
 | `jj-workspace` | Advanced | `issue:status:changing`, `issue:status:changed` | Creates/deletes jj bookmarks and workspaces | Requires `jj`; install command available in workspace |
 | `cursor-agent` | Advanced | `registerProperty`, `registerAction`, `secrets`, `notify` | Launches external agent, polls status, posts comments | Requires Cursor API key (desktop only) |
+| `claude-role-pool` | Advanced | `registerProperty`, `registerAction`, `issue:created`, `issue:updated`, `notify` | Provisions Docker sandboxes per role and dispatches issues to them | Requires `sbx` CLI and a sandbox template image (desktop only) |
 
 ## Suggested learning order
 
@@ -25,3 +26,4 @@ This directory is a teaching ladder for FP extensions, from logging-only hooks t
 7. `backlog-researcher`
 8. `jj-workspace`
 9. `cursor-agent`
+10. `claude-role-pool`
